@@ -76,14 +76,8 @@ export interface ResolveOptions {
 }
 
 /** A Supabase session is alive while its row exists, has not passed not_after, and still has a live refresh token. */
-const SESSION_ALIVE_SQL = `
-  select exists (
-    select 1 from auth.sessions s
-     where s.id = $1 and s.user_id = $2::uuid
-       and (s.not_after is null or s.not_after > now())
-       and (s.refresh_token_hmac_key is not null
-            or exists (select 1 from auth.refresh_tokens r where r.session_id = s.id and not r.revoked))
-  ) as alive`;
+/** app.auth_session_alive (migration 1300): the API role cannot read the auth schema directly on Supabase. */
+const SESSION_ALIVE_SQL = 'select app.auth_session_alive($1::uuid, $2::uuid) as alive';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function sessionAlive(db: Queryable, claims: AccessClaims): Promise<boolean> {

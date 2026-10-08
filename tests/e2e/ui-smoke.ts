@@ -198,7 +198,7 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.getByRole('button', { name: 'Sign in' }).click();
       await p.locator('text=Cannot scan?').waitFor({ timeout: 10_000 });
       await p.screenshot({ path: 'tests/e2e/artifacts/password-super-admin-mfa.png', fullPage: false });
-      const key = (await p.locator('p.mono').innerText()).replace(/\s+/g, '');
+      const key = (await (p.locator('p.mono') as unknown as { innerText(): Promise<string> }).innerText()).replace(/\s+/g, '');
       await p.locator('input[autocomplete=one-time-code]').fill(totp(key));
       await p.getByRole('button', { name: 'Verify and sign in' }).click();
       await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });

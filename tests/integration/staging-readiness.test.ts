@@ -63,7 +63,7 @@ describe.skipIf(!HAS_DB)('staging readiness', () => {
 
   it('migration ledger: every migration recorded with a checksum; a re-run applies nothing; an edited file is refused', async () => {
     const rows = (await t.deps.pool.query(`select version, checksum from app.schema_migrations order by version`)).rows;
-    expect(rows.length).toBe(12);
+    expect(rows.length).toBe(13);
     const pool = createPool({ connectionString: t.deps.config.DATABASE_URL, max: 1, ssl: 'disable' });
     try {
       const again = await migrate(pool, resolve('supabase/migrations'), () => undefined);
@@ -118,6 +118,23 @@ describe.skipIf(!HAS_DB)('staging readiness', () => {
     const f = (await t.deps.pool.query(`select has_table_privilege('qm_api', 'public.zz_role_probe', 'insert') as ok`)).rows[0];
     await t.deps.pool.query('drop table public.zz_role_probe');
     expect(f.ok).toBe(true);
+  });
+
+  it('as qm_api (the production role): auth reads go through the 1300 functions; the auth schema itself is closed (found on Supabase Cloud)', async () => {
+    const c = await t.deps.pool.connect();
+    try {
+      await c.query('begin');
+      await c.query('set local role qm_api');
+      const sid = '00000000-0000-4000-8000-000000000001', uid = '00000000-0000-4000-8000-000000000002';
+      expect((await c.query('select app.auth_session_alive($1::uuid, $2::uuid) as alive', [sid, uid])).rows[0].alive).toBe(false);
+      expect((await c.query('select count(*)::int as n from app.auth_user_for_cleanup($1)', ['nobody@example.test'])).rows[0].n).toBe(0);
+      await c.query('savepoint direct');
+      await expect(c.query('select 1 from auth.sessions limit 1')).rejects.toThrow(/permission denied/);
+      await c.query('rollback to savepoint direct');
+    } finally { await c.query('rollback'); c.release(); }
+    const anon = (await t.deps.pool.query(`select has_function_privilege('anon', 'app.auth_session_alive(uuid, uuid)', 'execute') as a,
+      has_function_privilege('authenticated', 'app.auth_user_for_cleanup(text)', 'execute') as b`)).rows[0];
+    expect(anon).toEqual({ a: false, b: false });
   });
 });
 

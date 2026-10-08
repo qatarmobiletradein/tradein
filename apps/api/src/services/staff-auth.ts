@@ -204,12 +204,9 @@ const unknowablePassword = () => `${randomBytes(30).toString('base64url')}a1`;
  */
 async function clearStrayHolder(deps: Deps, email: string): Promise<boolean> {
   try {
+    // app.auth_user_for_cleanup (migration 1300): the API role cannot read the auth schema directly on Supabase.
     const u = (await deps.pool.query<{ id: string; removable: boolean }>(
-      `select a.id,
-              not (exists (select 1 from public.app_users p where p.auth_user_id = a.id)
-                   or exists (select 1 from public.customers c where c.auth_user_id = a.id))
-              and (a.email_confirmed_at is null or coalesce(a.raw_app_meta_data ->> 'qm_staff', '') = 'true') as removable
-         from auth.users a where lower(a.email) = $1`, [email])).rows;
+      'select id, removable from app.auth_user_for_cleanup($1)', [email])).rows;
     if (u.length !== 1 || !u[0]!.removable) return false;
     return (await deps.authGateway.adminDeleteUser(u[0]!.id)).ok;
   } catch {
