@@ -171,9 +171,12 @@
       QM.call('auth.mfaEnroll', {}).then(function (res) {
         if (!res.ok) { showMessage(msg, res.message, 'danger'); return; }
         factorId = res.factorId;
-        if (typeof res.qrCode === 'string' && res.qrCode.indexOf('data:image/svg+xml') === 0) {
+        // Supabase returns the QR code as SVG text; shown through <img>, which never runs scripts.
+        var qr = typeof res.qrCode === 'string' ? res.qrCode.trim() : '';
+        if (qr && qr.indexOf('data:image/svg+xml') !== 0 && /^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(qr)) qr = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(qr);
+        if (qr.indexOf('data:image/svg+xml') === 0) {
           var img = document.createElement('img');
-          img.src = res.qrCode; img.alt = 'QR code for your authenticator app';
+          img.src = qr; img.alt = 'QR code for your authenticator app';
           img.style.width = '200px'; img.style.height = '200px'; img.style.display = 'block'; img.style.margin = '8px auto';
           host.appendChild(img);
         }

@@ -162,7 +162,7 @@ export class StubAuth implements AuthGateway {
     if (list.some((f) => f.verified) && c.aal !== 'aal2') return { ok: false, status: 422, code: 'insufficient_aal' };
     const f = { id: randomUUID(), secret: base32Secret(), verified: false };
     this.factors.set(c.sub, [...list, f]);
-    return { ok: true, factorId: f.id, qrCode: '<svg/>', secret: f.secret, uri: `otpauth://totp/QM:${c.email}?secret=${f.secret}` };
+    return { ok: true, factorId: f.id, qrCode: '<?xml version="1.0" encoding="utf-8"?><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>', secret: f.secret, uri: `otpauth://totp/QM:${c.email}?secret=${f.secret}` };
   }
   async mfaVerify(token: string, factorId: string, code: string): Promise<({ ok: true } & AuthSession) | GatewayError> {
     const c = await this.claimsOf(token);

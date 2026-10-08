@@ -197,6 +197,7 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.locator('input[type=password]').fill(PW);
       await p.getByRole('button', { name: 'Sign in' }).click();
       await p.locator('text=Cannot scan?').waitFor({ timeout: 10_000 });
+      await p.locator('img[alt="QR code for your authenticator app"]').waitFor({ timeout: 5_000 }); // Supabase's raw SVG is shown
       await p.screenshot({ path: 'tests/e2e/artifacts/password-super-admin-mfa.png', fullPage: false });
       const key = (await (p.locator('p.mono') as unknown as { innerText(): Promise<string> }).innerText()).replace(/\s+/g, '');
       await p.locator('input[autocomplete=one-time-code]').fill(totp(key));
