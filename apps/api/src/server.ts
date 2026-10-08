@@ -15,7 +15,7 @@ import { createLogger } from '../../../packages/shared/src/logger.js';
 import { buildApp } from './app.js';
 import type { Deps } from './context.js';
 import { GoTrueGateway, UnavailableGateway } from './lib/gotrue.js';
-import { createSmsProvider } from './lib/sms/provider.js';
+import { createSmsProvider, twilioShape } from './lib/sms/provider.js';
 import { MemoryStorage, SupabaseStorage } from './lib/storage.js';
 import { isMain } from '../../../packages/shared/src/main.js';
 import { settleBackgroundWork } from './services/staff-auth.js';
@@ -52,6 +52,7 @@ async function main(): Promise<void> {
     console.error(err instanceof Error ? err.message : 'Refusing to start: configuration error.');
     process.exit(2);
   }
+  if (deps.config.SMS_PROVIDER === 'twilio') deps.log.info({ twilio: twilioShape(deps.config) }, 'sms provider settings (shape only, no values)');
   const app = await buildApp(deps);
   let shuttingDown = false;
   const shutdown = async (signal: string) => {

@@ -41,6 +41,23 @@ async function withRetries(retries: number, attempt: () => Promise<SmsResult>): 
   return last;
 }
 
+/**
+ * The SHAPE of the Twilio settings — never the values — for the start-up log, so a wrong paste
+ * (an API key "SK…" instead of the Account SID "AC…", a token of the wrong length, stray characters)
+ * can be told apart from a wrong-but-well-formed credential without anyone reading a secret.
+ */
+export function twilioShape(c: AppConfig) {
+  const sid = (c.TWILIO_ACCOUNT_SID ?? '').trim();
+  const token = (c.TWILIO_AUTH_TOKEN ?? '').trim();
+  const from = (c.TWILIO_FROM ?? '').trim();
+  return {
+    sidPrefix: sid.slice(0, 2), sidLength: sid.length, sidWellFormed: /^AC[0-9a-f]{32}$/.test(sid),
+    tokenLength: token.length, tokenWellFormed: /^[0-9a-f]{32}$/.test(token),
+    rawHadSpaces: /\s/.test(c.TWILIO_ACCOUNT_SID ?? '') || /\s/.test(c.TWILIO_AUTH_TOKEN ?? ''),
+    from: /^MG[0-9a-f]{32}$/.test(from) ? 'messaging-service' : /^\+\d{6,15}$/.test(from) ? 'phone-number' : from ? 'other' : 'missing',
+  };
+}
+
 export class TwilioSmsProvider implements SmsProvider {
   readonly name = 'twilio' as const;
   constructor(private readonly c: AppConfig, private readonly fetchImpl: FetchLike = fetch as unknown as FetchLike) {}
