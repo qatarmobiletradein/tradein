@@ -36,6 +36,7 @@ function sendFailureMessage(e: GatewayError): AppError {
   if (e.status === 429 || /rate|limit|too_many/i.test(e.code)) {
     return new AppError('RATE_LIMITED', 'Too many code requests. Please try again later.');
   }
+  if (e.status === 422) return new AppError('UNAVAILABLE', 'We could not send your code right now. Please try again shortly.', { unavailable: true });
   return new AppError('UNAVAILABLE', 'Sign-in by text message is temporarily unavailable. Please try again later.', { unavailable: true });
 }
 

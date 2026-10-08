@@ -177,4 +177,14 @@ describe.skipIf(!HAS_DB)('authentication and OTP delivery', () => {
     const q = await ok(t.call('customer.questions', null));
     expect(JSON.stringify(q)).not.toMatch(/"rules"|"battery"/);
   });
+
+  it('a provider failure is answered 200 + http_code 422 (never 5xx, which Supabase Auth would retry into the cooldown)', async () => {
+    const realSend = t.sms.send.bind(t.sms);
+    t.sms.send = async () => ({ ok: false as const, status: 401 }) as never;
+    try {
+      const r = await hook('+97455990011', '123456');
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toMatchObject({ error: { http_code: 422 } });
+    } finally { t.sms.send = realSend; }
+  });
 });

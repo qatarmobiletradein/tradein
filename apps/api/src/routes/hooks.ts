@@ -60,7 +60,11 @@ export function hookRoutes(deps: Deps) {
       }
       if (r.ok) return reply.status(200).send({});
       // Refusal: 200 + error object, so Supabase Auth passes OUR status and sentence to its caller.
-      return reply.status(200).send({ error: { http_code: r.httpCode, message: r.message } });
+      // A provider failure is reported as 422, not 502: Supabase Auth RETRIES a hook that answers 5xx
+      // (seen on the real cloud), and the retry then met the 60 s cooldown and told the person
+      // "too many code requests" instead of the truth.
+      const http_code = r.reason === 'FAILED' ? 422 : r.httpCode;
+      return reply.status(200).send({ error: { http_code, message: r.message } });
     });
 
     /*
