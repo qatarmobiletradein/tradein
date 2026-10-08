@@ -28,6 +28,7 @@ import type { GatewayError } from '../lib/gotrue.js';
 import { nextId } from '../lib/ids.js';
 import { emit } from '../lib/notify.js';
 import { purposeFor } from '../lib/otp.js';
+import { mfaPendingReply } from './mfa.js';
 
 const INVALID_PHONE = 'Enter a valid Qatar mobile number.';
 
@@ -73,10 +74,42 @@ export async function authStart(deps: Deps, meta: RequestMeta, p: { phone?: stri
   } else if (who.status === 'DISABLED') {
     throw fail('This account has been disabled.');
   }
+  // STAFF_SIGN_IN=both: the code must reach the profile's own Auth user (the one its email/password and
+  // authenticator app belong to), so that user gets the profile's number before Supabase sends a code.
+  let authUserId = who.auth_user_id;
+  if (who.kind === 'STAFF' && deps.config.STAFF_SIGN_IN === 'both' && authUserId) {
+    authUserId = await staffNumberOnAuthUser(deps, meta, who.id, authUserId, phone);
+  }
   // A profile imported from Sheets has no Supabase user yet: let Auth create it on first sign-in.
-  const sent = await deps.authGateway.sendOtp(phone, !who.auth_user_id, meta.ip);
+  const sent = await deps.authGateway.sendOtp(phone, !authUserId, meta.ip);
   if (!sent.ok) throw sendFailureMessage(sent);
   return { ok: true, cooldownSeconds: deps.config.otp.cooldownS };
+}
+
+/**
+ * Make the staff profile's Auth user carry the profile's mobile number (confirmed). Returns the Auth
+ * user id to use, or null when the linked Auth user no longer exists (it is then set up again on sign-in).
+ */
+async function staffNumberOnAuthUser(deps: Deps, meta: RequestMeta, staffId: string, authUserId: string, phone: string): Promise<string | null> {
+  const gw = deps.authGateway;
+  const u = await gw.adminGetUser(authUserId);
+  if (!u.ok) {
+    if (u.status === 404) {
+      await deps.pool.query('update public.app_users set auth_user_id = null where id = $1 and auth_user_id = $2', [staffId, authUserId]);
+      return null;
+    }
+    throw new AppError('UNAVAILABLE', 'Sign-in is temporarily unavailable. Please try again later.');
+  }
+  if (normalizePhone(u.phone ?? '') === phone) return authUserId;
+  const set = await gw.adminSetPhone(authUserId, phone);
+  if (set.ok) {
+    await writeAudit(deps.pool, null, meta, ACTIONS.STAFF_SIGNIN_PROVISIONED, 'USER', staffId, { details: { phone: maskPhone(phone), authUser: 'number added' } }).catch(() => undefined);
+    return authUserId;
+  }
+  if (set.status >= 500) throw new AppError('UNAVAILABLE', 'Sign-in is temporarily unavailable. Please try again later.');
+  // Another Auth user already holds the number (e.g. an old customer sign-up): an administrator decides.
+  await writeAudit(deps.pool, null, meta, ACTIONS.STAFF_SIGNIN_CONFLICT, 'USER', staffId, { details: { phone: maskPhone(phone), why: `phone ${set.status} ${set.code}` } }).catch(() => undefined);
+  throw fail(REFUSAL_MESSAGES.CONFLICT!);
 }
 
 export function sessionReply(principal: Principal, s: { accessToken: string; refreshToken: string; expiresIn: number }) {
@@ -143,7 +176,7 @@ export async function authVerify(deps: Deps, meta: RequestMeta, p: { phone?: str
   if (!claims) throw new AppError('UNAVAILABLE', 'Sign-in is temporarily unavailable. Please try again later.');
 
   return withTransaction(deps.pool, async (tx) => {
-    const r = await resolvePrincipal(tx, claims, authOptions(deps.config, { allowLink: true }));
+    const r = await resolvePrincipal(tx, claims, authOptions(deps.config, { allowLink: true, allowPendingMfa: true }));
     if (!r.ok) {
       await deps.authGateway.logout(v.accessToken, 'local').catch(() => undefined);
       throw fail(REFUSAL_MESSAGES[r.reason] ?? 'This account is not active.');
@@ -151,6 +184,11 @@ export async function authVerify(deps: Deps, meta: RequestMeta, p: { phone?: str
     const pr = r.principal;
     if (r.linked) {
       await writeAudit(tx, pr, meta, ACTIONS.PROFILE_LINKED, pr.principalType, pr.principalId, { details: { phone: maskPhone(phone) } });
+    }
+    if (r.mfaPending) {
+      // Code right; this role also needs the authenticator app (SUPER_ADMIN). The aal1 session works only on /v1/auth/mfa/*.
+      await writeAudit(tx, pr, meta, ACTIONS.MFA_PENDING, 'STAFF', pr.principalId, { details: { phone: maskPhone(phone) } });
+      return mfaPendingReply(deps, pr, v);
     }
     await tx.query(`update public.${pr.principalType === 'STAFF' ? 'app_users' : 'customers'} set last_login_at = now() where id = $1`, [pr.principalId]);
     await writeAudit(tx, pr, meta, ACTIONS.LOGIN, pr.principalType, pr.principalId, { details: { phone: maskPhone(phone) } });
@@ -192,6 +230,12 @@ export async function authRegister(deps: Deps, meta: RequestMeta, p: {
     // Two tabs racing to here: one lock per number, then re-check.
     await advisoryXactLock(tx, `qm.register:${phone}`);
     if (await profileFor(tx, phone)) throw fail('An account already exists for this number.');
+    // STAFF_SIGN_IN=both: a staff member's Auth user can still hold a number the profile no longer has.
+    // That Auth user must never become a second (customer) profile.
+    if ((await tx.query('select 1 from public.app_users where auth_user_id = $1', [claims.sub])).rowCount) {
+      await deps.authGateway.logout(v.accessToken, 'local').catch(() => undefined);
+      throw fail('An account already exists for this number.');
+    }
     if (wantsStaff) {
       if (staffEmail && await staffEmailTaken(tx, staffEmail)) throw fail('That email address is already used by a staff account.');
       const userId = await nextId(tx, 'USR');

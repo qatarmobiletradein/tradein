@@ -165,7 +165,8 @@ export function safeHttpsUrl(url: unknown): string {
  * the API counts them separately.
  */
 export function normalizeEmail(raw: unknown): string {
-  const e = trim(raw).toLowerCase();
+  // An address copied from a link arrives as "mailto:name@company.qa" — the prefix is not part of it.
+  const e = trim(raw).toLowerCase().replace(/^mailto:\s*/, '');
   if (e.length > 254 || !/^[\x21-\x7e]+$/.test(e) || !/^[^@]+@[^@]+\.[^@]+$/.test(e)) return '';
   return e;
 }

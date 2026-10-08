@@ -24,7 +24,8 @@ export interface AuthSession {
 
 export type GatewayError = { ok: false; status: number; code: string };
 
-export interface AuthUserInfo { id: string; email: string | null; emailConfirmed: boolean }
+/** phone: Supabase's form (E.164 digits, no "+"), '' when the user has none. */
+export interface AuthUserInfo { id: string; email: string | null; emailConfirmed: boolean; phone?: string }
 
 export interface AuthGateway {
   // clientIp: the end user's IP, forwarded to Supabase Auth's per-IP rate limits when enabled (see GoTrueGateway).
@@ -44,6 +45,8 @@ export interface AuthGateway {
   adminCreateUser(email: string, password: string): Promise<({ ok: true } & AuthUserInfo) | GatewayError>;
   adminUpdateUser(id: string, email: string, password: string): Promise<{ ok: true } | GatewayError>;
   adminDeleteUser(id: string): Promise<{ ok: true } | GatewayError>;
+  /** STAFF_SIGN_IN=both: put the profile's mobile number (confirmed) on its Auth user, so a phone code reaches the same user. */
+  adminSetPhone(id: string, phoneE164: string): Promise<{ ok: true } | GatewayError>;
 
   /* ---- authenticator app (TOTP) — all with the user's own access token ---- */
   mfaFactors(accessToken: string): Promise<({ ok: true; factors: MfaFactor[] }) | GatewayError>;
@@ -167,7 +170,8 @@ export class GoTrueGateway implements AuthGateway {
   }
   private static user(json: Json): AuthUserInfo | null {
     if (typeof json.id !== 'string') return null;
-    return { id: json.id, email: typeof json.email === 'string' && json.email ? json.email : null, emailConfirmed: !!json.email_confirmed_at };
+    return { id: json.id, email: typeof json.email === 'string' && json.email ? json.email : null, emailConfirmed: !!json.email_confirmed_at,
+      phone: typeof json.phone === 'string' ? json.phone : '' };
   }
 
   async passwordLogin(email: string, password: string, clientIp?: string) {
@@ -208,6 +212,11 @@ export class GoTrueGateway implements AuthGateway {
   async adminDeleteUser(id: string) {
     return GoTrueGateway.okOrErr(await this.call(`/admin/users/${encodeURIComponent(id)}`, null, undefined, { method: 'DELETE', admin: true }));
   }
+
+  async adminSetPhone(id: string, phone: string) {
+    return GoTrueGateway.okOrErr(await this.call(`/admin/users/${encodeURIComponent(id)}`,
+      { phone: phone.replace(/^\+/, ''), phone_confirm: true }, undefined, { method: 'PUT', admin: true }));
+  }
 }
 
 /** Used when SUPABASE_URL is not configured (local development without Auth). */
@@ -225,6 +234,7 @@ export class UnavailableGateway implements AuthGateway {
   async adminCreateUser() { return UNAVAILABLE; }
   async adminUpdateUser() { return UNAVAILABLE; }
   async adminDeleteUser() { return UNAVAILABLE; }
+  async adminSetPhone() { return UNAVAILABLE; }
   async mfaFactors() { return UNAVAILABLE; }
   async mfaEnroll() { return UNAVAILABLE; }
   async mfaVerify() { return UNAVAILABLE; }

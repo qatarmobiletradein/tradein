@@ -62,9 +62,11 @@ export class StubAuth implements AuthGateway {
     this.codes.delete(phone);
     const d = this.deps();
     const p = phone.replace(/^\+/, '');
-    let id = (await d.pool.query<{ id: string }>('select id from auth.users where phone = $1', [p])).rows[0]?.id;
+    const u = (await d.pool.query<{ id: string; email: string | null }>('select id, email from auth.users where phone = $1', [p])).rows[0];
+    let id = u?.id;
     if (!id) { id = randomUUID(); await d.pool.query('insert into auth.users (id, phone) values ($1, $2)', [id, p]); }
-    return { ok: true, accessToken: await signToken(id, phone), refreshToken: randomBytes(16).toString('hex'), expiresIn: 3600, userId: id };
+    // Like GoTrue: the token carries the user's email too when the user has one; the method is "otp".
+    return { ok: true, accessToken: await signToken(id, phone, { email: u?.email ?? undefined }), refreshToken: randomBytes(16).toString('hex'), expiresIn: 3600, userId: id };
   }
   async refresh() { return { ok: false as const, status: 400, code: 'invalid_grant' }; }
   async logout() { return { ok: true }; }
@@ -118,9 +120,9 @@ export class StubAuth implements AuthGateway {
   }
   async adminGetUser(id: string): Promise<({ ok: true } & AuthUserInfo) | GatewayError> {
     const f = this.adminFailure(); if (f) return f;
-    const u = (await this.deps().pool.query<{ id: string; email: string | null; email_confirmed_at: Date | null }>(
-      'select id, email, email_confirmed_at from auth.users where id = $1', [id])).rows[0];
-    return u ? { ok: true, id: u.id, email: u.email, emailConfirmed: !!u.email_confirmed_at } : { ok: false, status: 404, code: 'user_not_found' };
+    const u = (await this.deps().pool.query<{ id: string; email: string | null; email_confirmed_at: Date | null; phone: string | null }>(
+      'select id, email, email_confirmed_at, phone from auth.users where id = $1', [id])).rows[0];
+    return u ? { ok: true, id: u.id, email: u.email, emailConfirmed: !!u.email_confirmed_at, phone: u.phone ?? '' } : { ok: false, status: 404, code: 'user_not_found' };
   }
   async adminCreateUser(email: string, password: string): Promise<({ ok: true } & AuthUserInfo) | GatewayError> {
     const f = this.adminFailure(); if (f) return f;
@@ -138,6 +140,14 @@ export class StubAuth implements AuthGateway {
     this.passwords.set(id, password);
     return { ok: true };
   }
+  async adminSetPhone(id: string, phone: string): Promise<{ ok: true } | GatewayError> {
+    const f = this.adminFailure(); if (f) return f;
+    const p = phone.replace(/^\+/, '');
+    const other = (await this.deps().pool.query<{ id: string }>('select id from auth.users where phone = $1', [p])).rows[0];
+    if (other && other.id !== id) return { ok: false, status: 422, code: 'phone_exists' };
+    await this.deps().pool.query('update auth.users set phone = $2 where id = $1', [id, p]);
+    return { ok: true };
+  }
   async adminDeleteUser(id: string): Promise<{ ok: true } | GatewayError> {
     await this.deps().pool.query('update public.app_users set auth_user_id = null where auth_user_id = $1', [id]);
     await this.deps().pool.query('delete from auth.users where id = $1', [id]);
@@ -149,7 +159,7 @@ export class StubAuth implements AuthGateway {
   factors = new Map<string, { id: string; secret: string; verified: boolean }[]>();
   private async claimsOf(token: string) {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
-    return payload as { sub: string; email?: string; phone?: string; aal?: string };
+    return payload as { sub: string; email?: string; phone?: string; aal?: string; amr?: { method: string }[] };
   }
   async mfaFactors(token: string): Promise<({ ok: true; factors: MfaFactor[] }) | GatewayError> {
     const c = await this.claimsOf(token);
@@ -170,7 +180,9 @@ export class StubAuth implements AuthGateway {
     if (!f) return { ok: false, status: 404, code: 'mfa_factor_not_found' };
     if (![totp(f.secret), totp(f.secret, Date.now(), -1)].includes(code)) return { ok: false, status: 422, code: 'mfa_verification_failed' };
     f.verified = true;
-    return { ok: true, accessToken: await signToken(c.sub, c.phone ?? '', { email: c.email, amr: ['totp', 'password'] }), refreshToken: randomBytes(16).toString('hex'), expiresIn: 3600, userId: c.sub };
+    // Like GoTrue: the first factor's method stays in amr next to "totp".
+    const first = (c.amr ?? []).map((a) => a.method).filter((m) => m !== 'totp');
+    return { ok: true, accessToken: await signToken(c.sub, c.phone ?? '', { email: c.email, amr: ['totp', ...(first.length ? first : ['password'])] }), refreshToken: randomBytes(16).toString('hex'), expiresIn: 3600, userId: c.sub };
   }
 }
 

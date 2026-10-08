@@ -6,6 +6,6 @@
 import type { AppConfig } from '../../../../packages/shared/src/config.js';
 import type { ResolveOptions } from '../../../../packages/auth/src/principal.js';
 
-export function authOptions(c: AppConfig, o: { allowLink: boolean; allowPendingMfa?: boolean; staffSignIn?: 'password' | 'phone' }): ResolveOptions {
+export function authOptions(c: AppConfig, o: { allowLink: boolean; allowPendingMfa?: boolean; staffSignIn?: 'password' | 'phone' | 'both' }): ResolveOptions {
   return { staffSignIn: c.STAFF_SIGN_IN, checkSession: c.AUTH_SESSION_CHECK, mfaRoles: c.STAFF_MFA_ROLES, ...o };
 }

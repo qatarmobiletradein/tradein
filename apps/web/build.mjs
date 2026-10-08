@@ -25,7 +25,7 @@ const mode = process.env.QM_TRANSPORT === 'apps-script' ? 'apps-script' : 'railw
 const apiBase = process.env.QM_API_BASE ?? '';
 // Must match the API's STAFF_SIGN_IN (staging/production: password).
 const staffSignIn = (process.env.QM_STAFF_SIGN_IN ?? 'password').toLowerCase();
-if (!['password', 'phone'].includes(staffSignIn)) { console.error('QM_STAFF_SIGN_IN must be password or phone.'); process.exit(2); }
+if (!['password', 'phone', 'both'].includes(staffSignIn)) { console.error('QM_STAFF_SIGN_IN must be password, phone or both.'); process.exit(2); }
 if (mode === 'railway' && !/^https:\/\/[^\s"'<>]+$/.test(apiBase) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(apiBase)) {
   console.error('Set QM_API_BASE to the https:// origin of the Railway API (or http://localhost for development).');
   process.exit(2);

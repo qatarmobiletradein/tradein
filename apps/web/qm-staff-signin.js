@@ -23,8 +23,57 @@
 (function () {
   'use strict';
   var cfg = window.QM_TRANSPORT || {};
-  if (cfg.mode !== 'railway' || cfg.staffSignIn !== 'password') return;
+  if (cfg.mode !== 'railway') return;
+
+  /* ---------------------------------------------- input hygiene (all modes) */
+  // Sign-in / sign-up mobile number: exactly the 8 local digits; "+974" is shown in front and never typed.
+  // A pasted "+974 3312 3456" or "00974…" keeps its last 8 digits. Only the sign-in card — IMEI fields
+  // elsewhere are also type=tel and must not be touched.
+  function eightDigits(v) {
+    var d = String(v || '').replace(/\D/g, '');
+    if (d.length > 8) { if (d.indexOf('00974') === 0) d = d.slice(5); else if (d.indexOf('974') === 0) d = d.slice(3); }
+    return d.slice(0, 8);
+  }
+  function isSignInPhone(t) {
+    return t.type === 'tel' && !t.classList.contains('code-input') && t.getAttribute('autocomplete') !== 'one-time-code' &&
+      !!(t.closest && t.closest('#root .auth-card'));
+  }
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== 'INPUT') return;
+    if (isSignInPhone(t)) { var v = eightDigits(t.value); if (v !== t.value) t.value = v; }
+    // An address copied from a link arrives as "mailto:name@company.qa".
+    else if (t.type === 'email' && /^\s*mailto:/i.test(t.value)) t.value = t.value.replace(/^\s*mailto:\s*/i, '');
+  }, true);
+  var ccStyle = document.createElement('style');
+  ccStyle.textContent = '.qm-cc{display:flex;align-items:stretch}' +
+    '.qm-cc>span{display:flex;align-items:center;padding:0 .7rem;border:1px solid var(--line);border-right:0;' +
+    'border-radius:var(--radius) 0 0 var(--radius);background:var(--surface-2,#F5F7F9);color:var(--ink-soft,#5B5F66);font-size:16px;direction:ltr}' +
+    '.qm-cc>input{flex:1;min-width:0;border-top-left-radius:0!important;border-bottom-left-radius:0!important}';
+  document.head.appendChild(ccStyle);
+  function decoratePhones(root) {
+    var list = (root || document).querySelectorAll('#root .auth-card input[type=tel]');
+    for (var i = 0; i < list.length; i++) {
+      var input = list[i];
+      if (!isSignInPhone(input) || input.getAttribute('data-qm-cc')) continue;
+      input.setAttribute('data-qm-cc', '1');
+      input.setAttribute('placeholder', '33123456');
+      input.setAttribute('maxlength', '16'); // room for a pasted "+974 …"; trimmed to 8 digits on input
+      var wrap = document.createElement('div');
+      wrap.className = 'qm-cc';
+      input.parentNode.insertBefore(wrap, input);
+      var cc = document.createElement('span');
+      cc.textContent = '+974';
+      wrap.appendChild(cc);
+      wrap.appendChild(input);
+    }
+  }
+  // The 3.1 screens draw their fields on the fly: decorate whatever sign-in card appears.
+  new MutationObserver(function () { decoratePhones(); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+  if (cfg.staffSignIn !== 'password' && cfg.staffSignIn !== 'both') return;
   if (typeof window.buildAuthScreen !== 'function') return;
+  var staffByPhoneToo = cfg.staffSignIn === 'both';
 
   var legacyBuild = window.buildAuthScreen;
   // 3.1 styled every input type it used; password was not one of them. Same rule, same tokens.
@@ -57,11 +106,33 @@
       notice.appendChild(QM.el('strong', null, 'Request submitted'));
       notice.appendChild(document.createTextNode(message || 'Your access request is waiting for administrator approval.'));
       host.appendChild(notice);
-      host.appendChild(QM.el('p', 'soft',
-        'Once somebody has approved you, choose “Staff sign-in”, then “Set or reset password” with the work email you gave.'));
+      host.appendChild(QM.el('p', 'soft', staffByPhoneToo
+        ? 'Once somebody has approved you, sign in with your mobile number — or choose “Staff sign-in”, then “Set or reset password” with the work email you gave.'
+        : 'Once somebody has approved you, choose “Staff sign-in”, then “Set or reset password” with the work email you gave.'));
       var back = QM.el('button', 'btn secondary block', 'Back to sign in');
       back.onclick = function () { window.buildAuthScreen(); };
       host.appendChild(back);
+    };
+  }
+
+  // STAFF_SIGN_IN=both: a SUPER_ADMIN who signed in with an SMS code still needs the authenticator app.
+  // The 3.1 code step does not know that step, so the reply is taken over here before it sees it.
+  if (staffByPhoneToo && typeof QM.call === 'function') {
+    var legacyCall = QM.call;
+    QM.call = function (action, params) {
+      var p = legacyCall.apply(this, arguments);
+      if (action !== 'auth.verify') return p;
+      return p.then(function (res) {
+        if (!res || !res.ok || !res.mfaRequired) return res;
+        var card = document.querySelector('#root .auth-card');
+        var host = card && card.lastElementChild;
+        var footer = card && card.querySelector('.qm-staff-entry');
+        if (!host) return res;
+        if (footer && footer.parentNode !== card) footer = null;
+        if (host === footer) host = footer.previousElementSibling;
+        renderMfa(host, footer || QM.el('div'), res);
+        return new Promise(function () {}); // the 3.1 step must not continue with an aal1 session
+      });
     };
   }
 

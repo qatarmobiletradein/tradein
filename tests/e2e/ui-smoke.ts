@@ -42,11 +42,11 @@ const STAFF_PORTAL = 'aside.sidebar';
 const results: string[] = [];
 const errors: string[] = [];
 
-async function serve(mode: 'phone' | 'password') {
+async function serve(mode: 'phone' | 'password' | 'both') {
   const web = createServer();
   await new Promise<void>((r) => web.listen(0, '127.0.0.1', () => r()));
   const webOrigin = `http://127.0.0.1:${(web.address() as AddressInfo).port}`;
-  const t = await createTestApp({ CORS_ALLOWED_ORIGINS: webOrigin, STAFF_SIGN_IN: mode, ...(mode === 'password' ? { STAFF_MFA_ROLES: 'SUPER_ADMIN' } : {}) });
+  const t = await createTestApp({ CORS_ALLOWED_ORIGINS: webOrigin, STAFF_SIGN_IN: mode, ...(mode !== 'phone' ? { STAFF_MFA_ROLES: 'SUPER_ADMIN' } : {}) });
   await t.app.listen({ host: '127.0.0.1', port: 0 });
   const apiBase = `http://127.0.0.1:${(t.app.server.address() as AddressInfo).port}`;
   execFileSync('node', ['apps/web/build.mjs'], { env: { ...process.env, QM_API_BASE: apiBase, QM_TRANSPORT: 'railway', QM_ENVIRONMENT_LABEL: 'TEST', QM_STAFF_SIGN_IN: mode }, stdio: 'pipe' });
@@ -67,12 +67,13 @@ async function main(): Promise<void> {
   try {
     await runPhoneMode(browser);
     await runPasswordMode(browser);
+    await runBothMode(browser);
   } finally {
     await browser.close();
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 8) process.exitCode = 1;
+  if (results.length !== 12) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -204,6 +205,66 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.getByRole('button', { name: 'Verify and sign in' }).click();
       await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
       results.push('PASS password-mode SUPER_ADMIN: password → authenticator app set-up (QR + key) → code → admin portal');
+      await ctx.close();
+    }
+  } finally {
+    await t.close();
+    web.close();
+  }
+}
+
+/** Run C — STAFF_SIGN_IN=both: staff may also use their mobile number; SUPER_ADMIN still gets the app step. */
+async function runBothMode(browser: PwBrowser): Promise<void> {
+  const { t, web, webOrigin } = await serve('both');
+  await t.deps.pool.query(`update public.app_users set email = lower(id) || '@staff.example.test'`);
+  const value = (l: PwLocator) => (l as unknown as { inputValue(): Promise<string> }).inputValue();
+  try {
+    // Finance admin by phone: "+974" is shown in front, a pasted "+974 3000 0002" becomes the 8 digits.
+    {
+      const ctx = await browser.newContext(); const p = await ctx.newPage(); watch(p, 'both-staff-phone');
+      await p.goto(webOrigin);
+      await p.locator('.qm-cc >> text=+974').waitFor({ timeout: 10_000 });
+      const phone = p.locator('input[type=tel]').first();
+      await phone.fill('+974 3000 0002');
+      await (phone as unknown as { dispatchEvent(t: string): Promise<void> }).dispatchEvent('input');
+      if (await value(phone) !== '30000002') throw new Error(`phone field kept "${await value(phone)}"`);
+      await p.screenshot({ path: 'tests/e2e/artifacts/both-phone-field.png', fullPage: false });
+      await p.getByRole('button', { name: 'Send code' }).click();
+      await p.locator('input.code-input').waitFor({ timeout: 10_000 });
+      await p.locator('input.code-input').fill(t.sms.lastCodeFor('+97430000002')!);
+      await p.getByRole('button', { name: 'Sign in' }).click({ timeout: 1500 }).catch(() => undefined);
+      await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
+      results.push('PASS both-mode finance admin: +974 shown, pasted number trimmed to 8 digits, SMS code → admin portal');
+      await ctx.close();
+    }
+    // SUPER_ADMIN by phone: after the SMS code, the authenticator-app set-up, then the portal.
+    {
+      const ctx = await browser.newContext(); const p = await ctx.newPage(); watch(p, 'both-super-admin-phone');
+      await p.goto(webOrigin);
+      await p.locator('input[type=tel]').first().fill('30000001');
+      await p.getByRole('button', { name: 'Send code' }).click();
+      await p.locator('input.code-input').waitFor({ timeout: 10_000 });
+      await p.locator('input.code-input').fill(t.sms.lastCodeFor('+97430000001')!);
+      await p.getByRole('button', { name: 'Sign in' }).click({ timeout: 1500 }).catch(() => undefined);
+      await p.locator('text=Cannot scan?').waitFor({ timeout: 10_000 });
+      await p.locator('img[alt="QR code for your authenticator app"]').waitFor({ timeout: 5_000 });
+      const key = (await (p.locator('p.mono') as unknown as { innerText(): Promise<string> }).innerText()).replace(/\s+/g, '');
+      await p.locator('input[autocomplete=one-time-code]').last().fill(totp(key));
+      await p.getByRole('button', { name: 'Verify and sign in' }).click();
+      await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
+      results.push('PASS both-mode SUPER_ADMIN: SMS code → authenticator app set-up → admin portal');
+      await ctx.close();
+    }
+    // "mailto:" pasted into the work email is dropped.
+    {
+      const ctx = await browser.newContext(); const p = await ctx.newPage(); watch(p, 'both-mailto');
+      await p.goto(webOrigin);
+      await p.locator('text=Staff sign-in (email and password)').click();
+      const email = p.locator('input[type=email]');
+      await email.fill('mailto:usr-00002@staff.example.test');
+      await (email as unknown as { dispatchEvent(t: string): Promise<void> }).dispatchEvent('input');
+      if (await value(email) !== 'usr-00002@staff.example.test') throw new Error(`email field kept "${await value(email)}"`);
+      results.push('PASS both-mode email field: "mailto:" removed');
       await ctx.close();
     }
   } finally {

@@ -25,6 +25,14 @@
  *             is still the profile's email. A phone-code session, a password-
  *             recovery session, or a session for an address the profile no
  *             longer has, is refused. Staff are never linked by phone.
+ *   both      either of the above, for ONE Supabase Auth user per profile:
+ *             a password session must carry the profile's email (as above);
+ *             a phone-code session must carry the profile's CURRENT mobile
+ *             number. The API puts the number on the profile's Auth user
+ *             before sending a code (auth.start), so both methods reach the
+ *             same user, the same MFA factor and the same revocation. A
+ *             profile with no Auth user yet is linked on its first phone
+ *             sign-in, as in "phone" mode.
  */
 import type { Queryable } from '../../database/src/db.js';
 import { ASSIGNABLE_ROLES, PLATFORM_ROLES, VENDOR_ROLES, type Role } from '../../domain/src/constants.js';
@@ -87,11 +95,15 @@ export async function sessionAlive(db: Queryable, claims: AccessClaims): Promise
   return r.rows[0]?.alive === true;
 }
 
-export type StaffSignIn = 'password' | 'phone';
+export type StaffSignIn = 'password' | 'phone' | 'both';
 
 /** Was this session established with a password (not a code, not a recovery link)? */
 export function passwordSession(c: AccessClaims): boolean {
   return Array.isArray(c.amr) && c.amr.some((a) => a?.method === 'password');
+}
+/** Was this session established with a one-time code (Supabase reports SMS codes as "otp")? */
+export function codeSession(c: AccessClaims): boolean {
+  return Array.isArray(c.amr) && c.amr.some((a) => a?.method === 'otp' || a?.method === 'sms');
 }
 const sameEmail = (a: string | null | undefined, b: string | null | undefined) =>
   !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -146,21 +158,28 @@ export async function resolvePrincipal(
   const sub = claims.sub;
   const phone = phoneFromClaims(claims);
   const iat = new Date(claims.iat * 1000);
-  const staffByPassword = opts.staffSignIn === 'password';
+  const mode = opts.staffSignIn ?? 'phone';
 
   // ---- staff first (identifyPhone_ precedence) ------------------------
   let staff = (await db.query<StaffRow>(`${STAFF_SQL} where u.auth_user_id = $1`, [sub])).rows[0];
   let linked = false;
-  if (staffByPassword) {
+  if (mode === 'password') {
     if (staff) {
       if (!passwordSession(claims) || !sameEmail(claims.email, staff.email)) return { ok: false, reason: 'STAFF_METHOD' };
     } else if (phone && (await db.query('select 1 from public.app_users where phone = $1', [phone])).rowCount) {
       // A phone-code session for a staff number: never a staff session, never linked.
       return { ok: false, reason: 'STAFF_METHOD' };
     }
-  } else if (!staff && phone) {
+  } else if (mode === 'both' && staff) {
+    const byPassword = passwordSession(claims) && sameEmail(claims.email, staff.email);
+    // A code session counts only for the number the profile has NOW (an old number left on the Auth user does not).
+    const byPhone = codeSession(claims) && !!phone && phone === normalizePhone(staff.phone);
+    if (!byPassword && !byPhone) return { ok: false, reason: 'STAFF_METHOD' };
+  }
+  if (mode !== 'password' && !staff && phone) {
     const byPhone = (await db.query<StaffRow>(`${STAFF_SQL} where u.phone = $1`, [phone])).rows[0];
     if (byPhone) {
+      if (mode === 'both' && !codeSession(claims)) return { ok: false, reason: 'STAFF_METHOD' };
       if (byPhone.auth_user_id && byPhone.auth_user_id !== sub) return { ok: false, reason: 'CONFLICT' };
       if (!opts.allowLink) return { ok: false, reason: 'NO_PROFILE' };
       const r = await db.query(

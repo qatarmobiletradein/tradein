@@ -98,10 +98,12 @@ const EnvSchema = z.object({
 
   /**
    * How STAFF sign in. "password": email + password through Supabase Auth (customers keep SMS codes);
-   * "phone": the 3.1 SMS code for everyone. Unset = password in staging/production, phone in
-   * development/test. "phone" is refused in production (owner decision: staff use email + password).
+   * "phone": the 3.1 SMS code for everyone; "both": staff may use either (owner decision 2026-10-08) —
+   * one Supabase Auth user per staff profile carries the work email AND the profile's mobile number.
+   * Unset = password in staging/production, phone in development/test. "phone" alone is refused in production.
+   * STAFF_MFA_ROLES (SUPER_ADMIN) still need the authenticator app after EITHER method.
    */
-  STAFF_SIGN_IN: z.enum(['password', 'phone']).optional(),
+  STAFF_SIGN_IN: z.enum(['password', 'phone', 'both']).optional(),
   STAFF_PASSWORD_MIN_LENGTH: boundedInt(12, 8, 64),
   /** Wrong passwords per staff email in 15 minutes before sign-in is paused for that email. */
   STAFF_LOGIN_MAX_FAILURES: boundedInt(5, 3, 20),
@@ -137,7 +139,7 @@ export interface AppConfig extends Omit<Env, 'IDEMPOTENCY_KEY_REQUIRED' | 'STAFF
   staffMailConfigured: boolean;
   SUPABASE_AUTH_FORWARD_CLIENT_IP: boolean;
   IDEMPOTENCY_KEY_REQUIRED: boolean;
-  STAFF_SIGN_IN: 'password' | 'phone';
+  STAFF_SIGN_IN: 'password' | 'phone' | 'both';
   /** production OR staging: the strict, production-style rules apply. */
   isProductionLike: boolean;
   isProduction: boolean;
@@ -237,7 +239,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (isProduction) {
     if (e.DATABASE_SSL !== 'require') problems.push('DATABASE_SSL must be require (certificate verified) in production.');
     if (e.LOG_LEVEL === 'debug' || e.LOG_LEVEL === 'trace') problems.push('LOG_LEVEL debug/trace is refused in production.');
-    if (staffSignIn !== 'password') problems.push('STAFF_SIGN_IN=phone is refused in production (staff sign in with email and password).');
+    if (staffSignIn === 'phone') problems.push('STAFF_SIGN_IN=phone is refused in production (use password or both).');
     if (!mfaRoles.includes('SUPER_ADMIN')) problems.push('STAFF_MFA_ROLES must include SUPER_ADMIN in production.');
     if (!sessionCheck) problems.push('AUTH_SESSION_CHECK=false is refused in production.');
     if (!staffMailConfigured) problems.push('Staff reset e-mail must be configured in production (GRAPH_* + STAFF_MAIL_FROM + SEND_EMAIL_HOOK_SECRET).');

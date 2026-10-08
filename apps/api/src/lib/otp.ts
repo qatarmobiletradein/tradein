@@ -33,7 +33,7 @@ const audit = (db: pg.Pool | pg.PoolClient, action: string, phone: string, detai
   writeAudit(db, null, null, action, 'PHONE', maskPhone(phone), { details });
 
 export async function purposeFor(
-  db: pg.Pool | pg.PoolClient, phone: string, staffSignIn: 'password' | 'phone' = 'phone',
+  db: pg.Pool | pg.PoolClient, phone: string, staffSignIn: 'password' | 'phone' | 'both' = 'phone',
 ): Promise<{ purpose: OtpPurpose; blocked: string | null }> {
   const s = await db.query<{ status: string }>('select status from public.app_users where phone = $1', [phone]);
   if (s.rows[0]) {

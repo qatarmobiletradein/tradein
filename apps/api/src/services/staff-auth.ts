@@ -77,7 +77,7 @@ const keyOf = (email: string) => sha256Hex(email.toLowerCase());
 const unavailable = () => new AppError('UNAVAILABLE', UNAVAILABLE);
 
 function requirePasswordMode(deps: Deps) {
-  if (deps.config.STAFF_SIGN_IN !== 'password') throw fail(NOT_ENABLED);
+  if (deps.config.STAFF_SIGN_IN === 'phone') throw fail(NOT_ENABLED);
 }
 
 /** The password rules the API enforces (Supabase Auth's own policy should be set at least as strict). */
