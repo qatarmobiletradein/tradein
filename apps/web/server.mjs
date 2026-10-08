@@ -15,7 +15,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(join(here, '..', '..', 'dist', 'web', 'index.html'));
+// Browser-tab icons (the Qatar Mobile mark from the 3.1 brand assets). The <link> tags are added here,
+// at serve time, so the hash-checked legacy sources stay unchanged.
+const ICON_LINKS = '<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/favicon.svg" type="image/svg+xml">'
+  + '<link rel="apple-touch-icon" href="/apple-touch-icon.png">';
+const icons = Object.fromEntries([
+  ['/favicon.ico', 'image/x-icon'], ['/favicon.svg', 'image/svg+xml'], ['/apple-touch-icon.png', 'image/png'],
+].map(([p, type]) => [p, { type, body: readFileSync(join(here, 'icons', p.slice(1))) }]));
+const page = readFileSync(join(here, '..', '..', 'dist', 'web', 'index.html'), 'utf8');
+const html = Buffer.from(page.includes('</head>') ? page.replace('</head>', `${ICON_LINKS}</head>`) : page);
 const gz = gzipSync(html, { level: 9 });
 const origin = (u) => { try { return new URL(u).origin; } catch { return ''; } };
 const apiOrigins = (process.env.QM_API_BASE ?? '').split(',').map(origin).filter(Boolean);
@@ -43,6 +51,11 @@ const server = createServer((req, res) => {
   const path = (req.url ?? '/').split('?')[0];
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD', ...common }); res.end(); return; }
   if (path === '/health') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...common }); res.end(req.method === 'HEAD' ? undefined : '{"ok":true,"service":"qm-web"}'); return; }
+  const icon = icons[path];
+  if (icon) {
+    res.writeHead(200, { 'Content-Type': icon.type, 'Cache-Control': 'public, max-age=86400', 'Content-Length': String(icon.body.length), ...common });
+    res.end(req.method === 'HEAD' ? undefined : icon.body); return;
+  }
   if (path !== '/' && path !== '/index.html' && /\.[a-z0-9]+$/i.test(path)) { res.writeHead(404, { 'Content-Type': 'text/plain', ...common }); res.end('Not found'); return; }
   const useGz = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
   const body = useGz ? gz : html;
