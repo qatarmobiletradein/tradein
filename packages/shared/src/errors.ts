@@ -17,6 +17,7 @@ export type ErrorCode =
   | 'IDEMPOTENCY_KEY_REUSED'
   | 'IDEMPOTENCY_KEY_REQUIRED'
   | 'RATE_LIMITED'
+  | 'MFA_REQUIRED'
   | 'UNAVAILABLE'
   | 'INTERNAL';
 
@@ -30,6 +31,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   IDEMPOTENCY_KEY_REUSED: 409,
   IDEMPOTENCY_KEY_REQUIRED: 428,
   RATE_LIMITED: 429,
+  MFA_REQUIRED: 403,
   UNAVAILABLE: 503,
   INTERNAL: 500,
 };
@@ -134,3 +136,7 @@ export function fromPgError(err: unknown): AppError | null {
   }
   return null;
 }
+
+export const MFA_REQUIRED_MESSAGE = 'This account needs a code from your authenticator app. Please complete the second sign-in step.';
+/** The account must finish (or set up) its authenticator-app step before anything else. */
+export const mfaRequired = (): AppError => new AppError('MFA_REQUIRED', MFA_REQUIRED_MESSAGE, { mfaRequired: true });

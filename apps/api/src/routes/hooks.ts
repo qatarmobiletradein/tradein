@@ -23,6 +23,11 @@ import type { FastifyInstance } from 'fastify';
 import type { Deps } from '../context.js';
 import { deliverOtp } from '../lib/otp.js';
 import { verifyWebhook } from '../lib/webhooks.js';
+import { resetCodeEmail } from '../lib/mail/graph.js';
+import { sha256Hex } from '../../../../packages/shared/src/text.js';
+
+/** Minutes a reset code stays valid — must equal Supabase Auth's e-mail OTP expiry. */
+export const RESET_CODE_MINUTES = 15;
 
 export function hookRoutes(deps: Deps) {
   return async (app: FastifyInstance) => {
@@ -56,6 +61,62 @@ export function hookRoutes(deps: Deps) {
       if (r.ok) return reply.status(200).send({});
       // Refusal: 200 + error object, so Supabase Auth passes OUR status and sentence to its caller.
       return reply.status(200).send({ error: { http_code: r.httpCode, message: r.message } });
+    });
+
+    /*
+     * Supabase Auth "Send Email" hook → Microsoft Graph (info@qatarmobile.qa).
+     * Sends ONLY the staff password code, and only when the API itself asked
+     * for it a moment ago (it consumes the API's RESET_EMAIL reservation for
+     * that address): a direct call to Supabase's /recover cannot make it send
+     * anything, so the API's per-address and platform-wide limits always hold.
+     * Every other e-mail type (sign-up confirmation, magic link, e-mail change,
+     * invite …) is refused — staff are created by the API, customers use SMS.
+     */
+    app.post('/send-email', { config: { rateLimit: false } }, async (req, reply) => {
+      const refuse = (http_code: number, message: string) => reply.status(200).send({ error: { http_code, message } });
+      const secret = deps.config.SEND_EMAIL_HOOK_SECRET;
+      const raw = typeof req.body === 'string' ? req.body : '';
+      if (!secret || !verifyWebhook(secret, req.headers as Record<string, string>, raw)) {
+        req.log.warn('send-email hook: signature rejected');
+        return reply.status(401).send({ error: { http_code: 401, message: 'Unauthorized' } });
+      }
+      let payload: { user?: { id?: string; email?: string }; email_data?: { token?: string; email_action_type?: string } };
+      try { payload = JSON.parse(raw); } catch { return refuse(400, 'Bad request'); }
+      const type = String(payload.email_data?.email_action_type ?? '');
+      const email = String(payload.user?.email ?? '').trim().toLowerCase();
+      const userId = String(payload.user?.id ?? '');
+      const code = String(payload.email_data?.token ?? '');
+      if (type !== 'recovery') {
+        req.log.warn({ type }, 'send-email hook: e-mail type not sent');
+        return refuse(403, 'This e-mail is not sent by Qatar Mobile Trade-In.');
+      }
+      if (!/^\d{6}$/.test(code) || !email) return refuse(400, 'Bad request');
+      if (!deps.mailer?.configured()) return refuse(503, 'E-mail is temporarily unavailable. Please try again later.');
+      try {
+        const staff = (await deps.pool.query(
+          `select 1 from public.app_users where status = 'ACTIVE' and auth_user_id = $1::uuid and lower(btrim(email)) = $2`, [userId, email])).rowCount;
+        if (!staff) return refuse(403, 'This e-mail is not sent by Qatar Mobile Trade-In.');
+        const slot = (await deps.pool.query<{ id: string }>(
+          `update public.staff_auth_attempts set succeeded = true
+            where id = (select id from public.staff_auth_attempts
+                         where email_key = $1 and kind = 'RESET_EMAIL' and not succeeded and created_at > now() - interval '2 minutes'
+                         order by created_at desc limit 1)
+            returning id`, [sha256Hex(email)])).rows[0];
+        if (!slot) {
+          req.log.warn('send-email hook: no pending API request for this address');
+          return refuse(429, 'Please request the code from the Qatar Mobile Trade-In sign-in page.');
+        }
+        const m = resetCodeEmail(code, RESET_CODE_MINUTES);
+        const sent = await deps.mailer.send(email, m.subject, m.html, m.text);
+        if (!sent.ok) {
+          req.log.error({ status: sent.status, code: sent.code }, 'send-email hook: Graph refused');
+          return refuse(503, 'E-mail is temporarily unavailable. Please try again later.');
+        }
+        return reply.status(200).send({});
+      } catch (err) {
+        req.log.error({ err }, 'send-email hook: failed');
+        return refuse(503, 'E-mail is temporarily unavailable. Please try again later.');
+      }
     });
   };
 }

@@ -24,6 +24,7 @@ import { setup } from '../helpers/global-setup.js';
 import { createTestApp } from '../helpers/app.js';
 import { submit, actors } from '../helpers/flow.js';
 import { settleBackgroundWork } from '../../apps/api/src/services/staff-auth.js';
+import { totp } from '../helpers/totp.js';
 
 const require = createRequire(import.meta.url);
 // The browser ships with the environment (PLAYWRIGHT_BROWSERS_PATH); the library is resolved from the global install.
@@ -45,7 +46,7 @@ async function serve(mode: 'phone' | 'password') {
   const web = createServer();
   await new Promise<void>((r) => web.listen(0, '127.0.0.1', () => r()));
   const webOrigin = `http://127.0.0.1:${(web.address() as AddressInfo).port}`;
-  const t = await createTestApp({ CORS_ALLOWED_ORIGINS: webOrigin, STAFF_SIGN_IN: mode });
+  const t = await createTestApp({ CORS_ALLOWED_ORIGINS: webOrigin, STAFF_SIGN_IN: mode, ...(mode === 'password' ? { STAFF_MFA_ROLES: 'SUPER_ADMIN' } : {}) });
   await t.app.listen({ host: '127.0.0.1', port: 0 });
   const apiBase = `http://127.0.0.1:${(t.app.server.address() as AddressInfo).port}`;
   execFileSync('node', ['apps/web/build.mjs'], { env: { ...process.env, QM_API_BASE: apiBase, QM_TRANSPORT: 'railway', QM_ENVIRONMENT_LABEL: 'TEST', QM_STAFF_SIGN_IN: mode }, stdio: 'pipe' });
@@ -181,6 +182,27 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.waitForTimeout(1000);
       await p.screenshot({ path: 'tests/e2e/artifacts/password-branch-manager.png', fullPage: false });
       results.push('PASS password-mode branch manager: email + password → partner portal');
+      await ctx.close();
+    }
+    // Platform owner (SUPER_ADMIN): password, then the authenticator-app set-up screen, then the admin portal.
+    {
+      await t.app.inject({ method: 'POST', url: '/v1/auth/staff/reset/start', payload: { email: 'usr-00001@staff.example.test' } });
+      await settleBackgroundWork();
+      const code = [...t.auth.mail].reverse().find((m) => m.to === 'usr-00001@staff.example.test')!.code;
+      await t.app.inject({ method: 'POST', url: '/v1/auth/staff/reset/finish', payload: { email: 'usr-00001@staff.example.test', code, password: PW } });
+      const ctx = await browser.newContext(); const p = await ctx.newPage(); watch(p, 'pw-super-admin-mfa');
+      await p.goto(webOrigin);
+      await p.locator('text=Staff sign-in (email and password)').click();
+      await p.locator('input[type=email]').fill('usr-00001@staff.example.test');
+      await p.locator('input[type=password]').fill(PW);
+      await p.getByRole('button', { name: 'Sign in' }).click();
+      await p.locator('text=Cannot scan?').waitFor({ timeout: 10_000 });
+      await p.screenshot({ path: 'tests/e2e/artifacts/password-super-admin-mfa.png', fullPage: false });
+      const key = (await p.locator('p.mono').innerText()).replace(/\s+/g, '');
+      await p.locator('input[autocomplete=one-time-code]').fill(totp(key));
+      await p.getByRole('button', { name: 'Verify and sign in' }).click();
+      await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
+      results.push('PASS password-mode SUPER_ADMIN: password → authenticator app set-up (QR + key) → code → admin portal');
       await ctx.close();
     }
   } finally {

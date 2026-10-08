@@ -32,6 +32,7 @@
  * address, so concurrent attempts all count. Addresses are stored hashed;
  * passwords and codes are never stored or logged.
  */
+import { authOptions } from '../lib/auth-options.js';
 import { randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { advisoryXactLock, withTransaction } from '../../../../packages/database/src/db.js';
@@ -42,6 +43,7 @@ import { maskEmail, normalizeEmail, sha256Hex, trim } from '../../../../packages
 import type { Deps, RequestMeta } from '../context.js';
 import { writeAudit } from '../lib/audit.js';
 import { sessionReply } from './auth.js';
+import { mfaPendingReply } from './mfa.js';
 
 const WRONG = 'The email or password is not right.';
 const PAUSED = 'Too many sign-in attempts for this email. Wait 15 minutes, or set a new password with “Set or reset password”.';
@@ -160,7 +162,7 @@ export async function staffLogin(deps: Deps, meta: RequestMeta, p: { email?: str
     throw unavailable();
   }
   return withTransaction(deps.pool, async (tx) => {
-    const r = await resolvePrincipal(tx, claims, { allowLink: false, staffSignIn: 'password' });
+    const r = await resolvePrincipal(tx, claims, authOptions(deps.config, { allowLink: false, staffSignIn: 'password', allowPendingMfa: true }));
     // A password session that is not a staff profile's (a stray Auth user) is just a wrong login.
     if (!r.ok || r.principal.principalType !== 'STAFF') {
       await deps.authGateway.logout(v.accessToken, 'local').catch(() => undefined);
@@ -168,6 +170,11 @@ export async function staffLogin(deps: Deps, meta: RequestMeta, p: { email?: str
       throw fail(known && !r.ok ? REFUSAL_MESSAGES[r.reason]! : WRONG);
     }
     const pr = r.principal;
+    if (r.mfaPending) {
+      // Password right; this role also needs the authenticator app. The aal1 session works only on /v1/auth/mfa/*.
+      await writeAudit(tx, pr, meta, ACTIONS.MFA_PENDING, 'STAFF', pr.principalId, { details: { email: maskEmail(email) } });
+      return mfaPendingReply(deps, pr, v);
+    }
     await tx.query('update public.app_users set last_login_at = now() where id = $1', [pr.principalId]);
     await writeAudit(tx, pr, meta, ACTIONS.LOGIN, 'STAFF', pr.principalId, { details: { method: 'password', email: maskEmail(email) } });
     return sessionReply(pr, v);

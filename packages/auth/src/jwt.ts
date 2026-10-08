@@ -15,6 +15,8 @@ export interface AccessClaims extends JWTPayload {
   email?: string;
   role?: string;
   session_id?: string;
+  /** Supabase Auth assurance level: aal1 = one factor, aal2 = password + authenticator app. */
+  aal?: string;
   /** Supabase Auth: how this session was established, e.g. [{ method: 'password', timestamp }]. */
   amr?: { method?: string; timestamp?: number }[];
   iat: number;

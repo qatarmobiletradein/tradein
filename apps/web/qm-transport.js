@@ -30,7 +30,9 @@
     'auth.logout': '/v1/auth/logout', 'auth.logoutAll': '/v1/auth/logout-all',
     // Staff email + password (qm-staff-signin.js).
     'auth.staffLogin': '/v1/auth/staff/login', 'auth.staffResetStart': '/v1/auth/staff/reset/start',
-    'auth.staffResetFinish': '/v1/auth/staff/reset/finish'
+    'auth.staffResetFinish': '/v1/auth/staff/reset/finish',
+    // Authenticator-app step (SUPER_ADMIN): sent with the session the password step returned.
+    'auth.mfaStatus': '/v1/auth/mfa/status', 'auth.mfaEnroll': '/v1/auth/mfa/enroll', 'auth.mfaVerify': '/v1/auth/mfa/verify'
   };
   var REFRESH_KEY = 'qm.refresh';
   // The client keeps its own copy of the access token; after a refresh we

@@ -113,11 +113,28 @@ const EnvSchema = z.object({
    * the Supabase project. Not verified on Supabase Cloud yet: verify on staging before relying on it.
    */
   SUPABASE_AUTH_FORWARD_CLIENT_IP: bool.optional(),
+
+  /** Refuse access tokens whose Supabase session was signed out or revoked. Default: on in staging/production. */
+  AUTH_SESSION_CHECK: bool.optional(),
+  /** Comma list of staff roles that must sign in with password + authenticator app (aal2). Default SUPER_ADMIN in staging/production. */
+  STAFF_MFA_ROLES: z.string().max(200).optional(),
+
+  /** Staff reset e-mail: Supabase "Send Email" hook → Microsoft Graph (app-only, Mail.Send restricted to one mailbox). */
+  SEND_EMAIL_HOOK_SECRET: z.string().optional(),
+  GRAPH_TENANT_ID: z.string().max(100).optional(),
+  GRAPH_CLIENT_ID: z.string().max(100).optional(),
+  /** SECRET. */
+  GRAPH_CLIENT_SECRET: z.string().max(500).optional(),
+  STAFF_MAIL_FROM: z.string().max(254).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
 
-export interface AppConfig extends Omit<Env, 'IDEMPOTENCY_KEY_REQUIRED' | 'STAFF_SIGN_IN' | 'SUPABASE_AUTH_FORWARD_CLIENT_IP'> {
+export interface AppConfig extends Omit<Env, 'IDEMPOTENCY_KEY_REQUIRED' | 'STAFF_SIGN_IN' | 'SUPABASE_AUTH_FORWARD_CLIENT_IP' | 'AUTH_SESSION_CHECK' | 'STAFF_MFA_ROLES'> {
+  AUTH_SESSION_CHECK: boolean;
+  STAFF_MFA_ROLES: string[];
+  /** Graph credentials + hook secret present: staff reset codes can be e-mailed. */
+  staffMailConfigured: boolean;
   SUPABASE_AUTH_FORWARD_CLIENT_IP: boolean;
   IDEMPOTENCY_KEY_REQUIRED: boolean;
   STAFF_SIGN_IN: 'password' | 'phone';
@@ -155,6 +172,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   e.SUPABASE_SERVICE_ROLE_KEY = e.SUPABASE_SECRET_KEY || e.SUPABASE_SERVICE_ROLE_KEY;
   const idempotencyRequired = e.IDEMPOTENCY_KEY_REQUIRED ?? isProductionLike;
   const staffSignIn = e.STAFF_SIGN_IN ?? (isProductionLike ? 'password' : 'phone');
+  const sessionCheck = e.AUTH_SESSION_CHECK ?? isProductionLike;
+  const mfaRoles = (e.STAFF_MFA_ROLES ?? (isProductionLike ? 'SUPER_ADMIN' : '')).split(',').map((r) => r.trim().toUpperCase()).filter(Boolean);
+  const graphParts = [e.GRAPH_TENANT_ID, e.GRAPH_CLIENT_ID, e.GRAPH_CLIENT_SECRET, e.STAFF_MAIL_FROM];
+  const staffMailConfigured = graphParts.every(Boolean) && !!e.SEND_EMAIL_HOOK_SECRET;
+  if (graphParts.some(Boolean) && !graphParts.every(Boolean)) {
+    problems.push('Staff e-mail needs all of GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET and STAFF_MAIL_FROM (or none of them).');
+  }
+  if (e.STAFF_MAIL_FROM && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e.STAFF_MAIL_FROM)) problems.push('STAFF_MAIL_FROM must be an e-mail address.');
 
   // ---- the test SMS provider can never run in production ---------------
   if (e.SMS_PROVIDER === 'test' && isProductionLike) {
@@ -213,6 +238,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     if (e.DATABASE_SSL !== 'require') problems.push('DATABASE_SSL must be require (certificate verified) in production.');
     if (e.LOG_LEVEL === 'debug' || e.LOG_LEVEL === 'trace') problems.push('LOG_LEVEL debug/trace is refused in production.');
     if (staffSignIn !== 'password') problems.push('STAFF_SIGN_IN=phone is refused in production (staff sign in with email and password).');
+    if (!mfaRoles.includes('SUPER_ADMIN')) problems.push('STAFF_MFA_ROLES must include SUPER_ADMIN in production.');
+    if (!sessionCheck) problems.push('AUTH_SESSION_CHECK=false is refused in production.');
+    if (!staffMailConfigured) problems.push('Staff reset e-mail must be configured in production (GRAPH_* + STAFF_MAIL_FROM + SEND_EMAIL_HOOK_SECRET).');
   }
 
   if (problems.length) throw new ConfigError(`Refusing to start:\n  ${problems.join('\n  ')}`);
@@ -222,6 +250,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     IDEMPOTENCY_KEY_REQUIRED: idempotencyRequired,
     STAFF_SIGN_IN: staffSignIn,
     SUPABASE_AUTH_FORWARD_CLIENT_IP: e.SUPABASE_AUTH_FORWARD_CLIENT_IP ?? false,
+    AUTH_SESSION_CHECK: sessionCheck,
+    STAFF_MFA_ROLES: mfaRoles,
+    staffMailConfigured,
     isProductionLike,
     isProduction,
     otp: {

@@ -56,8 +56,42 @@ interface CustomerRow {
 }
 
 export type Resolution =
-  | { ok: true; principal: Principal; linked: boolean }
-  | { ok: false; reason: 'NO_PROFILE' | 'PENDING' | 'REJECTED' | 'DISABLED' | 'REVOKED' | 'SCOPE_INVALID' | 'CONFLICT' | 'STAFF_METHOD' };
+  | { ok: true; principal: Principal; linked: boolean; mfaPending?: boolean }
+  | { ok: false; reason: 'NO_PROFILE' | 'PENDING' | 'REJECTED' | 'DISABLED' | 'REVOKED' | 'SCOPE_INVALID' | 'CONFLICT' | 'STAFF_METHOD' | 'MFA_REQUIRED' };
+
+export interface ResolveOptions {
+  allowLink: boolean;
+  staffSignIn?: StaffSignIn;
+  /**
+   * Refuse a token whose Supabase session no longer exists or has been
+   * revoked (sign-out, "sign out everywhere", refresh-token reuse detection).
+   * Supabase access tokens are self-contained and stay valid until they
+   * expire; this makes a revocation take effect on the next request.
+   */
+  checkSession?: boolean;
+  /** Staff roles that must hold an aal2 session (password + authenticator app). */
+  mfaRoles?: readonly string[];
+  /** Resolve an aal1 session of an MFA role anyway (only the MFA set-up/verify endpoints). */
+  allowPendingMfa?: boolean;
+}
+
+/** A Supabase session is alive while its row exists, has not passed not_after, and still has a live refresh token. */
+const SESSION_ALIVE_SQL = `
+  select exists (
+    select 1 from auth.sessions s
+     where s.id = $1 and s.user_id = $2::uuid
+       and (s.not_after is null or s.not_after > now())
+       and (s.refresh_token_hmac_key is not null
+            or exists (select 1 from auth.refresh_tokens r where r.session_id = s.id and not r.revoked))
+  ) as alive`;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function sessionAlive(db: Queryable, claims: AccessClaims): Promise<boolean> {
+  const sid = claims.session_id ?? '';
+  if (!UUID_RE.test(sid) || !UUID_RE.test(claims.sub ?? '')) return false;
+  const r = await db.query<{ alive: boolean }>(SESSION_ALIVE_SQL, [sid, claims.sub]);
+  return r.rows[0]?.alive === true;
+}
 
 export type StaffSignIn = 'password' | 'phone';
 
@@ -112,8 +146,9 @@ function staffRefusal(u: StaffRow): Resolution {
  * audit row commit together.
  */
 export async function resolvePrincipal(
-  db: Queryable, claims: AccessClaims, opts: { allowLink: boolean; staffSignIn?: StaffSignIn },
+  db: Queryable, claims: AccessClaims, opts: ResolveOptions,
 ): Promise<Resolution> {
+  if (opts.checkSession && !(await sessionAlive(db, claims))) return { ok: false, reason: 'REVOKED' };
   const sub = claims.sub;
   const phone = phoneFromClaims(claims);
   const iat = new Date(claims.iat * 1000);
@@ -144,7 +179,10 @@ export async function resolvePrincipal(
   if (staff) {
     if (iat.getTime() < new Date(staff.auth_valid_after).getTime()) return { ok: false, reason: 'REVOKED' };
     const p = staffPrincipal(staff, sub);
-    return p ? { ok: true, principal: p, linked } : staffRefusal(staff);
+    if (!p) return staffRefusal(staff);
+    const mfaPending = !!opts.mfaRoles?.includes(p.role) && claims.aal !== 'aal2';
+    if (mfaPending && !opts.allowPendingMfa) return { ok: false, reason: 'MFA_REQUIRED' };
+    return { ok: true, principal: p, linked, mfaPending };
   }
 
   // ---- then customers -------------------------------------------------
@@ -187,4 +225,5 @@ export const REFUSAL_MESSAGES: Record<string, string> = {
   SCOPE_INVALID: 'This account is not active.',
   CONFLICT: 'This account cannot be signed in to. Please contact support.',
   STAFF_METHOD: 'Staff accounts sign in with email and password. Choose “Staff sign-in”.',
+  MFA_REQUIRED: 'This account needs a code from your authenticator app. Please complete the second sign-in step.',
 };

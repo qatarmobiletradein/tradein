@@ -31,6 +31,26 @@ create table if not exists auth.users (
   created_at timestamptz not null default now()
 );
 
+-- Sessions as Supabase Auth keeps them (the API checks a token's session is still alive).
+create table if not exists auth.sessions (
+  id uuid primary key,
+  user_id uuid not null,
+  created_at timestamptz not null default now(),
+  not_after timestamptz,
+  aal text,
+  refresh_token_hmac_key text
+);
+create table if not exists auth.refresh_tokens (
+  id bigserial primary key,
+  token text,
+  user_id text,
+  revoked boolean not null default false,
+  session_id uuid,
+  parent text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function auth.jwt() returns jsonb language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
 $$;

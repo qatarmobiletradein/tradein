@@ -303,6 +303,7 @@ describe('staff sign-in configuration and password rules', () => {
     DATABASE_URL: 'postgres://u:p@db.example.test:5432/postgres', SUPABASE_JWT_SECRET: 'x'.repeat(40), SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
     SUPABASE_ANON_KEY: 'sb_publishable_x', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_x', SEND_SMS_HOOK_SECRET: 'v1,whsec_x', SUPABASE_JWT_ISSUER: 'https://abcdefghijklmnopqrst.supabase.co/auth/v1',
     CORS_ALLOWED_ORIGINS: 'https://staging.example.test', SMS_PROVIDER: 'twilio', TWILIO_ACCOUNT_SID: 'ACx', TWILIO_AUTH_TOKEN: 'x', TWILIO_FROM: '+15005550006',
+    GRAPH_TENANT_ID: 't', GRAPH_CLIENT_ID: 'c', GRAPH_CLIENT_SECRET: 's', STAFF_MAIL_FROM: 'info@qatarmobile.qa', SEND_EMAIL_HOOK_SECRET: 'v1,whsec_dGVzdA==',
   };
   it('defaults: password in staging and production, phone in development/test; production refuses phone', () => {
     expect(loadConfig({ ...base, APP_ENV: 'staging' }).STAFF_SIGN_IN).toBe('password');

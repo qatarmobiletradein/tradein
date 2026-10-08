@@ -83,6 +83,7 @@ describe('configuration refuses unsafe settings', () => {
     ...base, APP_ENV: 'production', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'srv',
     SEND_SMS_HOOK_SECRET: 'v1,whsec_x', SUPABASE_JWT_ISSUER: 'https://x.supabase.co/auth/v1', CORS_ALLOWED_ORIGINS: 'https://app.example',
     SMS_PROVIDER: 'custom', CUSTOM_SMS_URL: 'https://sms.example/send',
+    GRAPH_TENANT_ID: 't', GRAPH_CLIENT_ID: 'c', GRAPH_CLIENT_SECRET: 's', STAFF_MAIL_FROM: 'info@qatarmobile.qa', SEND_EMAIL_HOOK_SECRET: 'v1,whsec_dGVzdA==',
   };
   it('the test SMS provider can never be enabled in production or staging', () => {
     expect(() => loadConfig({ ...prod, SMS_PROVIDER: 'test' })).toThrow(ConfigError);

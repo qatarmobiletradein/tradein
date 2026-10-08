@@ -44,7 +44,16 @@ export interface AuthGateway {
   adminCreateUser(email: string, password: string): Promise<({ ok: true } & AuthUserInfo) | GatewayError>;
   adminUpdateUser(id: string, email: string, password: string): Promise<{ ok: true } | GatewayError>;
   adminDeleteUser(id: string): Promise<{ ok: true } | GatewayError>;
+
+  /* ---- authenticator app (TOTP) — all with the user's own access token ---- */
+  mfaFactors(accessToken: string): Promise<({ ok: true; factors: MfaFactor[] }) | GatewayError>;
+  mfaEnroll(accessToken: string, issuer: string, friendlyName: string): Promise<({ ok: true } & MfaEnrollment) | GatewayError>;
+  /** Challenge + verify in one step; returns the upgraded (aal2) session. */
+  mfaVerify(accessToken: string, factorId: string, code: string): Promise<({ ok: true } & AuthSession) | GatewayError>;
 }
+
+export interface MfaFactor { id: string; type: string; status: 'verified' | 'unverified' | string; friendlyName: string }
+export interface MfaEnrollment { factorId: string; qrCode: string; secret: string; uri: string }
 
 type Json = Record<string, unknown>;
 
@@ -129,6 +138,30 @@ export class GoTrueGateway implements AuthGateway {
     return { ok: r.status >= 200 && r.status < 300 };
   }
 
+  async mfaFactors(accessToken: string) {
+    const r = await this.call('/user', null, accessToken, { method: 'GET' });
+    if (r.status !== 200) return GoTrueGateway.err(r.status, r.json);
+    const raw = Array.isArray(r.json.factors) ? (r.json.factors as Json[]) : [];
+    const factors = raw.map((f) => ({ id: String(f.id ?? ''), type: String(f.factor_type ?? ''), status: String(f.status ?? ''), friendlyName: String(f.friendly_name ?? '') }))
+      .filter((f) => f.id && f.type === 'totp');
+    return { ok: true as const, factors };
+  }
+
+  async mfaEnroll(accessToken: string, issuer: string, friendlyName: string) {
+    const r = await this.call('/factors', { factor_type: 'totp', issuer, friendly_name: friendlyName }, accessToken);
+    if (r.status !== 200) return GoTrueGateway.err(r.status, r.json);
+    const totp = (r.json.totp ?? {}) as Json;
+    if (typeof r.json.id !== 'string' || typeof totp.secret !== 'string') return { ok: false as const, status: 502, code: 'auth_bad_response' };
+    return { ok: true as const, factorId: r.json.id, qrCode: String(totp.qr_code ?? ''), secret: totp.secret, uri: String(totp.uri ?? '') };
+  }
+
+  async mfaVerify(accessToken: string, factorId: string, code: string) {
+    const fid = encodeURIComponent(factorId);
+    const c = await this.call(`/factors/${fid}/challenge`, {}, accessToken);
+    if (c.status !== 200 || typeof c.json.id !== 'string') return GoTrueGateway.err(c.status === 200 ? 502 : c.status, c.json);
+    return GoTrueGateway.sessionOrErr(await this.call(`/factors/${fid}/verify`, { challenge_id: c.json.id, code }, accessToken));
+  }
+
   private static okOrErr(r: { status: number; json: Json }) {
     return r.status >= 200 && r.status < 300 ? { ok: true as const } : GoTrueGateway.err(r.status, r.json);
   }
@@ -192,4 +225,7 @@ export class UnavailableGateway implements AuthGateway {
   async adminCreateUser() { return UNAVAILABLE; }
   async adminUpdateUser() { return UNAVAILABLE; }
   async adminDeleteUser() { return UNAVAILABLE; }
+  async mfaFactors() { return UNAVAILABLE; }
+  async mfaEnroll() { return UNAVAILABLE; }
+  async mfaVerify() { return UNAVAILABLE; }
 }

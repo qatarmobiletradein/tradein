@@ -12,11 +12,12 @@
  *   7. refusals are recorded on a separate connection afterwards.
  * Errors leave as a sentence for a person; internals go to the log only.
  */
+import { authOptions } from './lib/auth-options.js';
 import type { ZodType } from 'zod';
 import type { Role } from '../../../packages/domain/src/constants.js';
 import { resolvePrincipal, roleAllows, type Denial, type Principal } from '../../../packages/auth/src/index.js';
 import { withTransaction } from '../../../packages/database/src/db.js';
-import { AppError, GENERIC_MESSAGE, fromPgError, unauthenticated } from '../../../packages/shared/src/errors.js';
+import { AppError, GENERIC_MESSAGE, fromPgError, mfaRequired, unauthenticated } from '../../../packages/shared/src/errors.js';
 import { flushDenials } from './lib/audit.js';
 import { IDEMPOTENCY_KEY_RE, beginIdempotent, completeIdempotent, idemIds, idemTarget } from './lib/idempotency.js';
 import type { Ctx, Deps, RequestMeta } from './context.js';
@@ -82,8 +83,8 @@ export async function runAction(deps: Deps, input: RunInput): Promise<ActionResu
 
     const body = await withTransaction(deps.pool, async (tx) => {
       if (def.readOnly) await tx.query('set transaction read only');
-      const res = await resolvePrincipal(tx, claims, { allowLink: false, staffSignIn: deps.config.STAFF_SIGN_IN });
-      if (!res.ok) throw unauthenticated();
+      const res = await resolvePrincipal(tx, claims, authOptions(deps.config, { allowLink: false }));
+      if (!res.ok) throw res.reason === 'MFA_REQUIRED' ? mfaRequired() : unauthenticated();
       principal = res.principal;
       const ctx: Ctx = { p: principal, db: tx, denials, meta, deps, action, operationId: '', rawParams: cleaned };
 

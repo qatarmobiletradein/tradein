@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Qatar Mobile Trade-In API",
-    "version": "4.1.0-staging",
+    "version": "4.2.0",
     "description": "Railway API in front of Supabase (PostgreSQL, Auth, Storage). Every response carries X-Request-Id. Errors: {ok:false, message, code}. Generated from the code by `npm run openapi`."
   },
   "servers": [
@@ -113,7 +113,7 @@
                 "example": {
                   "ok": true,
                   "environment": "staging",
-                  "version": "4.1.0-staging",
+                  "version": "4.2.0",
                   "checks": {
                     "database": true,
                     "sms": "configured",
@@ -715,6 +715,169 @@
           },
           "503": {
             "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/status": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Staff: authenticator-app status",
+        "description": "Bearer = the session from staff/login. Returns { required, enrolled, aal, factors }.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/enroll": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Staff: set up an authenticator app",
+        "description": "Bearer = the session from staff/login. Allowed while no app is set up (or with an aal2 session). Returns { factorId, qrCode, secret, uri } once; nothing is stored by the API.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Staff: 6-digit app code → full session",
+        "description": "Body { factorId, code }. Bearer = the session from staff/login. Returns the normal session (aal2). 5 wrong codes per 15 minutes per account, then 429. Roles in STAFF_MFA_ROLES (SUPER_ADMIN) get only `mfaRequired: true` from staff/login, and every other endpoint answers 403 MFA_REQUIRED until this step is done.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/hooks/send-email": {
+      "post": {
+        "tags": [
+          "hooks"
+        ],
+        "summary": "Supabase Auth \"Send Email\" hook (server-to-server)",
+        "security": [
+          {
+            "webhookSignature": []
+          }
+        ],
+        "description": "Called by Supabase Auth only (Standard Webhooks signature). Sends ONLY the staff password code (email_action_type=recovery) to an ACTIVE staff address, through Microsoft Graph from STAFF_MAIL_FROM, and only for a request the API made in the last 2 minutes. Every other e-mail type is refused (200 + error 403).",
+        "responses": {
+          "200": {
+            "description": "{} on success, or {\"error\":{\"http_code\":…,\"message\":\"…\"}}"
+          },
+          "401": {
+            "description": "Bad signature"
           }
         }
       }

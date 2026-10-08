@@ -1,6 +1,7 @@
 /**
  * Per-request context handed to every service function.
  */
+import type { Mailer } from './lib/mail/graph.js';
 import type pg from 'pg';
 import type { AuthzCtx, Denial, Principal } from '../../../packages/auth/src/index.js';
 import type { Tx } from '../../../packages/database/src/db.js';
@@ -18,6 +19,8 @@ export interface Deps {
   storage: StorageClient;
   authGateway: AuthGateway;
   verifyToken: TokenVerifier;
+  /** Staff reset e-mail sender (Microsoft Graph). Absent = not configured. */
+  mailer?: Mailer;
 }
 
 export interface RequestMeta {

@@ -14,6 +14,7 @@
  *
  * Apps Script sessions are not migrated and are never accepted here.
  */
+import { authOptions } from '../lib/auth-options.js';
 import type pg from 'pg';
 import { createHash } from 'node:crypto';
 import { advisoryXactLock, withTransaction } from '../../../../packages/database/src/db.js';
@@ -141,7 +142,7 @@ export async function authVerify(deps: Deps, meta: RequestMeta, p: { phone?: str
   if (!claims) throw new AppError('UNAVAILABLE', 'Sign-in is temporarily unavailable. Please try again later.');
 
   return withTransaction(deps.pool, async (tx) => {
-    const r = await resolvePrincipal(tx, claims, { allowLink: true, staffSignIn: deps.config.STAFF_SIGN_IN });
+    const r = await resolvePrincipal(tx, claims, authOptions(deps.config, { allowLink: true }));
     if (!r.ok) {
       await deps.authGateway.logout(v.accessToken, 'local').catch(() => undefined);
       throw fail(REFUSAL_MESSAGES[r.reason] ?? 'This account is not active.');
@@ -225,9 +226,9 @@ export async function authRefresh(deps: Deps, meta: RequestMeta, p: { refreshTok
   const claims = await deps.verifyToken(r.accessToken);
   if (!claims) throw new AppError('UNAUTHENTICATED', 'Your session has ended. Please sign in again.', { reauth: true });
   // A refreshed token is still useless to a disabled or revoked profile: resolution re-checks everything.
-  const res = await resolvePrincipal(deps.pool, claims, { allowLink: false, staffSignIn: deps.config.STAFF_SIGN_IN });
+  const res = await resolvePrincipal(deps.pool, claims, authOptions(deps.config, { allowLink: false, allowPendingMfa: true }));
   if (!res.ok) throw new AppError('UNAUTHENTICATED', 'Your session has ended. Please sign in again.', { reauth: true });
-  return { ok: true, token: r.accessToken, refreshToken: r.refreshToken, expiresIn: r.expiresIn };
+  return { ok: true, token: r.accessToken, refreshToken: r.refreshToken, expiresIn: r.expiresIn, ...(res.mfaPending ? { mfaRequired: true } : {}) };
 }
 
 /** apiAuthResume_. */

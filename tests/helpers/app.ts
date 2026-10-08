@@ -14,20 +14,25 @@ import { loadConfig } from '../../packages/shared/src/config.js';
 import { createLogger } from '../../packages/shared/src/logger.js';
 import { buildApp } from '../../apps/api/src/app.js';
 import type { Deps } from '../../apps/api/src/context.js';
-import type { AuthGateway, AuthSession, AuthUserInfo, GatewayError } from '../../apps/api/src/lib/gotrue.js';
+import type { AuthGateway, AuthSession, AuthUserInfo, GatewayError, MfaEnrollment, MfaFactor } from '../../apps/api/src/lib/gotrue.js';
+import { base32Secret, totp } from './totp.js';
 import { deliverOtp } from '../../apps/api/src/lib/otp.js';
 import { TestSmsProvider } from '../../apps/api/src/lib/sms/provider.js';
 import { MemoryStorage } from '../../apps/api/src/lib/storage.js';
 import { freshDatabase } from './db.js';
+import type { Mailer } from '../../apps/api/src/lib/mail/graph.js';
 
 export const JWT_SECRET = randomBytes(36).toString('base64url');
 export const HOOK_SECRET = `v1,whsec_${randomBytes(32).toString('base64')}`;
 
-export async function signToken(sub: string, phone: string, opts: { iatOffsetS?: number; expS?: number; role?: string; email?: string; amr?: string } = {}): Promise<string> {
+export async function signToken(sub: string, phone: string, opts: { iatOffsetS?: number; expS?: number; role?: string; email?: string; amr?: string | string[]; aal?: string; sessionId?: string } = {}): Promise<string> {
   const now = Math.floor(Date.now() / 1000) + (opts.iatOffsetS ?? 0);
   const extra: Record<string, unknown> = {};
   if (opts.email) extra.email = opts.email;
-  extra.amr = [{ method: opts.amr ?? 'otp', timestamp: now }];
+  const methods = Array.isArray(opts.amr) ? opts.amr : [opts.amr ?? 'otp'];
+  extra.amr = methods.map((method) => ({ method, timestamp: now }));
+  extra.aal = opts.aal ?? (methods.includes('totp') ? 'aal2' : 'aal1');
+  if (opts.sessionId) extra.session_id = opts.sessionId;
   return new SignJWT({ phone: phone.replace(/^\+/, ''), role: opts.role ?? 'authenticated', ...extra })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(sub).setAudience('authenticated').setIssuedAt(now).setExpirationTime(now + (opts.expS ?? 3600))
@@ -139,6 +144,34 @@ export class StubAuth implements AuthGateway {
     this.passwords.delete(id);
     return { ok: true };
   }
+
+  /* ---- TOTP factors, like Supabase Auth (secrets in memory) ---- */
+  factors = new Map<string, { id: string; secret: string; verified: boolean }[]>();
+  private async claimsOf(token: string) {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+    return payload as { sub: string; email?: string; phone?: string; aal?: string };
+  }
+  async mfaFactors(token: string): Promise<({ ok: true; factors: MfaFactor[] }) | GatewayError> {
+    const c = await this.claimsOf(token);
+    return { ok: true, factors: (this.factors.get(c.sub) ?? []).map((f) => ({ id: f.id, type: 'totp', status: f.verified ? 'verified' : 'unverified', friendlyName: 'app' })) };
+  }
+  async mfaEnroll(token: string): Promise<({ ok: true } & MfaEnrollment) | GatewayError> {
+    const c = await this.claimsOf(token);
+    const list = this.factors.get(c.sub) ?? [];
+    // Supabase: with a verified factor, enrolling another needs an aal2 session.
+    if (list.some((f) => f.verified) && c.aal !== 'aal2') return { ok: false, status: 422, code: 'insufficient_aal' };
+    const f = { id: randomUUID(), secret: base32Secret(), verified: false };
+    this.factors.set(c.sub, [...list, f]);
+    return { ok: true, factorId: f.id, qrCode: '<svg/>', secret: f.secret, uri: `otpauth://totp/QM:${c.email}?secret=${f.secret}` };
+  }
+  async mfaVerify(token: string, factorId: string, code: string): Promise<({ ok: true } & AuthSession) | GatewayError> {
+    const c = await this.claimsOf(token);
+    const f = (this.factors.get(c.sub) ?? []).find((x) => x.id === factorId);
+    if (!f) return { ok: false, status: 404, code: 'mfa_factor_not_found' };
+    if (![totp(f.secret), totp(f.secret, Date.now(), -1)].includes(code)) return { ok: false, status: 422, code: 'mfa_verification_failed' };
+    f.verified = true;
+    return { ok: true, accessToken: await signToken(c.sub, c.phone ?? '', { email: c.email, amr: ['totp', 'password'] }), refreshToken: randomBytes(16).toString('hex'), expiresIn: 3600, userId: c.sub };
+  }
 }
 
 export interface TestApp {
@@ -154,7 +187,7 @@ export interface TestApp {
   call: (action: string, token: string | null, params?: Record<string, unknown>, key?: string) => Promise<{ status: number; body: Record<string, unknown> }>;
 }
 
-export async function createTestApp(envOverrides: Record<string, string> = {}, opts: { storage?: MemoryStorage } = {}): Promise<TestApp> {
+export async function createTestApp(envOverrides: Record<string, string> = {}, opts: { storage?: MemoryStorage; mailer?: Mailer } = {}): Promise<TestApp> {
   const db = await freshDatabase();
   const config = loadConfig({
     APP_ENV: 'test', DATABASE_URL: db.url, DATABASE_SSL: 'disable', DATABASE_POOL_MAX: '20', LOG_LEVEL: 'silent',
@@ -169,6 +202,7 @@ export async function createTestApp(envOverrides: Record<string, string> = {}, o
   deps = {
     config, pool, log: createLogger('silent'), sms, storage, authGateway: auth,
     verifyToken: createTokenVerifier({ secret: JWT_SECRET, audience: 'authenticated' }),
+    mailer: opts.mailer,
   };
   const app = await buildApp(deps);
 

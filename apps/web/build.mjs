@@ -51,7 +51,7 @@ const PAGE_ALLOWLIST = ['app', 'a-home', 'a-tradeins', 'a-collections', 'a-settl
 const bootStatic = {
   platform: 'Qatar Mobile', currency: 'QAR', countryCode: '+974', baseUrl: '',
   testMode: false, environment: (process.env.QM_ENVIRONMENT_LABEL ?? 'PRODUCTION').toUpperCase(),
-  version: '4.1.0-staging', versionLabel: 'Staging-ready (Railway + Supabase)',
+  version: '4.2.0', versionLabel: 'Qatar Mobile Trade-In',
 };
 
 let html = readFileSync(join(legacy, 'Shell.html'), 'utf8');

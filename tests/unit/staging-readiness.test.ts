@@ -20,6 +20,7 @@ const staging = (over: Record<string, string> = {}) => ({
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', SUPABASE_SECRET_KEY: 'sb_secret_test', SUPABASE_JWT_SECRET: SECRET,
   SUPABASE_JWT_ISSUER: 'https://abcdefghijklmnopqrst.supabase.co/auth/v1', SEND_SMS_HOOK_SECRET: 'v1,whsec_dGVzdA==',
   CORS_ALLOWED_ORIGINS: 'https://staging.example.test', SMS_PROVIDER: 'twilio', TWILIO_ACCOUNT_SID: 'AC1', TWILIO_AUTH_TOKEN: 't', TWILIO_FROM: '+1',
+  GRAPH_TENANT_ID: 't', GRAPH_CLIENT_ID: 'c', GRAPH_CLIENT_SECRET: 's', STAFF_MAIL_FROM: 'info@qatarmobile.qa', SEND_EMAIL_HOOK_SECRET: 'v1,whsec_dGVzdA==',
   ...over,
 });
 

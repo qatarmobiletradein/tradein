@@ -130,6 +130,7 @@
         busyButton(submit, false, 'Sign in');
         if (!res.ok) { password.value = ''; showMessage(msg, res.message, 'danger'); password.focus(); return; }
         password.value = '';
+        if (res.mfaRequired) { renderMfa(host, footer, res); return; }
         enterPortal(res, msg);
       });
     }
@@ -137,6 +138,66 @@
     password.onkeydown = function (ev) { if (ev.key === 'Enter') go(); };
     email.onkeydown = function (ev) { if (ev.key === 'Enter') password.focus(); };
     (presetEmail ? password : email).focus();
+  }
+
+  /* ------------------------------------- authenticator app (SUPER_ADMIN) */
+  // The password was right; this account also needs a code from an authenticator app.
+  // The session from the password step works only for these three calls.
+  function renderMfa(host, footer, login) {
+    QM.clear(host);
+    footer.style.display = 'none';
+    QM.setToken(login.token);
+    var msg = QM.el('div');
+    host.appendChild(msg);
+    var factorId = login.factorId || '';
+    var code = QM.input('text', '', '6-digit code');
+    code.setAttribute('inputmode', 'numeric');
+    code.setAttribute('autocomplete', 'one-time-code');
+    code.maxLength = 6;
+    var submit = QM.el('button', 'btn block', 'Verify and sign in');
+
+    function askCode() {
+      host.appendChild(QM.field('Code from your authenticator app', code));
+      host.appendChild(submit);
+      host.appendChild(linkRow('Back to staff sign-in', function () { QM.setToken(''); renderStaffSignIn(host, footer, ''); }));
+      code.focus();
+    }
+
+    if (login.mfaEnrolled) {
+      host.appendChild(QM.el('p', 'soft', 'Open your authenticator app and enter the 6-digit code for Qatar Mobile Trade-In.'));
+      askCode();
+    } else {
+      host.appendChild(QM.el('p', 'soft', 'This account must be protected with an authenticator app (for example Microsoft Authenticator or Google Authenticator). Scan the code below with the app, then enter the 6-digit code it shows.'));
+      QM.call('auth.mfaEnroll', {}).then(function (res) {
+        if (!res.ok) { showMessage(msg, res.message, 'danger'); return; }
+        factorId = res.factorId;
+        if (typeof res.qrCode === 'string' && res.qrCode.indexOf('data:image/svg+xml') === 0) {
+          var img = document.createElement('img');
+          img.src = res.qrCode; img.alt = 'QR code for your authenticator app';
+          img.style.width = '200px'; img.style.height = '200px'; img.style.display = 'block'; img.style.margin = '8px auto';
+          host.appendChild(img);
+        }
+        host.appendChild(QM.el('p', 'soft', 'Cannot scan? Enter this key in the app instead:'));
+        var key = QM.el('p', 'mono', String(res.secret || '').replace(/(.{4})/g, '$1 ').trim());
+        key.style.userSelect = 'all';
+        host.appendChild(key);
+        askCode();
+      });
+    }
+
+    function verify() {
+      var c = code.value.replace(/\D/g, '');
+      if (c.length !== 6) { showMessage(msg, 'Enter the 6-digit code from the app.', 'danger'); code.focus(); return; }
+      busyButton(submit, true, 'Verify and sign in', 'Checking…');
+      QM.call('auth.mfaVerify', { factorId: factorId, code: c }).then(function (res) {
+        busyButton(submit, false, 'Verify and sign in');
+        code.value = '';
+        if (!res.ok) { showMessage(msg, res.message, 'danger'); code.focus(); return; }
+        enterPortal(res, msg);
+      });
+    }
+    submit.onclick = verify;
+    code.onkeydown = function (ev) { if (ev.key === 'Enter') verify(); };
   }
 
   /* ------------------------------------------- set / reset: ask for code */
@@ -225,6 +286,7 @@
         if (!res.ok) { showMessage(msg, res.message, 'danger'); return; }
         clearInterval(timer);
         pw1.value = ''; pw2.value = '';
+        if (res.mfaRequired) { renderMfa(host, footer, res); return; }
         enterPortal(res, msg);
       });
     }

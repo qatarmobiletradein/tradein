@@ -7,6 +7,7 @@
  * close the database pool, exit. Migrations are NOT run here; they are a
  * separate, explicit command (npm run migrate).
  */
+import { GraphMailer, NoMailer } from './lib/mail/graph.js';
 import { createTokenVerifier } from '../../../packages/auth/src/jwt.js';
 import { createPool } from '../../../packages/database/src/db.js';
 import { ConfigError, loadConfig } from '../../../packages/shared/src/config.js';
@@ -36,7 +37,10 @@ export async function createDeps(env: NodeJS.ProcessEnv = process.env): Promise<
     secret: config.SUPABASE_JWT_SECRET, jwksUrl: config.SUPABASE_JWKS_URL,
     issuer: config.SUPABASE_JWT_ISSUER, audience: config.SUPABASE_JWT_AUDIENCE,
   });
-  return { config, pool, log, sms: createSmsProvider(config), storage, authGateway, verifyToken };
+  const mailer = config.staffMailConfigured
+    ? new GraphMailer(config.GRAPH_TENANT_ID!, config.GRAPH_CLIENT_ID!, config.GRAPH_CLIENT_SECRET!, config.STAFF_MAIL_FROM!)
+    : new NoMailer();
+  return { config, pool, log, sms: createSmsProvider(config), storage, authGateway, verifyToken, mailer };
 }
 
 async function main(): Promise<void> {

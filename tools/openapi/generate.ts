@@ -80,11 +80,17 @@ export function buildOpenApi(): Json {
       'Same reply for every address. For an ACTIVE staff address the API sets up the Supabase Auth user if needed and Supabase Auth e-mails a 6-digit code. One request per address per 60 s, five per hour (429).'],
     ['/v1/auth/staff/reset/finish', 'Staff: code + new password → signed in', S.staffResetFinish,
       'Sets the password, ends every earlier session of that person and returns a session. Wrong codes are limited (OTP_MAX_ATTEMPTS since the last code sent).'],
+    ['/v1/auth/mfa/status', 'Staff: authenticator-app status', null,
+      'Bearer = the session from staff/login. Returns { required, enrolled, aal, factors }.'],
+    ['/v1/auth/mfa/enroll', 'Staff: set up an authenticator app', null,
+      'Bearer = the session from staff/login. Allowed while no app is set up (or with an aal2 session). Returns { factorId, qrCode, secret, uri } once; nothing is stored by the API.'],
+    ['/v1/auth/mfa/verify', 'Staff: 6-digit app code → full session', null,
+      'Body { factorId, code }. Bearer = the session from staff/login. Returns the normal session (aal2). 5 wrong codes per 15 minutes per account, then 429. Roles in STAFF_MFA_ROLES (SUPER_ADMIN) get only `mfaRequired: true` from staff/login, and every other endpoint answers 403 MFA_REQUIRED until this step is done.'],
   ];
   for (const [p, summary, schema, description] of auth) {
     paths[p] = {
       post: {
-        tags: ['auth'], summary, description, security: p.endsWith('logout') || p.endsWith('logout-all') ? [{ bearerAuth: [] }] : [],
+        tags: ['auth'], summary, description, security: p.endsWith('logout') || p.endsWith('logout-all') || p.includes('/mfa/') ? [{ bearerAuth: [] }] : [],
         ...(schema ? { requestBody: { required: true, content: { 'application/json': { schema: schemaOf(schema) } } } } : {}),
         responses: {
           200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Ok' }, ...(p === '/v1/auth/verify' ? { example: { ok: true, token: '<access token>', refreshToken: '<refresh token>', expiresIn: 3600, portal: 'customer', user: { name: 'Demo Customer', role: 'CUSTOMER', roleLabel: 'Customer' } } } : {}) } } },
@@ -93,6 +99,13 @@ export function buildOpenApi(): Json {
       },
     };
   }
+  paths['/v1/hooks/send-email'] = {
+    post: {
+      tags: ['hooks'], summary: 'Supabase Auth "Send Email" hook (server-to-server)', security: [{ webhookSignature: [] }],
+      description: 'Called by Supabase Auth only (Standard Webhooks signature). Sends ONLY the staff password code (email_action_type=recovery) to an ACTIVE staff address, through Microsoft Graph from STAFF_MAIL_FROM, and only for a request the API made in the last 2 minutes. Every other e-mail type is refused (200 + error 403).',
+      responses: { 200: { description: '{} on success, or {"error":{"http_code":…,"message":"…"}}' }, 401: { description: 'Bad signature' } },
+    },
+  };
   paths['/v1/hooks/send-sms'] = {
     post: {
       tags: ['hooks'], summary: 'Supabase Auth "Send SMS" hook (server-to-server)', security: [{ webhookSignature: [] }],
