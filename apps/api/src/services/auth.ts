@@ -27,7 +27,7 @@ import { writeAudit } from '../lib/audit.js';
 import type { GatewayError } from '../lib/gotrue.js';
 import { nextId } from '../lib/ids.js';
 import { emit } from '../lib/notify.js';
-import { purposeFor } from '../lib/otp.js';
+import { purposeFor, takeTestCode } from '../lib/otp.js';
 import { mfaPendingReply } from './mfa.js';
 
 const INVALID_PHONE = 'Enter a valid Qatar mobile number.';
@@ -83,7 +83,7 @@ export async function authStart(deps: Deps, meta: RequestMeta, p: { phone?: stri
   // A profile imported from Sheets has no Supabase user yet: let Auth create it on first sign-in.
   const sent = await deps.authGateway.sendOtp(phone, !authUserId, meta.ip);
   if (!sent.ok) throw sendFailureMessage(sent);
-  return { ok: true, cooldownSeconds: deps.config.otp.cooldownS };
+  return { ok: true, cooldownSeconds: deps.config.otp.cooldownS, ...testCodeReply(phone) };
 }
 
 /**
@@ -110,6 +110,12 @@ async function staffNumberOnAuthUser(deps: Deps, meta: RequestMeta, staffId: str
   // Another Auth user already holds the number (e.g. an old customer sign-up): an administrator decides.
   await writeAudit(deps.pool, null, meta, ACTIONS.STAFF_SIGNIN_CONFLICT, 'USER', staffId, { details: { phone: maskPhone(phone), why: `phone ${set.status} ${set.code}` } }).catch(() => undefined);
   throw fail(REFUSAL_MESSAGES.CONFLICT!);
+}
+
+/** OTP_TEST_NUMBERS: the code the hook kept for this number (the 3.1 screen shows it in its "Test environment" box). */
+function testCodeReply(phone: string): { testMode?: true; testCode?: string } {
+  const code = takeTestCode(phone);
+  return code ? { testMode: true, testCode: code } : {};
 }
 
 export function sessionReply(principal: Principal, s: { accessToken: string; refreshToken: string; expiresIn: number }) {
@@ -216,7 +222,7 @@ export async function authRegister(deps: Deps, meta: RequestMeta, p: {
   if (!trim(p.code)) {
     const sent = await deps.authGateway.sendOtp(phone, true, meta.ip);
     if (!sent.ok) throw sendFailureMessage(sent);
-    return { ok: true, cooldownSeconds: deps.config.otp.cooldownS };
+    return { ok: true, cooldownSeconds: deps.config.otp.cooldownS, ...testCodeReply(phone) };
   }
 
   const regCode = trim(p.code);

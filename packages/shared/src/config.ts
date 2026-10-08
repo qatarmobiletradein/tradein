@@ -85,6 +85,12 @@ const EnvSchema = z.object({
   OTP_TTL_MINUTES: boundedInt(OTP_DEFAULTS.TTL_MINUTES, 1, 15),
   OTP_MAX_ATTEMPTS: boundedInt(OTP_DEFAULTS.MAX_ATTEMPTS, 1, 10),
   OTP_RESEND_COOLDOWN_S: boundedInt(OTP_DEFAULTS.RESEND_COOLDOWN_S, 30, 600),
+  /**
+   * Owner decision 2026-10-08 (no SMS provider yet): customer test numbers whose sign-in code is SHOWN on the
+   * sign-in screen instead of being sent. Supabase still creates and checks the real code; nothing is stored.
+   * Never for a staff number. Refused when APP_ENV=production. Comma-separated Qatar numbers.
+   */
+  OTP_TEST_NUMBERS: csv,
   OTP_MAX_SENDS_PER_HOUR: boundedInt(OTP_DEFAULTS.MAX_SENDS_PER_HOUR, 1, 20),
   OTP_MAX_SENDS_PER_DAY: boundedInt(OTP_DEFAULTS.MAX_SENDS_PER_DAY, 1, 50),
   OTP_GLOBAL_MAX_PER_HOUR: boundedInt(OTP_DEFAULTS.GLOBAL_MAX_PER_HOUR, 1, 100_000),
@@ -239,6 +245,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (isProduction) {
     if (e.DATABASE_SSL !== 'require') problems.push('DATABASE_SSL must be require (certificate verified) in production.');
     if (e.LOG_LEVEL === 'debug' || e.LOG_LEVEL === 'trace') problems.push('LOG_LEVEL debug/trace is refused in production.');
+    if (e.OTP_TEST_NUMBERS.length) problems.push('OTP_TEST_NUMBERS is refused in production (codes must be sent, never shown).');
     if (staffSignIn === 'phone') problems.push('STAFF_SIGN_IN=phone is refused in production (use password or both).');
     if (!mfaRoles.includes('SUPER_ADMIN')) problems.push('STAFF_MFA_ROLES must include SUPER_ADMIN in production.');
     if (!sessionCheck) problems.push('AUTH_SESSION_CHECK=false is refused in production.');

@@ -25,6 +25,22 @@ import { writeAudit } from './audit.js';
 
 export type OtpPurpose = 'LOGIN' | 'REGISTER';
 
+/*
+ * OTP_TEST_NUMBERS (non-production only, owner decision 2026-10-08): for a listed CUSTOMER / new number the
+ * hook does not send the code; it hands it, in memory, to the auth.start / auth.register request that asked
+ * for it (same process — one replica), which shows it on the sign-in screen. Expires in 2 minutes, read once,
+ * never logged or stored. Staff numbers never qualify.
+ */
+const testCodes = new Map<string, { code: string; until: number }>();
+export function isTestNumber(cfg: AppConfig, phone: string): boolean {
+  return cfg.APP_ENV !== 'production' && cfg.OTP_TEST_NUMBERS.some((n) => normalizePhone(n) === phone);
+}
+export function takeTestCode(phone: string): string | null {
+  const t = testCodes.get(phone);
+  testCodes.delete(phone);
+  return t && t.until > Date.now() ? t.code : null;
+}
+
 export type HookOutcome =
   | { ok: true }
   | { ok: false; httpCode: number; reason: 'INVALID_PHONE' | 'UNAVAILABLE' | 'RATE_LIMITED' | 'COOLDOWN' | 'REFUSED' | 'FAILED'; message: string; retryAfterS?: number };
@@ -54,7 +70,11 @@ export async function deliverOtp(
   const phone = normalizePhone(rawPhone);
   if (!phone) return { ok: false, httpCode: 400, reason: 'INVALID_PHONE', message: 'Enter a valid Qatar mobile number.' };
 
-  if (!sms.configured()) {
+  // A test number shows its code instead of sending it — never for a staff number.
+  const showInstead = isTestNumber(cfg, phone)
+    && !(await pool.query('select 1 from public.app_users where phone = $1', [phone])).rowCount;
+  const channel = showInstead || sms.name === 'test' ? 'TEST' : 'SMS';
+  if (!sms.configured() && !showInstead) {
     await audit(pool, ACTIONS.SMS_UNAVAILABLE, phone, { environment: cfg.APP_ENV, provider: sms.name }).catch(() => undefined);
     return { ok: false, httpCode: 503, reason: 'UNAVAILABLE',
       message: 'Sign-in by text message is temporarily unavailable. Please try again later.' };
@@ -68,7 +88,7 @@ export async function deliverOtp(
     const { purpose, blocked } = await purposeFor(tx, phone, cfg.STAFF_SIGN_IN);
     if (blocked) {
       await tx.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, reason) values ($1,$2,$3,'REFUSED',$4)`,
-        [phone, purpose, sms.name === 'test' ? 'TEST' : 'SMS', `account ${blocked.toLowerCase()}`]);
+        [phone, purpose, channel, `account ${blocked.toLowerCase()}`]);
       return { ok: false as const, purpose, reason: 'REFUSED' as const };
     }
 
@@ -98,14 +118,14 @@ export async function deliverOtp(
     else if (stats.purpose_day >= gDay) limited = 'global-day';
     if (limited) {
       await tx.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, reason) values ($1,$2,$3,'RATE_LIMITED',$4)`,
-        [phone, purpose, sms.name === 'test' ? 'TEST' : 'SMS', limited]);
+        [phone, purpose, channel, limited]);
       await audit(tx, ACTIONS.OTP_RATE_LIMITED, phone, { limit: limited, purpose });
       return { ok: false as const, purpose, reason: 'RATE_LIMITED' as const };
     }
     // Reserve the send BEFORE delivery, so concurrent requests count it.
     const ins = await tx.query<{ id: number }>(
       `insert into public.otp_send_log (phone, purpose, channel, outcome) values ($1,$2,$3,'SENT') returning id`,
-      [phone, purpose, sms.name === 'test' ? 'TEST' : 'SMS']);
+      [phone, purpose, channel]);
     return { ok: true as const, purpose, logId: ins.rows[0]!.id };
   });
 
@@ -120,6 +140,11 @@ export async function deliverOtp(
     return { ok: false, httpCode: 429, reason: 'RATE_LIMITED', message: 'Too many code requests. Please try again later.' };
   }
 
+  if (showInstead) {
+    testCodes.set(phone, { code, until: Date.now() + 120_000 });
+    await audit(pool, ACTIONS.OTP_SENT, phone, { purpose: decided.purpose, provider: 'shown-on-screen (OTP_TEST_NUMBERS)', delivered: true }).catch(() => undefined);
+    return { ok: true };
+  }
   // ---- delivery happens outside the transaction (no lock held on the network) ----
   const delivery = await sms.send(phone, code, o.ttlMinutes);
   // Bookkeeping after a send is best-effort: a code the person already received must

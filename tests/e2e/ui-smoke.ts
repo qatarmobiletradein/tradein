@@ -29,7 +29,7 @@ import { totp } from '../helpers/totp.js';
 const require = createRequire(import.meta.url);
 // The browser ships with the environment (PLAYWRIGHT_BROWSERS_PATH); the library is resolved from the global install.
 // Playwright is not a project dependency, so only the few calls used here are typed.
-interface PwLocator { first(): PwLocator; nth(i: number): PwLocator; fill(v: string): Promise<void>; click(o?: { timeout?: number }): Promise<void>; waitFor(o?: { timeout?: number }): Promise<void> }
+interface PwLocator { first(): PwLocator; last(): PwLocator; nth(i: number): PwLocator; fill(v: string): Promise<void>; click(o?: { timeout?: number }): Promise<void>; waitFor(o?: { timeout?: number }): Promise<void> }
 interface PwPage {
   on(ev: 'pageerror', fn: (e: Error) => void): void; on(ev: 'console', fn: (m: { type(): string; text(): string }) => void): void;
   goto(url: string): Promise<unknown>; locator(sel: string): PwLocator; getByRole(role: string, o: { name: string }): PwLocator;
