@@ -49,15 +49,24 @@ export class TwilioSmsProvider implements SmsProvider {
   }
   async send(phone: string, code: string, ttl: number): Promise<SmsResult> {
     if (!this.configured()) return { ok: false, status: 'not-configured' };
-    const sid = this.c.TWILIO_ACCOUNT_SID!;
-    const auth = Buffer.from(`${sid}:${this.c.TWILIO_AUTH_TOKEN}`).toString('base64');
-    const body = new URLSearchParams({ To: phone, From: this.c.TWILIO_FROM!, Body: otpMessage(code, ttl) }).toString();
+    // Values pasted into a dashboard often carry a stray space or line break — Twilio then answers 401.
+    const sid = this.c.TWILIO_ACCOUNT_SID!.trim();
+    const token = this.c.TWILIO_AUTH_TOKEN!.trim();
+    const from = this.c.TWILIO_FROM!.trim();
+    const auth = Buffer.from(`${sid}:${token}`).toString('base64');
+    // A Messaging Service (MG…) is sent as MessagingServiceSid; a number or alphanumeric sender as From.
+    const sender: Record<string, string> = /^MG[0-9a-f]{32}$/i.test(from) ? { MessagingServiceSid: from } : { From: from };
+    const body = new URLSearchParams({ To: phone, ...sender, Body: otpMessage(code, ttl) }).toString();
     return withRetries(this.c.SMS_MAX_RETRIES, async () => {
       const res = await this.fetchImpl(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
         method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
         body, redirect: 'manual', signal: AbortSignal.timeout(SMS_TIMEOUT_MS),
       });
-      return { ok: res.status >= 200 && res.status < 300, status: String(res.status) };
+      if (res.status >= 200 && res.status < 300) return { ok: true, status: String(res.status) };
+      // Twilio's numeric error code (e.g. 20003 authentication, 21606/21212 sender) — never the body text.
+      let code = '';
+      try { const j = await (res as unknown as { json(): Promise<{ code?: unknown }> }).json(); if (typeof j.code === 'number') code = `/${j.code}`; } catch { /* no body */ }
+      return { ok: false, status: `${res.status}${code}` };
     });
   }
 }
