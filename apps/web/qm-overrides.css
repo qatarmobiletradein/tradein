@@ -1,0 +1,14 @@
+/*
+ * qm-overrides.css — small visual fixes on top of the hash-checked 3.1 styles
+ * (LEGACY_SOURCES.sha256 keeps those files byte-for-byte). Added at the end of
+ * the page by build.mjs so it wins over earlier rules of equal specificity.
+ */
+
+/* Customer estimate: the "Excellent" / "Fair" pill. Styles.html gives every .grade a fixed
+   28×28 px square (the grade chips in the staff tables); the customer rule never undid the size,
+   so the pill shrank to a small square beside the word. Size it to its word, text centred. */
+.cx-estimate .grade {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: auto; height: auto; min-width: 0; line-height: 1.2;
+  padding: .4rem 1.2rem; text-align: center; color: inherit;
+}
