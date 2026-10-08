@@ -1,0 +1,902 @@
+<script>
+/*******************************************************************
+ * PortalVendor.html — Carrefour's screens, and every future partner's.
+ *
+ * ONE PORTAL, EVERY VENDOR
+ *   There is nothing Carrefour-specific in this file. The vendor's name
+ *   and logo come from the session; the data comes back already scoped
+ *   to whoever is signed in. Adding Lulu next month needs no new file,
+ *   no new role and no change here at all — which is the entire reason
+ *   V2 exists.
+ *
+ * THE VOUCHER BUTTON
+ *   It is disabled until the device has been received. That is a
+ *   courtesy to the person at the counter, not a control: the server
+ *   refuses the action outright unless the trade-in is at
+ *   DEVICE_RECEIVED with DeviceReceived true, and logs the attempt if
+ *   somebody manages to send it anyway.
+ *
+ *   So the button being greyed out and the rule being enforced are two
+ *   different mechanisms, and only the second one matters.
+ *
+ * WHAT VENDOR STAFF SEE, AND DO NOT
+ *   Their own commission and settlement figures — those are their own
+ *   commercial terms. Never another vendor's anything, never the
+ *   customer directory, never a full IMEI.
+ *******************************************************************/
+
+QM.portal('vendor', function (me) {
+  var canManage = ['VENDOR_ADMIN', 'VENDOR_MANAGER', 'SUPER_ADMIN', 'QM_ADMIN']
+                    .indexOf(me.role) > -1;
+
+  var nav = [
+    { page: 'v-home',     label: 'Dashboard',  icon: '▦' },
+    { page: 'v-queue',    label: 'Trade-ins',  icon: '▤', badge: '0' },
+    { page: 'v-vouchers', label: 'Vouchers',   icon: '◫' }
+  ];
+
+  if (canManage) {
+    nav.push({ section: 'Management' });
+    nav.push({ page: 'v-branches',    label: 'Branches',    icon: '⌂' });
+    nav.push({ page: 'v-staff',       label: 'Staff',       icon: '☺' });
+    nav.push({ page: 'v-settlements', label: 'Settlements', icon: '◱' });
+    nav.push({ page: 'v-reports',     label: 'Reports',     icon: '◔' });
+  }
+
+  buildFrame({
+    mark: (me.vendor && me.vendor.code) || 'QM',
+    title: (me.vendor && me.vendor.name) || me.platform,
+    nav: nav
+  });
+});
+
+/* ====================================================================
+ * DASHBOARD
+ * ================================================================== */
+
+QM.route('v-home', function () {
+  return QM.call('vendor.dashboard', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    /* ---- what needs doing today ---------------------------------- */
+    var a = res.actionNeeded;
+    var pending = a.awaitingDevice + a.awaitingVoucher + a.awaitingPickup;
+
+    setBadge('v-queue', a.awaitingVoucher);
+
+    if (pending) {
+      var n = QM.el('div', 'notice warn');
+      n.appendChild(QM.el('strong', null, 'Waiting on you'));
+      var parts = [];
+      if (a.awaitingDevice)  parts.push(a.awaitingDevice + ' device(s) to take in');
+      if (a.awaitingVoucher) parts.push(a.awaitingVoucher + ' voucher(s) to issue');
+      if (a.awaitingPickup)  parts.push(a.awaitingPickup + ' waiting for collection');
+      if (a.returnsPending)  parts.push(a.returnsPending + ' to return');
+      n.appendChild(document.createTextNode(parts.join(', ') + '.'));
+      wrap.appendChild(n);
+    }
+
+    /* ---- the numbers --------------------------------------------- */
+    var grid = QM.el('div', 'grid cols-4 mb');
+    grid.appendChild(QM.kpi('This month', res.month.tradeIns,
+      'Trade-ins started since the 1st'));
+    grid.appendChild(QM.kpi('Paid to customers', res.month.customerValue,
+      'Value of offers this month', { money: true }));
+    grid.appendChild(QM.kpi('Your commission', res.month.commission,
+      'Earned this month', { money: true }));
+    grid.appendChild(QM.kpi('Owed to you', res.owed,
+      'Collected, not yet settled', { money: true, attention: res.owed > 0 }));
+    wrap.appendChild(grid);
+
+    /* ---- queues -------------------------------------------------- */
+    var queues = QM.el('div', 'grid cols-4');
+    queues.appendChild(QM.kpi('To take in', a.awaitingDevice,
+      'Customer accepted, device not here'));
+    queues.appendChild(QM.kpi('To issue', a.awaitingVoucher,
+      'Device received, no voucher yet'));
+    queues.appendChild(QM.kpi('Awaiting pickup', a.awaitingPickup,
+      'Qatar Mobile has not collected'));
+    queues.appendChild(QM.kpi('Returns', a.returnsPending,
+      'Going back to the customer'));
+    wrap.appendChild(queues);
+
+    /* ---- the whole pipeline, not only what needs doing ------------- */
+    var p = res.pipeline || {};
+    var pipe = QM.el('div', 'grid cols-4 mb');
+    pipe.appendChild(QM.kpi('Total trade-ins', p.total, 'Everything, ever'));
+    pipe.appendChild(QM.kpi('Pending inspection', p.pendingInspection,
+      'Submitted, not yet offered'));
+    pipe.appendChild(QM.kpi('Collected', p.collected,
+      'Picked up by Qatar Mobile'));
+    pipe.appendChild(QM.kpi('Settled', p.settled, 'Paid and closed'));
+    wrap.appendChild(pipe);
+
+    /* ---- commission over time -------------------------------------- */
+    if (res.monthly && res.monthly.length) {
+      wrap.appendChild(QM.card('By month', QM.table([
+        { key: 'label', label: 'Month' },
+        { key: 'count', label: 'Devices', numeric: true },
+        { key: 'value', label: 'Trade-in value', numeric: true,
+          render: function (r) { return QM.money(r.value); } },
+        { key: 'commission', label: 'Your commission', numeric: true,
+          render: function (r) { return QM.money(r.commission); } }
+      ], res.monthly.filter(function (m) { return m.count > 0; }))));
+    }
+
+    /* ---- what is being traded -------------------------------------- */
+    if (res.byBrand && res.byBrand.length) {
+      wrap.appendChild(QM.card('By brand', QM.table([
+        { key: 'label', label: 'Brand' },
+        { key: 'count', label: 'Devices', numeric: true },
+        { key: 'value', label: 'Paid to customers', numeric: true,
+          render: function (r) { return QM.money(r.value); } }
+      ], res.byBrand)));
+    }
+
+    if (res.byModel && res.byModel.length) {
+      wrap.appendChild(QM.card('By model', QM.table([
+        { key: 'label', label: 'Model' },
+        { key: 'count', label: 'Devices', numeric: true },
+        { key: 'value', label: 'Paid to customers', numeric: true,
+          render: function (r) { return QM.money(r.value); } }
+      ], res.byModel)));
+    }
+
+    /* ---- recent activity -------------------------------------------
+     * A dashboard of totals says how the month went and nothing about
+     * what happened this morning.
+     * ---------------------------------------------------------------- */
+    if (res.recent && res.recent.length) {
+      wrap.appendChild(QM.card('Recent trade-ins', QM.table([
+        { key: 'tradeInId', label: 'Reference', className: 'mono' },
+        { key: 'device', label: 'Device' },
+        { key: 'customerName', label: 'Customer' },
+        { key: 'customerValue', label: 'Value', numeric: true,
+          render: function (r) { return QM.money(r.customerValue); } },
+        { key: 'status', label: 'Status',
+          render: function (r) { return QM.statusPill(r.status, r.statusLabel); } }
+      ], res.recent, {
+        onClick: function (row) { showVendorTradeIn(row.tradeInId); }
+      })));
+    }
+
+    /* ---- branches ------------------------------------------------ */
+    if (res.branches && res.branches.length > 1) {
+      wrap.appendChild(QM.card('By branch', QM.table(
+        [{ key: 'branchName', label: 'Branch' },
+         { key: 'tradeIns',   label: 'Trade-ins', numeric: true },
+         { key: 'customerValue', label: 'Paid out', numeric: true,
+           render: function (r) { return QM.money(r.customerValue); } },
+         { key: 'commission', label: 'Commission', numeric: true,
+           render: function (r) { return QM.money(r.commission); } }],
+        res.branches)));
+    }
+
+    /* ---- grade mix ----------------------------------------------- */
+    if (res.grades && res.grades.length) {
+      wrap.appendChild(QM.card('Condition mix this month', QM.table(
+        [{ key: 'code', label: 'Grade',
+           render: function (r) { return QM.gradeChip(r.code); } },
+         { key: 'name', label: 'Condition' },
+         { key: 'count', label: 'Devices', numeric: true },
+         { key: 'percentage', label: 'Share', numeric: true,
+           render: function (r) { return r.percentage + '%'; } }],
+        res.grades)));
+    }
+
+    return wrap;
+  });
+});
+
+/* ====================================================================
+ * TRADE-IN QUEUE
+ * ================================================================== */
+
+QM.route('v-queue', function (params) {
+  var filters = params.filters || {};
+
+  var wrap = QM.el('div');
+
+  var bar = filterBar([
+    { key: 'status', type: 'select', label: 'Status', value: filters.status,
+      options: [
+        { value: '', label: 'All' },
+        { value: 'CUSTOMER_ACCEPTED', label: 'Waiting for the device' },
+        { value: 'DEVICE_RECEIVED', label: 'Ready for a voucher' },
+        { value: 'AWAITING_VOUCHER', label: 'Voucher voided — reissue' },
+        { value: 'READY_FOR_COLLECTION', label: 'Waiting for collection' },
+        { value: 'COLLECTED', label: 'Collected' }
+      ] },
+    { key: 'search', type: 'search', label: 'Search',
+      placeholder: 'Reference, customer or model', value: filters.search }
+  ], function (f) { QM.go('v-queue', { filters: f }); });
+  wrap.appendChild(bar);
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('vendor.queue', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    setBadge('v-queue', res.awaitingVoucher);
+
+    if (!res.tradeIns.length) {
+      list.appendChild(QM.emptyBlock('Nothing here', 'No trade-ins match.'));
+      return;
+    }
+
+    res.tradeIns.forEach(function (t) { list.appendChild(vendorTradeInCard(t)); });
+  });
+
+  return wrap;
+});
+
+function vendorTradeInCard(t) {
+  var card = QM.el('div', 'card');
+
+  var head = QM.el('div', 'card-head');
+  head.appendChild(QM.gradeChip(t.grade));
+  head.appendChild(QM.el('h3', null, t.device));
+  head.appendChild(QM.el('div', 'spacer'));
+  head.appendChild(QM.statusPill(t.status, t.statusLabel));
+  card.appendChild(head);
+
+  var body = QM.el('div', 'card-body');
+
+  body.appendChild(detailList([
+    { label: 'Reference',  value: t.tradeInId },
+    { label: 'Customer',   value: t.customerName },
+    { label: 'Phone',      value: t.customerPhone },
+    { label: 'IMEI',       value: t.imei },
+    { label: 'Customer gets', value: QM.moneyCcy(t.customerValue, t.currency) },
+    { label: 'Your commission', value: QM.moneyCcy(t.commission, t.currency) },
+    { label: 'We invoice',  value: QM.moneyCcy(t.settlement, t.currency) },
+    { label: 'Device with us', value: t.deviceReceived ? 'Yes' : 'Not yet' }
+  ]));
+
+  /* ---- the voucher button ---------------------------------------- */
+  var canIssue = t.deviceReceived &&
+                 ['DEVICE_RECEIVED', 'AWAITING_VOUCHER'].indexOf(t.status) > -1 &&
+                 !t.voucherId;
+
+  if (canIssue) {
+    body.appendChild(QM.button('Issue voucher for ' +
+      QM.moneyCcy(t.customerValue, t.currency),
+      function () { issueVoucher(t); }, 'gold block mt'));
+
+  } else if (t.status === 'CUSTOMER_ACCEPTED') {
+    // The reason it is not available, stated plainly. "Issue voucher"
+    // greyed out with no explanation is how a queue stalls.
+    var why = QM.el('div', 'notice warn mt');
+    why.appendChild(QM.el('strong', null, 'Waiting for the device'));
+    why.appendChild(document.createTextNode(
+      'A voucher cannot be issued until the handset is physically with us. ' +
+      'A technician records that when the customer hands it over.'));
+    body.appendChild(why);
+
+  } else if (t.voucherId) {
+    body.appendChild(QM.el('div', 'notice ok mt', 'Voucher already issued.'));
+  }
+
+  body.appendChild(QM.button('View details',
+    function () { showVendorTradeIn(t.tradeInId); }, 'ghost block mt'));
+
+  card.appendChild(body);
+  return card;
+}
+
+/**
+ * One trade-in, as vendor staff may see it.
+ *
+ * vendor.tradeIn has existed since V2 with nothing calling it, so a
+ * branch assistant could see a card in a list and never open the record
+ * behind it. Their own commercial terms are here; the customer's history,
+ * another vendor's anything, and a full IMEI are not — that is decided by
+ * vendorTradeInView_ on the server, not by this screen.
+ */
+function showVendorTradeIn(tradeInId) {
+  QM.call('vendor.tradeIn', { tradeInId: tradeInId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+    var t = res.tradeIn;
+
+    var body = QM.el('div');
+    body.appendChild(detailList([
+      { label: 'Device',    value: t.device },
+      { label: 'Colour',    value: t.color },
+      { label: 'Grade',     value: t.grade ? t.grade + ' — ' + t.gradeName : null },
+      { label: 'IMEI',      value: t.imei },
+      { label: 'Customer',  value: t.customerName },
+      { label: 'Phone',     value: t.customerPhone },
+      { label: 'Status',    value: t.statusLabel },
+      { label: 'Submitted', value: t.createdDate },
+      { label: 'Accepted',  value: t.acceptedDate }
+    ]));
+
+    body.appendChild(QM.el('div', 'label mt', 'Money'));
+    body.appendChild(detailList([
+      { label: 'Customer receives', value: QM.moneyCcy(t.customerValue, t.currency) },
+      { label: 'Your commission',   value: QM.moneyCcy(t.commission, t.currency) },
+      { label: 'We invoice',        value: QM.moneyCcy(t.settlement, t.currency) },
+      { label: 'Device with us',    value: t.deviceReceived ? 'Yes' : 'Not yet' }
+    ]));
+
+    QM.modal({
+      title: t.tradeInId,
+      body: body,
+      confirmLabel: 'Close',
+      cancelLabel: ''
+    });
+  });
+}
+
+function issueVoucher(t) {
+  QM.modal({
+    title: 'Issue this voucher?',
+    body: 'The customer receives ' + QM.moneyCcy(t.customerValue, t.currency) +
+          ' in store credit for their ' + t.device + '. This is money, and it ' +
+          'cannot be undone once they have spent it.',
+    confirmLabel: 'Issue voucher'
+  }).then(function (yes) {
+    if (!yes) return;
+
+    QM.call('vendor.issueVoucher', { tradeInId: t.tradeInId }).then(function (res) {
+      if (!QM.report(res)) return;
+      showVoucher(res);
+    });
+  });
+}
+
+/**
+ * The voucher itself, laid out to be printed or read out at a till.
+ * The print stylesheet drops the navigation, so what comes out of the
+ * printer is the voucher and nothing else.
+ */
+function showVoucher(v) {
+  var body = QM.el('div');
+
+  var num = QM.el('div', 'center');
+  num.appendChild(QM.el('div', 'label muted small', 'Voucher number'));
+  num.appendChild(QM.el('div', 'code mono', v.voucherNumber));
+  num.style.fontSize = '1.4rem';
+  num.style.fontWeight = '700';
+  num.style.letterSpacing = '.08em';
+  body.appendChild(num);
+
+  var amount = QM.el('div', 'center mt');
+  amount.appendChild(QM.el('div', 'label muted small', 'Value'));
+  var big = QM.el('div', null, QM.moneyCcy(v.value, v.currency));
+  big.style.fontSize = '2rem';
+  big.style.fontWeight = '700';
+  amount.appendChild(big);
+  body.appendChild(amount);
+
+  body.appendChild(detailList([
+    { label: 'Customer', value: v.customerName },
+    { label: 'Device',   value: v.device },
+    { label: 'Issued',   value: v.issuedDate }
+  ]));
+
+  QM.modal({
+    title: 'Voucher issued',
+    body: body,
+    confirmLabel: 'Print',
+    cancelLabel: 'Close'
+  }).then(function (print) {
+    if (print) window.print();
+    QM.go('v-queue');
+  });
+}
+
+/* ====================================================================
+ * VOUCHERS
+ * ================================================================== */
+
+QM.route('v-vouchers', function (params) {
+  var filters = params.filters || {};
+  var wrap = QM.el('div');
+
+  wrap.appendChild(filterBar([
+    { key: 'status', type: 'select', label: 'Status', value: filters.status,
+      options: [
+        { value: '', label: 'All' },
+        { value: 'ISSUED', label: 'Active' },
+        { value: 'VOIDED', label: 'Voided' }
+      ] },
+    { key: 'search', type: 'search', label: 'Search',
+      placeholder: 'Voucher number', value: filters.search }
+  ], function (f) { QM.go('v-vouchers', { filters: f }); }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('vendor.vouchers', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    var grid = QM.el('div', 'grid cols-3 mb');
+    grid.appendChild(QM.kpi('Active vouchers', res.total, 'In the period shown'));
+    grid.appendChild(QM.kpi('Paid to customers', res.totals.customerValue,
+      'Face value of active vouchers', { money: true }));
+    grid.appendChild(QM.kpi('Your commission', res.totals.commission,
+      'On those vouchers', { money: true }));
+    list.appendChild(grid);
+
+    if (!res.vouchers.length) {
+      list.appendChild(QM.emptyBlock('No vouchers yet'));
+      return;
+    }
+
+    var canVoid = ['VENDOR_ADMIN', 'VENDOR_MANAGER', 'SUPER_ADMIN', 'QM_ADMIN']
+                    .indexOf(QM.state.me.role) > -1;
+
+    list.appendChild(QM.table([
+      { key: 'voucherNumber', label: 'Voucher', className: 'mono' },
+      { key: 'branch', label: 'Branch' },
+      { key: 'customerValue', label: 'Customer', numeric: true,
+        render: function (r) { return QM.money(r.customerValue); } },
+      { key: 'commission', label: 'Commission', numeric: true,
+        render: function (r) { return QM.money(r.commission); } },
+      { key: 'issuedDate', label: 'Issued' },
+      { key: 'status', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.status === 'ISSUED' ? 'ok' : ''), r.status);
+        } },
+      { key: 'replaces', label: 'Chain',
+        render: function (r) {
+          // Both directions, so a voided voucher can be followed to its
+          // replacement and a replacement back to what it replaced.
+          if (r.replacedBy) return QM.el('span', 'small muted', '→ ' + r.replacedBy);
+          if (r.replaces)   return QM.el('span', 'small muted', '← ' + r.replaces);
+          return QM.el('span');
+        } },
+      { key: 'actions', label: '',
+        render: function (r) {
+          if (!canVoid || r.status !== 'ISSUED') return QM.el('span');
+          var box = QM.el('div', 'gap');
+          box.appendChild(QM.button('Void', function (e) {
+            e.stopPropagation(); voidVoucher(r, false);
+          }, 'small secondary'));
+          box.appendChild(QM.button('Reissue', function (e) {
+            e.stopPropagation(); voidVoucher(r, true);
+          }, 'small secondary'));
+          return box;
+        } }
+    ], res.vouchers, {
+      onClick: function (row) { showVoucherHistory(row); }
+    }));
+  });
+
+  return wrap;
+});
+
+/**
+ * Void, and optionally replace in the same breath.
+ *
+ * Reissue is the common case — a voucher printed with the wrong value —
+ * and V2 made it unreachable: the void left the trade-in in a state
+ * issueVoucher_ refuses, so the replacement always failed. Both buttons
+ * work now, and the one that does the whole job is offered beside the
+ * one that does half of it.
+ */
+function voidVoucher(v, reissue) {
+  QM.askReason(
+    (reissue ? 'Reissue voucher ' : 'Void voucher ') + v.voucherNumber + '?',
+    reissue
+      ? 'The old voucher is voided and a replacement is issued immediately ' +
+        'for the same trade-in. Both stay on file, linked to each other.'
+      : 'The device stays with us and a replacement voucher can be issued ' +
+        'afterwards. A collected or settled voucher cannot be voided — that ' +
+        'needs an adjustment with Qatar Mobile instead.',
+    true)
+    .then(function (reason) {
+      if (!reason) return;
+      QM.call('vendor.voidVoucher', {
+        voucherId: v.voucherId, reason: reason, reissue: !!reissue
+      }).then(function (res) {
+        if (!QM.report(res)) return;
+        if (reissue && res.voucherNumber) { showVoucher(res); return; }
+        QM.go('v-vouchers');
+      });
+    });
+}
+
+function showVoucherHistory(v) {
+  var body = QM.el('div');
+  body.appendChild(detailList([
+    { label: 'Voucher',   value: v.voucherNumber },
+    { label: 'Trade-in',  value: v.tradeInId },
+    { label: 'Branch',    value: v.branch },
+    { label: 'Customer',  value: QM.moneyCcy(v.customerValue, v.currency) },
+    { label: 'Commission',value: QM.moneyCcy(v.commission, v.currency) },
+    { label: 'Total',     value: QM.moneyCcy(v.settlement, v.currency) },
+    { label: 'Issued',    value: v.issuedDate },
+    { label: 'Status',    value: v.status },
+    { label: 'Voided',    value: v.voidedDate },
+    { label: 'Void reason', value: v.voidReason },
+    { label: 'Replaced by', value: v.replacedBy },
+    { label: 'Replaces',    value: v.replaces }
+  ]));
+
+  QM.modal({
+    title: 'Voucher ' + v.voucherNumber,
+    body: body,
+    confirmLabel: 'Print',
+    cancelLabel: 'Close'
+  }).then(function (print) { if (print) window.print(); });
+}
+
+/* ====================================================================
+ * BRANCHES
+ * ================================================================== */
+
+QM.route('v-branches', function () {
+  return QM.call('vendor.branches', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    wrap.appendChild(QM.button('Add a branch',
+      function () { editBranch(null); }, 'mb'));
+
+    if (!res.branches.length) {
+      wrap.appendChild(QM.emptyBlock('No branches yet',
+        'Add one before customers can choose where to bring a device.'));
+      return wrap;
+    }
+
+    wrap.appendChild(QM.table([
+      { key: 'name', label: 'Branch' },
+      { key: 'address', label: 'Address' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'tradeInCount', label: 'Trade-ins', numeric: true },
+      { key: 'staffCount', label: 'Staff', numeric: true },
+      { key: 'active', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.active ? 'ok' : ''),
+                       r.active ? 'Open' : 'Closed');
+        } }
+    ], res.branches, { onClick: editBranch }));
+
+    return wrap;
+  });
+});
+
+function editBranch(branch) {
+  var body = QM.el('div');
+
+  var name = QM.input('text', branch ? branch.name : '', 'Villaggio Mall');
+  body.appendChild(QM.field('Branch name', name));
+
+  var address = QM.input('text', branch ? branch.address : '');
+  body.appendChild(QM.field('Address', address,
+    'Shown to customers choosing where to bring a device.'));
+
+  var phone = QM.input('tel', branch ? branch.phone : '');
+  body.appendChild(QM.field('Phone', phone));
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = branch ? branch.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var activeLabel = QM.el('label');
+  activeLabel.appendChild(active);
+  activeLabel.appendChild(document.createTextNode(' Open for trade-ins'));
+  var activeField = QM.el('div', 'field');
+  activeField.appendChild(activeLabel);
+  activeField.appendChild(QM.el('div', 'hint',
+    'Closing a branch signs out anybody assigned to it and hides it from ' +
+    'customers. Its history is kept.'));
+  body.appendChild(activeField);
+
+  QM.modal({
+    title: branch ? 'Edit branch' : 'Add a branch',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (name.value.trim().length < 2) return false;
+      return {
+        branchId: branch ? branch.branchId : '',
+        name: name.value.trim(),
+        address: address.value.trim(),
+        phone: phone.value.trim(),
+        active: active.checked
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('vendor.saveBranch', data).then(function (res) {
+      if (QM.report(res)) QM.go('v-branches');
+    });
+  });
+}
+
+/* ====================================================================
+ * STAFF
+ * ================================================================== */
+
+QM.route('v-staff', function () {
+  return QM.call('vendor.staff', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    if (res.pending) {
+      var n = QM.el('div', 'notice warn');
+      n.appendChild(QM.el('strong', null,
+        res.pending + ' access request(s) waiting'));
+      n.appendChild(document.createTextNode(
+        'Nobody can sign in until you give them a role.'));
+      wrap.appendChild(n);
+    }
+
+    wrap.appendChild(QM.button('Add a colleague',
+      function () { editStaff(null, res.grantableRoles); }, 'mb'));
+
+    wrap.appendChild(QM.table([
+      { key: 'name', label: 'Name' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'roleLabel', label: 'Role' },
+      { key: 'branchName', label: 'Branch' },
+      { key: 'status', label: 'Status',
+        render: function (r) {
+          var kind = r.active ? 'ok' : r.pending ? 'warn' : '';
+          return QM.el('span', 'pill ' + kind,
+            r.pending ? 'Waiting for approval' : r.status);
+        } }
+    ], res.staff, {
+      onClick: function (row) { editStaff(row, res.grantableRoles); }
+    }));
+
+    return wrap;
+  });
+});
+
+/**
+ * Create, approve or edit a colleague.
+ *
+ * The role dropdown is built from grantableRoles, which the SERVER
+ * decided from the caller's own role. A vendor manager is never shown a
+ * platform role, and the server would refuse it anyway.
+ */
+function editStaff(person, grantableRoles) {
+  var body = QM.el('div');
+  var isNew = !person;
+  var isPending = person && person.pending;
+
+  var name = QM.input('text', person ? person.name : '');
+  var phone = QM.input('tel', person ? person.phone : '');
+
+  if (isNew) {
+    body.appendChild(QM.field('Full name', name));
+    body.appendChild(QM.field('Mobile number', phone,
+      'They sign in with this number and a one-time code.'));
+  } else {
+    body.appendChild(detailList([
+      { label: 'Name',  value: person.name },
+      { label: 'Phone', value: person.phone }
+    ]));
+  }
+
+  if (isPending) {
+    var note = QM.el('div', 'notice warn');
+    note.appendChild(QM.el('strong', null, 'This person asked for access'));
+    note.appendChild(document.createTextNode(
+      'They chose nothing but their name and number. You decide their role ' +
+      'and branch.'));
+    body.appendChild(note);
+  }
+
+  var role = QM.select(
+    [{ value: '', label: 'Choose a role' }].concat(
+      grantableRoles.map(function (r) {
+        return { value: r.role, label: r.label };
+      })),
+    person ? person.role : '');
+  body.appendChild(QM.field('Role', role));
+
+  // 3.1: a branch-bound manager is not offered "All branches" — the
+  // server would refuse it, because it is wider than their own scope.
+  var mayAssignAll = !(QM.state.me && QM.state.me.branch);
+  var branch = QM.select(mayAssignAll ? [{ value: '', label: 'All branches' }] : [],
+                         person ? person.branchId : '');
+  var branchField = QM.field('Branch', branch,
+    mayAssignAll ? 'Leaving this blank lets them work across every branch.'
+                 : 'You can add people to your own branch.');
+  body.appendChild(branchField);
+
+  // Branches are loaded rather than assumed, so the list reflects what
+  // exists right now.
+  QM.call('vendor.branches', {}).then(function (res) {
+    if (!res.ok) return;
+    res.branches.filter(function (b) { return b.active; }).forEach(function (b) {
+      var opt = document.createElement('option');
+      opt.value = b.branchId;
+      opt.textContent = b.name;
+      if (person && person.branchId === b.branchId) opt.selected = true;
+      branch.appendChild(opt);
+    });
+  });
+
+  var statusField = null;
+  var statusSelect = null;
+  if (person && !isPending) {
+    statusSelect = QM.select([
+      { value: 'ACTIVE', label: 'Active' },
+      { value: 'DISABLED', label: 'Disabled' }
+    ], person.status);
+    statusField = QM.field('Status', statusSelect,
+      'Disabling somebody signs them out immediately.');
+    body.appendChild(statusField);
+  }
+
+  QM.modal({
+    title: isNew ? 'Add a colleague' : isPending ? 'Approve access' : 'Edit colleague',
+    body: body,
+    confirmLabel: isPending ? 'Approve' : 'Save',
+    collect: function () {
+      if (!role.value) { QM.toast('Choose a role.', 'danger'); return false; }
+      if (isNew && name.value.trim().length < 3) {
+        QM.toast('Enter their full name.', 'danger'); return false;
+      }
+      var out = {
+        mode: isNew ? 'CREATE' : isPending ? 'APPROVE' : 'UPDATE',
+        userId: person ? person.userId : '',
+        fullName: name.value.trim(),
+        phone: phone.value.trim(),
+        role: role.value,
+        branchId: branch.value
+      };
+      if (statusSelect) out.status = statusSelect.value;
+      return out;
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('vendor.saveStaff', data).then(function (res) {
+      if (QM.report(res)) QM.go('v-staff');
+    });
+  });
+}
+
+/* ====================================================================
+ * SETTLEMENTS
+ * ================================================================== */
+
+QM.route('v-settlements', function () {
+  return QM.call('vendor.settlements', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    wrap.appendChild(QM.kpi('Outstanding', res.outstanding,
+      'Approved or submitted, not yet paid', { money: true,
+        attention: res.outstanding > 0 }));
+
+    if (!res.settlements.length) {
+      wrap.appendChild(QM.emptyBlock('No settlements yet',
+        'Qatar Mobile raises these once devices have been collected.'));
+      return wrap;
+    }
+
+    wrap.appendChild(QM.table([
+      { key: 'settlementId', label: 'Reference', className: 'mono' },
+      { key: 'periodFrom', label: 'From' },
+      { key: 'periodTo', label: 'To' },
+      { key: 'tradeInCount', label: 'Devices', numeric: true },
+      { key: 'settlement', label: 'Total', numeric: true,
+        render: function (r) { return QM.money(r.settlement); } },
+      { key: 'statusLabel', label: 'Status',
+        render: function (r) {
+          var kind = ['PAID', 'CLOSED'].indexOf(r.status) > -1 ? 'ok'
+                   : r.status === 'APPROVED' ? 'info'
+                   : r.status === 'CANCELLED' ? '' : 'warn';
+          return QM.el('span', 'pill ' + kind, r.statusLabel);
+        } }
+    ], res.settlements, {
+      onClick: function (row) { showSettlement(row.settlementId); }
+    }));
+
+    return wrap;
+  });
+});
+
+function showSettlement(settlementId) {
+  QM.call('vendor.settlements', { settlementId: settlementId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+
+    var body = QM.el('div');
+    body.appendChild(detailList([
+      { label: 'Period', value: res.periodFrom + ' to ' + res.periodTo },
+      { label: 'Devices', value: res.tradeInCount },
+      { label: 'Paid to customers', value: QM.moneyCcy(res.customerValue, res.currency) },
+      { label: 'Your commission', value: QM.moneyCcy(res.commission, res.currency) },
+      { label: 'Total', value: QM.moneyCcy(res.settlement, res.currency) },
+      { label: 'Status', value: res.status },
+      { label: 'Payment reference', value: res.reference }
+    ]));
+
+    if (res.lines && res.lines.length) {
+      body.appendChild(QM.table([
+        { key: 'tradeInId', label: 'Reference', className: 'mono' },
+        { key: 'device', label: 'Device' },
+        { key: 'grade', label: 'Grade' },
+        { key: 'customerValue', label: 'Customer', numeric: true,
+          render: function (r) { return QM.money(r.customerValue); } },
+        { key: 'commission', label: 'Commission', numeric: true,
+          render: function (r) { return QM.money(r.commission); } },
+        { key: 'settlement', label: 'Total', numeric: true,
+          render: function (r) { return QM.money(r.settlement); } }
+      ], res.lines));
+    }
+
+    QM.modal({
+      title: 'Settlement ' + res.settlementId,
+      body: body,
+      confirmLabel: 'Print',
+      cancelLabel: 'Close'
+    }).then(function (print) { if (print) window.print(); });
+  });
+}
+
+/* ====================================================================
+ * REPORTS
+ * ================================================================== */
+
+QM.route('v-reports', function (params) {
+  var filters = params.filters || { groupBy: 'month' };
+  var wrap = QM.el('div');
+
+  wrap.appendChild(filterBar([
+    { key: 'groupBy', type: 'select', label: 'Group by', value: filters.groupBy,
+      options: [
+        { value: 'month', label: 'Month' },
+        { value: 'branch', label: 'Branch' },
+        { value: 'grade', label: 'Grade' },
+        { value: 'brand', label: 'Brand' },
+        { value: 'model', label: 'Model' },
+        { value: 'status', label: 'Status' }
+      ] },
+    { key: 'from', type: 'date', label: 'From', value: filters.from },
+    { key: 'to', type: 'date', label: 'To', value: filters.to }
+  ], function (f) { QM.go('v-reports', { filters: f }); }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('vendor.reports', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    var grid = QM.el('div', 'grid cols-4 mb');
+    grid.appendChild(QM.kpi('Trade-ins', res.totals.count, 'In this period'));
+    grid.appendChild(QM.kpi('Paid to customers', res.totals.customerValue,
+      'Offer values', { money: true }));
+    grid.appendChild(QM.kpi('Your commission', res.totals.commission,
+      'Earned', { money: true }));
+    grid.appendChild(QM.kpi('Invoiced', res.totals.settlement,
+      'Customer value plus commission', { money: true }));
+    list.appendChild(grid);
+
+    list.appendChild(QM.table([
+      { key: 'label', label: 'Group' },
+      { key: 'count', label: 'Devices', numeric: true },
+      { key: 'customerValue', label: 'Customer', numeric: true,
+        render: function (r) { return QM.money(r.customerValue); } },
+      { key: 'commission', label: 'Commission', numeric: true,
+        render: function (r) { return QM.money(r.commission); } },
+      { key: 'settlement', label: 'Total', numeric: true,
+        render: function (r) { return QM.money(r.settlement); } }
+    ], res.groups));
+
+    list.appendChild(QM.el('div', 'hint mt',
+      'From and To include the whole of both days.'));
+  });
+
+  return wrap;
+});
+</script>

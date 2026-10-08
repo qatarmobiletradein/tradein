@@ -1,0 +1,883 @@
+<script>
+/*******************************************************************
+ * PortalCustomer.html — the person selling a phone.
+ *
+ * THIS IS NOT A BACKEND, AND V3 STOPS IT LOOKING LIKE ONE
+ *   V2's customer screens were drawn with buildFrame(): the same navy
+ *   sidebar, the same hamburger, the same dense chrome the administrator
+ *   uses to manage eighteen pages. A person selling one phone was being
+ *   handed an operations console with four of its buttons hidden.
+ *
+ *   The customer portal now has its own shell, its own stylesheet and its
+ *   own vocabulary. It shares the design system and none of the layout.
+ *
+ * FOUR DESTINATIONS, ALWAYS VISIBLE
+ *   Home · Trade in · My trade-ins · Profile. On a phone they sit in a
+ *   bottom bar under the thumb; on a desktop the same four become a row
+ *   across the top. "My trade-ins" is never more than one tap away,
+ *   because coming back to check on a device is the second most common
+ *   thing anybody does here.
+ *
+ * THE CUSTOMER NEVER SEES A DATABASE WORD
+ *   Every status arrives from the server already translated —
+ *   CUSTOMER_STATUS_TEXT in 00_Config.gs. This file does not own a
+ *   mapping of its own, because two mappings drift and the one on the
+ *   server is the one every future channel will share.
+ *
+ * ESTIMATED IS NOT FINAL, AND EVERY SCREEN SAYS SO
+ *   Wherever a pre-inspection figure appears, the caveat appears with it
+ *   — in body text, not in grey 11px under the fold. Getting this wrong
+ *   does not produce a bug. It produces an argument at a counter with
+ *   somebody who was told 2,350 and is being offered 2,200, and who is
+ *   entirely right to be annoyed.
+ *
+ * WHAT A CUSTOMER NEVER SEES AT ALL
+ *   Commission, settlement totals, the vendor's rate, condition scores,
+ *   grade percentages, technician notes, or their own full IMEI. None of
+ *   it is filtered out here — customerTradeInView_ on the server never
+ *   builds those fields.
+ *******************************************************************/
+
+/* ====================================================================
+ * THE SHELL
+ * ================================================================== */
+
+var CXNAV = [
+  { page: 'c-home',    label: 'Home',         icon: '⌂' },
+  { page: 'c-new',     label: 'Trade in',     icon: '＋' },
+  { page: 'c-orders',  label: 'My trade-ins', icon: '☰' },
+  { page: 'c-profile', label: 'Profile',      icon: '☺' }
+];
+
+QM.portal('customer', function (me) {
+  buildCustomerShell(me);
+});
+
+function buildCustomerShell(me) {
+  var root = document.getElementById('root');
+  QM.clear(root);
+
+  var app = QM.el('div', 'cx');
+
+  /* ---- top bar ---------------------------------------------------- */
+  var top = QM.el('header', 'cx-top');
+
+  // A back control of our own. A published Apps Script app runs inside an
+  // iframe, so the browser's back button leaves the app rather than the
+  // page — which is exactly what a customer will press first.
+  var back = QM.el('button', 'cx-back', '‹');
+  back.id = 'cx-back';
+  back.setAttribute('aria-label', 'Back');
+  back.style.display = 'none';
+  back.onclick = function () { cxBack(); };
+  top.appendChild(back);
+
+  // The official Qatar Mobile mark. An empty element carrying the asset
+  // as a background — see BrandAssets.html — rather than the two-letter
+  // badge V3.0 drew. It has no text content, so it is labelled for a
+  // screen reader instead.
+  var mark = QM.el('div', 'mark qm-logo');
+  mark.setAttribute('role', 'img');
+  mark.setAttribute('aria-label', 'Qatar Mobile');
+  top.appendChild(mark);
+
+  var who = QM.el('div', 'who');
+  who.appendChild(QM.el('div', 'name', me.platform || 'Qatar Mobile'));
+  var sub = QM.el('div', 'sub');
+  sub.id = 'page-title';
+  sub.textContent = 'Trade-in';
+  who.appendChild(sub);
+  top.appendChild(who);
+
+  var bell = QM.el('button', 'cx-bell', '🔔');
+  bell.setAttribute('aria-label', 'Notifications');
+  bell.onclick = cxNotifications;
+  var dot = QM.el('span', 'dot hidden', '0');
+  dot.id = 'cx-unread';
+  bell.appendChild(dot);
+  top.appendChild(bell);
+
+  app.appendChild(top);
+
+  /* ---- tabs (top on desktop, bottom on a phone) -------------------- */
+  // Routes that are not tabs still need a name: without this the top bar
+  // shows the raw route key, and a customer opening a trade-in was being
+  // shown the word "c-detail".
+  QM.setNavLabel('c-detail',  'Your trade-in');
+  QM.setNavLabel('c-new',     'Trade in');
+
+  var tabs = QM.el('nav', 'cx-tabs');
+  CXNAV.forEach(function (entry) {
+    QM.setNavLabel(entry.page, entry.label);
+    var b = QM.el('button');
+    b.dataset.tab = entry.page;
+    b.appendChild(QM.el('span', 'icon', entry.icon));
+    b.appendChild(QM.el('span', null, entry.label));
+    b.onclick = function () { cxGo(entry.page); };
+    tabs.appendChild(b);
+  });
+
+  var main = QM.el('main', 'cx-main');
+  main.id = 'content';
+
+  // Order matters for the two layouts: the tab bar is fixed to the bottom
+  // on a phone and static at the top on a desktop, so it is placed before
+  // the content and pinned by CSS rather than moved by script.
+  app.appendChild(tabs);
+  app.appendChild(main);
+
+  root.appendChild(app);
+
+  cxGo('c-home');
+  cxRefreshUnread();
+}
+
+/* ---- navigation with a history, so Back means something ----------- */
+
+var cxHistory = [];
+
+/* Pages that hold a LIST of equivalent things get the wide column and the
+   card grid. Everything else — the flow, one trade-in, the profile — stays
+   on the 620px reading column, because a sequence of single decisions
+   spread across 1200px is harder to follow, not easier. */
+var CX_WIDE = ['c-orders'];
+
+function cxGo(page, params) {
+  if (QM.state.page && QM.state.page !== page) cxHistory.push(QM.state.page);
+  cxPaintBack();
+  cxPaintWidth(page);
+  QM.go(page, params);
+  setTimeout(cxPaintBack, 0);
+}
+
+function cxPaintWidth(page) {
+  var wide = CX_WIDE.indexOf(page === undefined ? QM.state.page : page) > -1;
+  var main = document.querySelector('.cx-main');
+  var tabs = document.querySelector('.cx-tabs');
+  if (main) main.classList.toggle('wide', wide);
+  if (tabs) tabs.classList.toggle('wide', wide);
+}
+
+function cxBack() {
+  var previous = cxHistory.pop() || 'c-home';
+  cxPaintWidth(previous);
+  QM.go(previous);
+  setTimeout(cxPaintBack, 0);
+}
+
+function cxPaintBack() {
+  var b = document.getElementById('cx-back');
+  if (!b) return;
+  // Shown only where there is somewhere to go back TO. A back arrow that
+  // does nothing is worse than none.
+  var atRoot = CXNAV.some(function (n) { return n.page === QM.state.page; });
+  b.style.display = (!atRoot && cxHistory.length) ? 'grid' : 'none';
+}
+
+/* ---- small shared pieces ------------------------------------------ */
+
+function cxCard(className) {
+  return QM.el('div', 'cx-card' + (className ? ' ' + className : ''));
+}
+
+function cxButton(label, onClick, className) {
+  var b = QM.el('button', 'cx-cta' + (className ? ' ' + className : ''), label);
+  b.type = 'button';
+  b.onclick = onClick;
+  return b;
+}
+
+function cxKv(pairs) {
+  var wrap = QM.el('div');
+  pairs.forEach(function (p) {
+    if (p.value === undefined || p.value === null || p.value === '') return;
+    var row = QM.el('div', 'cx-kv');
+    row.appendChild(QM.el('div', 'k', p.label));
+    var v = QM.el('div', 'v' + (p.onEdit ? ' edit' : ''));
+    v.setAttribute('dir', 'auto');
+    v.appendChild(document.createTextNode(String(p.value)));
+    if (p.onEdit) {
+      var e = QM.el('button', null, 'Change');
+      e.onclick = p.onEdit;
+      v.appendChild(e);
+    }
+    row.appendChild(v);
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+function cxLoading() {
+  var box = QM.el('div');
+  for (var i = 0; i < 3; i++) box.appendChild(QM.el('div', 'cx-skeleton'));
+  return box;
+}
+
+/**
+ * An IMEI, shown rather than typed.
+ *
+ * First six digits and last four kept: the leading six are the TAC, which
+ * identifies the MODEL and not the handset, and the last four are what
+ * somebody uses to confirm they are looking at their own record. The
+ * middle — the part that actually identifies the device — is covered.
+ *
+ * The server masks independently in customerTradeInView_. This is for the
+ * one place the number has not been to the server yet: the review screen
+ * of a trade-in that has not been submitted.
+ */
+function cxMaskImei(imei) {
+  var s = String(imei || '').replace(/\D/g, '');
+  if (s.length <= 10) return s;
+  return s.slice(0, 6) + s.slice(6, -4).replace(/./g, '*') + s.slice(-4);
+}
+
+function cxMoney(amount, currency) {
+  var wrap = QM.el('span');
+  wrap.appendChild(document.createTextNode(QM.money(amount)));
+  wrap.appendChild(QM.el('span', 'ccy', currency || QM.state.boot.currency || 'QAR'));
+  return wrap;
+}
+
+/**
+ * Which colour a status wears.
+ *
+ * The WORDS come from the server. This only decides whether the pill is
+ * green, amber or grey, which is presentation and belongs here.
+ */
+function cxPillKind(status) {
+  if (['COLLECTED', 'SETTLED', 'CLOSED', 'VOUCHER_ISSUED',
+       'READY_FOR_COLLECTION'].indexOf(status) > -1) return 'ok';
+  if (['FINAL_OFFER_READY'].indexOf(status) > -1) return 'warn';
+  if (['CANCELLED', 'CUSTOMER_DECLINED', 'DEVICE_RETURNED',
+       'RETURN_PENDING'].indexOf(status) > -1) return 'stop';
+  return 'go';
+}
+
+/**
+ * The ONE action worth offering for a trade-in in this state.
+ *
+ * Every screen that shows a trade-in asks this rather than deciding for
+ * itself, so a card and its detail page never disagree about what the
+ * customer should do next — and so a status that gains a new action gains
+ * it everywhere at once.
+ */
+function cxPrimaryAction(t) {
+  if (t.awaitingDecision) {
+    return { label: 'Review your offer', ghost: false,
+             run: function () { cxGo('c-detail', { tradeInId: t.tradeInId }); } };
+  }
+  if (t.voucherNumber) {
+    return { label: 'View voucher', ghost: false,
+             run: function () { cxGo('c-detail', { tradeInId: t.tradeInId }); } };
+  }
+  if (['SUBMITTED', 'AWAITING_DEVICE', 'PENDING'].indexOf(t.status) > -1 && t.branch) {
+    return { label: 'View shop location', ghost: false,
+             run: function () { cxShopLocation(t); } };
+  }
+  return { label: 'View details', ghost: true,
+           run: function () { cxGo('c-detail', { tradeInId: t.tradeInId }); } };
+}
+
+/**
+ * Where to take the device.
+ *
+ * A map link rather than an embedded map: the app runs inside a sandboxed
+ * iframe where an embed is a third-party frame that will not load, and a
+ * customer standing outside wants their own map application anyway.
+ */
+function cxShopLocation(t) {
+  var where = [t.vendor, t.branch].filter(Boolean).join(' — ');
+  var body = QM.el('div');
+  body.appendChild(QM.el('div', 'cx-kv-plain'));
+  body.appendChild(cxKv([
+    { label: 'Shop',    value: where },
+    { label: 'Address', value: t.branchAddress },
+    { label: 'Phone',   value: t.branchPhone }
+  ]));
+
+  if (t.branchAddress) {
+    var link = QM.el('a', 'cx-cta');
+    link.textContent = 'Open in Maps';
+    link.href = 'https://www.google.com/maps/search/?api=1&query=' +
+                encodeURIComponent([where, t.branchAddress].filter(Boolean).join(', '));
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.style.textDecoration = 'none';
+    link.style.textAlign = 'center';
+    link.style.lineHeight = '2.2';
+    link.style.marginTop = '.8rem';
+    body.appendChild(link);
+  }
+
+  QM.modal({ title: 'Where to bring it', body: body,
+             confirmLabel: 'Close', hideCancel: true });
+}
+
+/* ====================================================================
+ * HOME
+ * ================================================================== */
+
+QM.route('c-home', function () {
+  cxPaintWidth('c-home');
+  return QM.call('customer.myTradeIns', {}).then(function (res) {
+    var wrap = QM.el('div');
+    var me = QM.state.me || {};
+
+    /* ---- the one thing this page is for -------------------------- */
+    var hero = QM.el('div', 'cx-hero');
+
+    var brand = QM.el('div', 'cx-brand qm-logo');
+    brand.setAttribute('role', 'img');
+    brand.setAttribute('aria-label', 'Qatar Mobile');
+    hero.appendChild(brand);
+
+    hero.appendChild(QM.el('h1', null,
+      'Hello' + (me.name ? ', ' + String(me.name).split(' ')[0] : '')));
+    hero.appendChild(QM.el('p', null,
+      'Get an estimated value for your device in a few simple steps.'));
+    hero.appendChild(cxButton('Trade in your device', function () { cxGo('c-new'); }));
+    wrap.appendChild(hero);
+
+    if (!res.ok) return wrap;
+
+    var list = res.tradeIns || [];
+
+    /* ---- anything waiting on the customer, first ------------------ */
+    var waiting = list.filter(function (t) { return t.awaitingDecision; });
+    if (waiting.length) {
+      var n = QM.el('div', 'cx-note warn');
+      n.appendChild(QM.el('strong', null,
+        waiting.length === 1 ? 'You have an offer waiting'
+                             : 'You have ' + waiting.length + ' offers waiting'));
+      n.appendChild(document.createTextNode(
+        'Accept or decline so we can finish your trade-in.'));
+      wrap.appendChild(n);
+      waiting.forEach(function (t) { wrap.appendChild(cxTradeInCard(t)); });
+    }
+
+    /* ---- the active one ------------------------------------------- */
+    var active = list.filter(function (t) {
+      return !t.awaitingDecision &&
+             ['COLLECTED', 'SETTLED', 'CLOSED', 'CANCELLED',
+              'CUSTOMER_DECLINED', 'DEVICE_RETURNED'].indexOf(t.status) === -1;
+    });
+
+    if (active.length) {
+      wrap.appendChild(QM.el('div', 'cx-section-title',
+        active.length === 1 ? 'Active trade-in' : 'Active trade-ins'));
+      active.slice(0, 2).forEach(function (t) { wrap.appendChild(cxTradeInCard(t)); });
+    }
+
+    if (list.length) {
+      wrap.appendChild(cxButton('View my trade-ins (' + list.length + ')',
+        function () { cxGo('c-orders'); }, 'secondary'));
+    } else {
+      var empty = cxCard();
+      empty.appendChild(QM.el('h3', null, 'How it works'));
+      var steps = QM.el('div');
+      [
+        'Choose your device — brand, model and storage.',
+        'Answer a few questions about its condition.',
+        'See your estimated trade-in value straight away.',
+        'Pick a shop and bring the device in to be checked.'
+      ].forEach(function (line, i) {
+        var row = QM.el('div', 'cx-kv');
+        row.appendChild(QM.el('div', 'k', 'Step ' + (i + 1)));
+        row.appendChild(QM.el('div', 'v', line));
+        steps.appendChild(row);
+      });
+      empty.appendChild(steps);
+      wrap.appendChild(empty);
+    }
+
+    return wrap;
+  });
+});
+
+/* ====================================================================
+ * MY TRADE-INS
+ * ================================================================== */
+
+/**
+ * A trade-in is FINISHED when there is nothing left for anybody to do to
+ * it — collected and settled, or ended early. Everything else is active,
+ * including the ones waiting on the customer.
+ *
+ * One list, used by the filter and by the home page, so the two can never
+ * disagree about what "active" means.
+ */
+var CX_CLOSED = ['COLLECTED', 'SETTLED', 'CLOSED', 'CANCELLED',
+                 'CUSTOMER_DECLINED', 'DEVICE_RETURNED'];
+
+function cxIsClosed(t) { return CX_CLOSED.indexOf(t.status) > -1; }
+
+var cxFilter = 'active';
+
+QM.route('c-orders', function () {
+  cxPaintWidth('c-orders');
+  return QM.call('customer.myTradeIns', {}).then(function (res) {
+    if (!res.ok) return QM.el('div', 'cx-note stop', res.message);
+
+    var wrap = QM.el('div');
+    var list = res.tradeIns || [];
+
+    if (!list.length) {
+      var empty = QM.el('div', 'cx-empty');
+      empty.appendChild(QM.el('div', 'glyph', '📱'));
+      empty.appendChild(QM.el('h2', null, 'No trade-ins yet'));
+      empty.appendChild(QM.el('p', null,
+        'Start one and we will tell you what your device is worth.'));
+      empty.appendChild(cxButton('Trade in your device', function () { cxGo('c-new'); }));
+      wrap.appendChild(empty);
+      return wrap;
+    }
+
+    var waiting = list.filter(function (t) { return t.awaitingDecision; });
+    if (waiting.length) {
+      var n = QM.el('div', 'cx-note warn');
+      n.appendChild(QM.el('strong', null,
+        waiting.length === 1 ? 'Waiting for your decision'
+                             : waiting.length + ' offers waiting for you'));
+      n.appendChild(document.createTextNode(
+        'Open the trade-in to accept or decline.'));
+      wrap.appendChild(n);
+    }
+
+    /* ---- Active | Completed | All -------------------------------- */
+    var counts = {
+      active:    list.filter(function (t) { return !cxIsClosed(t); }).length,
+      completed: list.filter(cxIsClosed).length,
+      all:       list.length
+    };
+
+    // A filter that can only ever show nothing is not a filter. If every
+    // trade-in is finished, the list opens on the finished ones.
+    if (cxFilter === 'active' && !counts.active) cxFilter = 'all';
+
+    var seg = QM.el('div', 'cx-seg');
+    seg.setAttribute('role', 'tablist');
+    var grid = QM.el('div', 'cx-grid');
+
+    [ { key: 'active',    label: 'Active' },
+      { key: 'completed', label: 'Completed' },
+      { key: 'all',       label: 'All' } ].forEach(function (f) {
+      var b = QM.el('button', cxFilter === f.key ? 'on' : '');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(cxFilter === f.key));
+      b.textContent = f.label + (counts[f.key] ? ' (' + counts[f.key] + ')' : '');
+      b.onclick = function () {
+        cxFilter = f.key;
+        Array.prototype.forEach.call(seg.children, function (c) {
+          c.classList.toggle('on', c === b);
+          c.setAttribute('aria-selected', String(c === b));
+        });
+        paint();
+      };
+      seg.appendChild(b);
+    });
+    wrap.appendChild(seg);
+    wrap.appendChild(grid);
+
+    function paint() {
+      QM.clear(grid);
+      var shown = list.filter(function (t) {
+        if (cxFilter === 'all') return true;
+        return cxFilter === 'completed' ? cxIsClosed(t) : !cxIsClosed(t);
+      });
+
+      if (!shown.length) {
+        var none = QM.el('div', 'cx-empty');
+        none.appendChild(QM.el('p', null,
+          cxFilter === 'completed' ? 'Nothing completed yet.'
+                                   : 'No active trade-ins right now.'));
+        grid.appendChild(none);
+        return;
+      }
+      shown.forEach(function (t) { grid.appendChild(cxTradeInCard(t)); });
+    }
+
+    paint();
+    return wrap;
+  });
+});
+
+/**
+ * One trade-in, as a card.
+ *
+ * Cards rather than a table, at every width. A table row on a phone is
+ * either a horizontal scroll nobody discovers or a stack of labelled
+ * cells pretending to be a table.
+ */
+function cxTradeInCard(t) {
+  var card = cxCard('cx-tradein');
+  card.onclick = function () { cxGo('c-detail', { tradeInId: t.tradeInId }); };
+
+  var head = QM.el('div', 'head');
+  var left = QM.el('div');
+  left.style.flex = '1';
+  left.appendChild(QM.el('div', 'device', t.device || 'Device'));
+  left.appendChild(QM.el('div', 'ref',
+    [t.tradeInId, t.color, t.createdDate].filter(Boolean).join(' · ')));
+  head.appendChild(left);
+  head.appendChild(QM.el('span', 'cx-pill ' + cxPillKind(t.status), t.statusLabel));
+  card.appendChild(head);
+
+  /* ---- the money, named for what it actually is ------------------- */
+  var money = QM.el('div', 'money');
+
+  if (t.finalValue !== undefined) {
+    money.appendChild(QM.el('div', 'label', 'Final trade-in value'));
+    var f = QM.el('div', 'amount');
+    f.appendChild(cxMoney(t.finalValue, t.currency));
+    money.appendChild(f);
+  } else {
+    money.appendChild(QM.el('div', 'label', 'Estimated value'));
+    var e = QM.el('div', 'amount');
+    e.appendChild(cxMoney(t.estimatedValue, t.currency));
+    money.appendChild(e);
+  }
+  card.appendChild(money);
+
+  if (t.voucherNumber) {
+    var v = QM.el('div', 'cx-note ok');
+    v.style.marginTop = '.8rem';
+    v.style.marginBottom = '0';
+    v.appendChild(QM.el('strong', null, 'Voucher ' + t.voucherNumber));
+    v.appendChild(document.createTextNode(
+      QM.money(t.voucherValue) + ' ' + (t.currency || 'QAR') +
+      ', issued ' + t.voucherDate + '.'));
+    card.appendChild(v);
+  }
+
+  // One action, chosen by where the trade-in actually is. A card that
+  // offers "View voucher" on a device nobody has inspected yet teaches
+  // people to ignore the buttons.
+  var action = cxPrimaryAction(t);
+  card.appendChild(cxButton(action.label, function (ev) {
+    ev.stopPropagation();
+    action.run();
+  }, action.ghost ? 'ghost' : 'secondary'));
+
+  return card;
+}
+
+/* ====================================================================
+ * ONE TRADE-IN
+ * ================================================================== */
+
+QM.route('c-detail', function (params) {
+  cxPaintWidth('c-detail');
+  return QM.call('customer.tradeIn', { tradeInId: params.tradeInId })
+    .then(function (res) {
+      if (!res.ok) return QM.el('div', 'cx-note stop', res.message);
+
+      var t = res.tradeIn;
+      var wrap = QM.el('div');
+
+      /* ---- what it is ------------------------------------------- */
+      var head = cxCard();
+      head.appendChild(QM.el('h2', null, t.device));
+      head.appendChild(QM.el('div', 'cx-quiet',
+        [t.color, t.tradeInId].filter(Boolean).join(' · ')));
+      var pill = QM.el('span', 'cx-pill ' + cxPillKind(t.status), t.statusLabel);
+      pill.style.marginTop = '.7rem';
+      pill.style.maxWidth = '100%';
+      head.appendChild(pill);
+      if (t.statusDetail) {
+        head.appendChild(QM.el('p', 'cx-soft', t.statusDetail));
+      }
+      wrap.appendChild(head);
+
+      /* ---- the decision, if there is one ------------------------- */
+      if (t.awaitingDecision) {
+        var offer = cxCard();
+        offer.appendChild(QM.el('div', 'cx-section-title', 'Your final offer'));
+        var amount = QM.el('div');
+        amount.style.fontSize = '2.2rem';
+        amount.style.fontWeight = '800';
+        amount.style.fontVariantNumeric = 'tabular-nums';
+        amount.appendChild(cxMoney(t.finalValue, t.currency));
+        offer.appendChild(amount);
+        offer.appendChild(QM.el('p', 'cx-soft',
+          'Confirmed after our technician inspected your device.'));
+
+        if (t.variance) {
+          offer.appendChild(cxVarianceLine(t));
+        }
+
+        var row = QM.el('div', 'cx-btn-row');
+        row.style.marginTop = '.8rem';
+        row.appendChild(cxButton('Accept', function () { cxAccept(t); }));
+        row.appendChild(cxButton('Decline', function () { cxDecline(t); }, 'secondary'));
+        offer.appendChild(row);
+        wrap.appendChild(offer);
+
+      } else if (t.finalValue !== undefined) {
+        var done = cxCard();
+        done.appendChild(QM.el('div', 'cx-section-title', 'Final trade-in value'));
+        var d = QM.el('div');
+        d.style.fontSize = '2rem';
+        d.style.fontWeight = '800';
+        d.appendChild(cxMoney(t.finalValue, t.currency));
+        done.appendChild(d);
+        if (t.variance) done.appendChild(cxVarianceLine(t));
+        wrap.appendChild(done);
+
+      } else {
+        var est = cxCard();
+        est.appendChild(QM.el('div', 'cx-section-title', 'Estimated trade-in value'));
+        var a = QM.el('div');
+        a.style.fontSize = '2rem';
+        a.style.fontWeight = '800';
+        a.appendChild(cxMoney(t.estimatedValue, t.currency));
+        est.appendChild(a);
+        est.appendChild(QM.el('div', 'cx-caveat', t.estimateNote));
+        wrap.appendChild(est);
+      }
+
+      /* ---- the voucher ------------------------------------------- */
+      if (t.voucherNumber) {
+        var vcard = cxCard();
+        vcard.appendChild(QM.el('div', 'cx-section-title', 'Your voucher'));
+        var num = QM.el('div');
+        num.style.fontSize = '1.5rem';
+        num.style.fontWeight = '800';
+        num.style.letterSpacing = '.06em';
+        num.textContent = t.voucherNumber;
+        vcard.appendChild(num);
+        vcard.appendChild(cxKv([
+          { label: 'Value',  value: QM.money(t.voucherValue) + ' ' + t.currency },
+          { label: 'Issued', value: t.voucherDate },
+          { label: 'Shop',   value: [t.vendor, t.branch].filter(Boolean).join(' — ') }
+        ]));
+        wrap.appendChild(vcard);
+      }
+
+      /* ---- progress ---------------------------------------------- */
+      var progress = cxCard();
+      progress.appendChild(QM.el('div', 'cx-section-title', 'Progress'));
+
+      if (t.timeline && t.timeline.ended) {
+        var ended = QM.el('div', 'cx-note');
+        ended.appendChild(QM.el('strong', null, t.timeline.label));
+        ended.appendChild(document.createTextNode(t.timeline.detail || ''));
+        ended.style.marginBottom = '0';
+        progress.appendChild(ended);
+      } else if (t.timeline) {
+        var tl = QM.el('div', 'cx-timeline');
+        t.timeline.steps.forEach(function (s) {
+          var step = QM.el('div', 'cx-step ' + s.state);
+          step.appendChild(QM.el('div', 'label', s.label));
+          if (s.when) step.appendChild(QM.el('div', 'when', s.when));
+          tl.appendChild(step);
+        });
+        progress.appendChild(tl);
+      }
+      wrap.appendChild(progress);
+
+      /* ---- the record, folded away --------------------------------
+       * Real, occasionally needed, and on a phone it was pushing the
+       * timeline below the fold. Closed by default; one tap to open.
+       * ------------------------------------------------------------ */
+      var details = QM.el('details', 'cx-details');
+      var sum = QM.el('summary', null, 'Trade-in details');
+      details.appendChild(sum);
+      var inner = QM.el('div', 'inner');
+      var imei = QM.el('span', 'masked');
+      imei.textContent = t.imei || '';
+      inner.appendChild(cxKv([
+        { label: 'Reference', value: t.tradeInId },
+        { label: 'Device',    value: t.device },
+        { label: 'Colour',    value: t.color },
+        { label: 'IMEI',      value: t.imei },
+        { label: 'Shop',      value: [t.vendor, t.branch].filter(Boolean).join(' — ') },
+        { label: 'Address',   value: t.branchAddress },
+        { label: 'Submitted', value: t.createdDate }
+      ]));
+      details.appendChild(inner);
+      wrap.appendChild(details);
+
+      /* ---- what to do next ---------------------------------------- */
+      var actions = QM.el('div', 'cx-actions');
+      if (t.branchAddress && !t.voucherNumber) {
+        actions.appendChild(cxButton('View shop location',
+          function () { cxShopLocation(t); }, 'secondary'));
+      }
+      actions.appendChild(cxButton('Back to my trade-ins',
+        function () { cxGo('c-orders'); }, 'ghost'));
+      wrap.appendChild(actions);
+
+      return wrap;
+    });
+});
+
+/**
+ * Estimated against final, in plain words.
+ *
+ * Shown to the CUSTOMER rather than kept for reports, because they are
+ * the person who will notice the difference and the only one who cannot
+ * look it up. Saying "150 less than the estimate, because the screen was
+ * cracked rather than scratched" is a conversation; showing two numbers
+ * and no explanation is an argument.
+ */
+function cxVarianceLine(t) {
+  var box = QM.el('div', 'cx-note' + (t.variance < 0 ? ' warn' : ' ok'));
+  box.style.marginTop = '.8rem';
+  box.style.marginBottom = '0';
+
+  var lower = t.variance < 0;
+  box.appendChild(QM.el('strong', null,
+    lower ? QM.money(Math.abs(t.variance)) + ' ' + t.currency + ' below your estimate'
+          : QM.money(t.variance) + ' ' + t.currency + ' above your estimate'));
+
+  box.appendChild(document.createTextNode(
+    'Your estimate was ' + QM.money(t.estimatedValue) + ' ' + t.currency +
+    ', based on what you told us. ' +
+    (lower ? 'Our technician found the device in a different condition.'
+           : 'Our technician found the device in better condition than described.')));
+
+  return box;
+}
+
+function cxAccept(t) {
+  QM.modal({
+    title: 'Accept this offer?',
+    body: 'You are accepting ' + QM.money(t.finalValue) + ' ' + t.currency +
+          ' for your ' + t.device + '. Hand the device over at the shop to ' +
+          'receive your voucher.',
+    confirmLabel: 'Accept offer'
+  }).then(function (yes) {
+    if (!yes) return;
+    QM.call('customer.acceptOffer', { tradeInId: t.tradeInId }).then(function (res) {
+      if (QM.report(res)) cxGo('c-detail', { tradeInId: t.tradeInId });
+    });
+  });
+}
+
+function cxDecline(t) {
+  QM.askReason('Decline this offer?',
+    'Tell us why, so we can improve. Your device stays with you.', true)
+    .then(function (reason) {
+      if (!reason) return;
+      QM.call('customer.declineOffer', {
+        tradeInId: t.tradeInId, reason: reason
+      }).then(function (res) {
+        if (QM.report(res)) cxGo('c-orders');
+      });
+    });
+}
+
+/* ====================================================================
+ * PROFILE
+ * ================================================================== */
+
+QM.route('c-profile', function () {
+  cxPaintWidth('c-profile');
+  var me = QM.state.me || {};
+  var wrap = QM.el('div');
+
+  var card = cxCard();
+  card.appendChild(QM.el('h2', null, me.name || 'Your details'));
+  card.appendChild(QM.el('div', 'cx-quiet', me.phone || ''));
+
+  var name = QM.input('text', me.name || '', 'Your full name');
+  var nameField = QM.el('div', 'cx-field');
+  nameField.appendChild(QM.el('label', null, 'Full name'));
+  nameField.appendChild(name);
+  card.appendChild(nameField);
+
+  var email = QM.input('email', '', 'you@example.com');
+  var emailField = QM.el('div', 'cx-field');
+  emailField.appendChild(QM.el('label', null, 'Email (optional)'));
+  emailField.appendChild(email);
+  card.appendChild(emailField);
+
+  // The phone number is shown and NOT editable. It is the only credential
+  // in the system, and moving an account onto a new number from a profile
+  // form is how somebody with a borrowed session keeps it. The server
+  // refuses it too; saying why here stops it looking like an oversight.
+  var phoneNote = QM.el('div', 'cx-field');
+  phoneNote.appendChild(QM.el('label', null, 'Mobile number'));
+  var phone = QM.input('tel', me.phone || '');
+  phone.disabled = true;
+  phoneNote.appendChild(phone);
+  phoneNote.appendChild(QM.el('div', 'hint',
+    'Your number is how you sign in, so it cannot be changed here. ' +
+    'Ask us at the shop if you need to move your account.'));
+  card.appendChild(phoneNote);
+
+  card.appendChild(cxButton('Save', function () {
+    QM.call('customer.updateProfile', {
+      fullName: name.value.trim(), email: email.value.trim()
+    }).then(function (res) {
+      if (QM.report(res) && res.customer) {
+        QM.state.me.name = res.customer.name;
+        cxGo('c-profile');
+      }
+    });
+  }));
+
+  wrap.appendChild(card);
+
+  var about = cxCard('flat');
+  about.appendChild(QM.el('div', 'cx-quiet',
+    (QM.state.boot.versionLabel || 'Qatar Mobile Trade-In')));
+  wrap.appendChild(about);
+
+  wrap.appendChild(cxButton('Sign out', function () {
+    QM.modal({
+      title: 'Sign out?',
+      body: 'You will need your mobile number and a new code to sign back in.',
+      confirmLabel: 'Sign out'
+    }).then(function (yes) { if (yes) QM.signOut(); });
+  }, 'secondary'));
+
+  return wrap;
+});
+
+/* ====================================================================
+ * NOTIFICATIONS
+ * ================================================================== */
+
+function cxRefreshUnread() {
+  QM.call('notify.list', { limit: 1 }).then(function (res) {
+    var dot = document.getElementById('cx-unread');
+    if (!dot || !res.ok) return;
+    dot.textContent = res.unread > 9 ? '9+' : String(res.unread);
+    dot.classList.toggle('hidden', !res.unread);
+  });
+}
+
+function cxNotifications() {
+  QM.call('notify.list', {}).then(function (res) {
+    var body = QM.el('div');
+
+    if (!res.ok || !res.notifications.length) {
+      body.appendChild(QM.el('p', 'cx-quiet', 'Nothing yet.'));
+    } else {
+      res.notifications.forEach(function (n) {
+        var row = QM.el('div', 'cx-kv');
+        var left = QM.el('div', 'k', n.date);
+        var right = QM.el('div', 'v');
+        right.appendChild(QM.el('div', null, n.title));
+        right.appendChild(QM.el('div', 'cx-quiet', n.message));
+        row.appendChild(left);
+        row.appendChild(right);
+        if (!n.read) row.style.background = 'var(--cx-accent-soft)';
+        body.appendChild(row);
+      });
+    }
+
+    QM.modal({
+      title: 'Notifications',
+      body: body,
+      confirmLabel: 'Mark all as read',
+      cancelLabel: 'Close'
+    }).then(function (markAll) {
+      if (!markAll) return;
+      QM.call('notify.markAllRead', {}).then(function () { cxRefreshUnread(); });
+    });
+  });
+}
+</script>

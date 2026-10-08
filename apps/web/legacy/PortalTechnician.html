@@ -1,0 +1,809 @@
+<script>
+/*******************************************************************
+ * PortalTechnician.html — the inspection bench.
+ *
+ * THE ONE RULE THIS SCREEN ENFORCES BY OMISSION
+ *
+ *   There is no grade selector anywhere in this file. Not disabled, not
+ *   hidden, not commented out. The technician answers questions; the
+ *   server decides the grade and sends it back to be displayed.
+ *
+ *   Search this file for "grade" and you will find only read-only
+ *   rendering. That is deliberate, and it should stay that way: a
+ *   technician who can choose the grade can choose the price, and two
+ *   identical phones inspected on the same morning would fetch
+ *   different offers.
+ *
+ * WHAT THE SERVER SENDS, AND WHAT IT DOES NOT
+ *   It sends the questions and the two answer labels. It does NOT send
+ *   what each fault costs. A technician who knew the back glass was
+ *   worth ten points could work backwards from the grade they wanted,
+ *   and an objective check would quietly become a negotiation.
+ *
+ *   It also never sends the customer's IMEI. See 15_Inspections.gs.
+ *
+ * DESIGNED FOR ONE THUMB
+ *   Whole rows are tappable, both answers are labelled, targets are
+ *   large. A technician does this standing at a counter with the handset
+ *   in the other hand and a customer watching.
+ *******************************************************************/
+
+QM.portal('technician', function (me) {
+  buildFrame({
+    mark: 'QM',
+    title: me.platform,
+    nav: [
+      { page: 't-queue',   label: 'Queue',      icon: '▤', badge: '0' },
+      { page: 't-offers',  label: 'Offers out', icon: '◷' },
+      { page: 't-receive', label: 'Receiving',  icon: '⇩' },
+      { page: 't-returns', label: 'Returns',    icon: '⇦' }
+    ]
+  });
+});
+
+/* ====================================================================
+ * QUEUES
+ * ================================================================== */
+
+QM.route('t-queue', function () {
+  return QM.call('tech.queues', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    setBadge('t-queue', res.waiting.length + res.inProgress.length);
+
+    var wrap = QM.el('div');
+
+    if (res.inProgress.length) {
+      wrap.appendChild(QM.el('h2', null, 'In progress'));
+      res.inProgress.forEach(function (t) {
+        wrap.appendChild(deviceCard(t, 'Continue inspection', function () {
+          openInspection(t.tradeInId);
+        }));
+      });
+    }
+
+    wrap.appendChild(QM.el('h2', 'mt2', 'Waiting for inspection'));
+    if (!res.waiting.length) {
+      wrap.appendChild(QM.emptyBlock('Nothing waiting',
+        'Every device has been picked up.'));
+    } else {
+      res.waiting.forEach(function (t) {
+        wrap.appendChild(deviceCard(t, 'Start inspection', function () {
+          openInspection(t.tradeInId);
+        }));
+      });
+    }
+
+    return wrap;
+  });
+});
+
+function techQueue(which, hint, actionLabel, action) {
+  return QM.call('tech.queues', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    setBadge('t-queue', (res.waiting || []).length + (res.inProgress || []).length);
+
+    var rows = res[which] || [];
+    var wrap = QM.el('div');
+
+    if (hint) {
+      var n = QM.el('div', 'notice');
+      n.appendChild(document.createTextNode(hint));
+      wrap.appendChild(n);
+    }
+
+    if (!rows.length) {
+      wrap.appendChild(QM.emptyBlock('Nothing here', 'This queue is clear.'));
+      return wrap;
+    }
+
+    rows.forEach(function (t) {
+      wrap.appendChild(deviceCard(t, actionLabel, action));
+    });
+    return wrap;
+  });
+}
+
+QM.route('t-offers', function () {
+  return techQueue('awaitingCustomer',
+    'These customers have been given a final offer and have not answered yet.');
+});
+
+QM.route('t-receive', function () {
+  return techQueue('readyToReceive',
+    'The customer accepted. Take the device in, then a voucher can be issued.',
+    'Device received', function (t) { receiveDevice(t); });
+});
+
+QM.route('t-returns', function () {
+  return techQueue('returns',
+    'These devices are being given back. Record the handover when the ' +
+    'customer collects.',
+    'Customer collected it', function (t) { completeReturn(t); });
+});
+
+function deviceCard(t, actionLabel, action) {
+  var card = QM.el('div', 'card');
+
+  var head = QM.el('div', 'card-head');
+  if (t.grade) head.appendChild(QM.gradeChip(t.grade));
+  head.appendChild(QM.el('h3', null, t.device || 'Device'));
+  head.appendChild(QM.el('div', 'spacer'));
+  head.appendChild(QM.statusPill(t.status, t.statusLabel));
+  card.appendChild(head);
+
+  var body = QM.el('div', 'card-body');
+
+  body.appendChild(detailList([
+    { label: 'Reference', value: t.tradeInId },
+    { label: 'Customer',  value: t.customerName },
+    { label: 'Phone',     value: t.customerPhone },
+    { label: 'Colour',    value: t.color },
+    { label: 'Shop',      value: t.vendorName },
+    { label: 'Offer',     value: t.customerValue
+        ? QM.moneyCcy(t.customerValue, t.currency) : null },
+    { label: 'Submitted', value: t.createdDate }
+  ]));
+
+  if (actionLabel && action) {
+    body.appendChild(QM.button(actionLabel, function () { action(t); }, 'block mt'));
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+/* ====================================================================
+ * THE INSPECTION SCREEN
+ * ================================================================== */
+
+var insp = null;          // the workspace as the server last described it
+var answerBuffer = {};    // answers not yet saved
+var saveTimer = null;
+
+function openInspection(tradeInId) {
+  var content = document.getElementById('content');
+  QM.clear(content);
+  content.appendChild(QM.loadingBlock());
+
+  QM.call('tech.openInspection', { tradeInId: tradeInId }).then(function (res) {
+    QM.clear(content);
+    if (!res.ok) { content.appendChild(QM.errorBlock(res.message)); return; }
+    insp = res;
+    answerBuffer = {};
+    renderInspection(content);
+  });
+}
+
+function renderInspection(host) {
+  QM.clear(host);
+  var d = insp;
+
+  /* ---- what is on the bench --------------------------------------- */
+  var head = QM.el('div', 'card');
+  var hbody = QM.el('div', 'card-body');
+  hbody.appendChild(QM.el('h2', null,
+    [d.device.brand, d.device.model, d.device.storage].filter(Boolean).join(' ')));
+  hbody.appendChild(QM.el('div', 'soft small',
+    [d.device.color, d.customer.name, d.tradeInId].filter(Boolean).join(' · ')));
+  head.appendChild(hbody);
+  host.appendChild(head);
+
+  /* ---- IMEI ------------------------------------------------------- */
+  host.appendChild(imeiCard());
+
+  /* ---- the questions, by section ---------------------------------- */
+  var checklist = QM.el('div');
+  d.groups.forEach(function (group) {
+    var rules = d.rules.filter(function (r) { return r.group === group; });
+    if (!rules.length) return;
+
+    var answered = rules.filter(function (r) {
+      return currentAnswer(r.code) !== undefined ||
+             (r.input === 'PERCENTAGE' && d.inspection.batteryHealth !== null);
+    }).length;
+
+    var sh = QM.el('div', 'section-head');
+    sh.appendChild(QM.el('span', null, group));
+    sh.appendChild(QM.el('span', 'count', answered + ' / ' + rules.length));
+    checklist.appendChild(sh);
+
+    var box = QM.el('div', 'card');
+    var bbody = QM.el('div', 'card-body');
+    rules.forEach(function (r) { bbody.appendChild(answerRow(r)); });
+    box.appendChild(bbody);
+    checklist.appendChild(box);
+  });
+  host.appendChild(checklist);
+
+  /* ---- photographs ------------------------------------------------ */
+  host.appendChild(photosCard());
+
+  /* ---- notes ------------------------------------------------------ */
+  var notes = QM.el('textarea');
+  notes.value = d.inspection.notes || '';
+  notes.placeholder = 'Anything worth recording about this device.';
+  notes.onchange = function () { queueSave({ notes: notes.value }); };
+  host.appendChild(QM.card('Notes', notes));
+
+  /* ---- the live result -------------------------------------------- */
+  var panel = QM.el('div');
+  panel.id = 'result-panel';
+  host.appendChild(panel);
+  drawResult(d.result);
+
+  var back = QM.button('Back to queue', function () { QM.go('t-queue'); },
+                       'ghost block mt');
+  host.appendChild(back);
+}
+
+/** The answer currently in effect — buffered if unsaved, else stored. */
+function currentAnswer(code) {
+  if (answerBuffer[code] !== undefined) return answerBuffer[code];
+  return insp.inspection.answers[code];
+}
+
+/**
+ * One question, two labelled answers.
+ *
+ * Nothing here displays a score. The server does not send one per
+ * question, and this row could not show it if it wanted to.
+ */
+function answerRow(rule) {
+  if (rule.input === 'PERCENTAGE') return batteryRow(rule);
+
+  var row = QM.el('div', 'answer');
+  var value = currentAnswer(rule.code);
+  if (value === undefined) row.classList.add('pending');
+
+  var left = QM.el('div');
+  left.appendChild(QM.el('div', 'q', rule.question));
+  if (rule.input === 'LOCK') {
+    left.appendChild(QM.el('div', 'sub',
+      'A locked device cannot be resold.'));
+  }
+  row.appendChild(left);
+
+  var seg = QM.el('div', 'seg');
+
+  var goodBtn = QM.el('button', null, rule.good || 'Yes');
+  var badBtn  = QM.el('button', null, rule.bad || 'No');
+
+  function paint() {
+    var v = currentAnswer(rule.code);
+    goodBtn.className = v === true ? 'on-good' : '';
+    badBtn.className  = v === false ? 'on-bad' : '';
+    row.classList.toggle('pending', v === undefined);
+  }
+
+  goodBtn.onclick = function () { setAnswer(rule.code, true);  paint(); };
+  badBtn.onclick  = function () { setAnswer(rule.code, false); paint(); };
+
+  seg.appendChild(goodBtn);
+  seg.appendChild(badBtn);
+  row.appendChild(seg);
+
+  paint();
+  return row;
+}
+
+/** Battery is the one question that takes a number. */
+function batteryRow(rule) {
+  var row = QM.el('div', 'answer');
+
+  var left = QM.el('div');
+  left.appendChild(QM.el('div', 'q', rule.question));
+  left.appendChild(QM.el('div', 'sub',
+    'Settings > Battery > Battery Health on the device.'));
+  row.appendChild(left);
+
+  var right = QM.el('div', 'battery-row');
+
+  var input = QM.input('number', insp.inspection.batteryHealth === null
+                                   ? '' : insp.inspection.batteryHealth);
+  input.min = 0; input.max = 100;
+  input.placeholder = '%';
+  input.setAttribute('inputmode', 'numeric');
+
+  var band = QM.el('span', 'battery-band', '');
+
+  function paint() {
+    var v = Number(input.value);
+    if (!isFinite(v) || input.value === '') {
+      band.textContent = 'Not entered';
+      row.classList.add('pending');
+      return;
+    }
+    row.classList.remove('pending');
+    band.textContent = v + '%';
+  }
+
+  input.oninput = paint;
+  input.onchange = function () {
+    var v = Number(input.value);
+    if (!isFinite(v) || v < 0 || v > 100) {
+      QM.toast('Battery health is between 0 and 100.', 'danger');
+      return;
+    }
+    queueSave({ batteryHealth: v });
+  };
+
+  paint();
+  right.appendChild(input);
+  right.appendChild(band);
+  row.appendChild(right);
+  return row;
+}
+
+/**
+ * Record an answer and save.
+ *
+ * Debounced, because a technician taps quickly through a checklist and
+ * one request per tap would queue up behind itself.
+ */
+function setAnswer(code, value) {
+  answerBuffer[code] = value;
+  queueSave({});
+}
+
+function queueSave(extra) {
+  clearTimeout(saveTimer);
+  var payload = Object.assign({ tradeInId: insp.tradeInId }, extra || {});
+  saveTimer = setTimeout(function () {
+    var answers = {};
+    Object.keys(answerBuffer).forEach(function (k) { answers[k] = answerBuffer[k]; });
+    payload.answers = answers;
+
+    QM.call('tech.saveInspection', payload).then(function (res) {
+      if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+
+      // Fold the buffer into what the server now holds.
+      Object.keys(answers).forEach(function (k) {
+        insp.inspection.answers[k] = answers[k];
+      });
+      answerBuffer = {};
+      if (payload.batteryHealth !== undefined) {
+        insp.inspection.batteryHealth = payload.batteryHealth;
+      }
+
+      insp.result = res.result;
+      drawResult(res.result);
+      refreshCounts();
+    });
+  }, 350);
+}
+
+function refreshCounts() {
+  document.querySelectorAll('.section-head').forEach(function (sh) {
+    var group = sh.firstChild.textContent;
+    var rules = insp.rules.filter(function (r) { return r.group === group; });
+    var answered = rules.filter(function (r) {
+      if (r.input === 'PERCENTAGE') return insp.inspection.batteryHealth !== null;
+      return currentAnswer(r.code) !== undefined;
+    }).length;
+    sh.querySelector('.count').textContent = answered + ' / ' + rules.length;
+  });
+}
+
+/* ====================================================================
+ * IMEI
+ * ================================================================== */
+
+function imeiCard() {
+  var body = QM.el('div');
+
+  if (insp.inspection.imeiConfirmed) {
+    var okBox = QM.el('div', 'notice ok');
+    okBox.appendChild(QM.el('strong', null, 'IMEI confirmed'));
+    okBox.appendChild(document.createTextNode(
+      'This is the device the customer registered.'));
+    body.appendChild(okBox);
+    return QM.card('Identity', body);
+  }
+
+  body.appendChild(QM.el('p', 'soft',
+    'Read the IMEI off the handset — dial *#06# — and type it here. The ' +
+    'number the customer gave us is deliberately not shown, so this check ' +
+    'means something.'));
+
+  var input = QM.input('tel', '', '15 digits');
+  input.setAttribute('inputmode', 'numeric');
+  input.maxLength = 17;
+  input.className = 'code-input';
+  input.style.letterSpacing = '.08em';
+  input.style.fontSize = '1.15rem';
+  body.appendChild(QM.field(null, input));
+
+  var result = QM.el('div');
+  body.appendChild(result);
+
+  body.appendChild(QM.button('Check IMEI', function () {
+    var value = input.value.replace(/\D/g, '');
+    if (value.length !== 15) { QM.toast('An IMEI is 15 digits.', 'danger'); return; }
+
+    QM.call('tech.checkImei', {
+      tradeInId: insp.tradeInId, scannedImei: value
+    }).then(function (res) {
+      QM.clear(result);
+      if (!res.ok) { result.appendChild(QM.el('div', 'notice danger', res.message)); return; }
+
+      if (res.match) {
+        QM.toast('IMEI confirmed.', 'ok');
+        openInspection(insp.tradeInId);       // reload; the block clears
+      } else {
+        // No expected value shown. See the file header.
+        var n = QM.el('div', 'notice danger');
+        n.appendChild(QM.el('strong', null, 'This is not the registered device'));
+        n.appendChild(document.createTextNode(
+          'Do not proceed. Check you have the right handset, and speak to ' +
+          'the customer.'));
+        result.appendChild(n);
+      }
+    });
+  }, 'block'));
+
+  return QM.card('Identity', body);
+}
+
+/* ====================================================================
+ * THE RESULT PANEL — read-only
+ * ================================================================== */
+
+function drawResult(result) {
+  var panel = document.getElementById('result-panel');
+  if (!panel) return;
+  QM.clear(panel);
+
+  var box = QM.el('div', 'result-panel' + (result.blocked ? ' blocked' : ''));
+
+  if (result.blocked) {
+    box.appendChild(QM.el('strong', null, 'This device cannot be accepted'));
+    box.appendChild(QM.el('div', 'small', result.blockedReason));
+    box.appendChild(QM.el('div', 'computed',
+      'The system applied this rule. It is not a judgement you can change.'));
+    panel.appendChild(box);
+    panel.appendChild(completeButton(result));
+    return;
+  }
+
+  var row = QM.el('div', 'row');
+
+  var scoreM = QM.el('div', 'metric');
+  scoreM.style.flex = '1';
+  scoreM.appendChild(QM.el('div', 'label', 'Condition score'));
+  scoreM.appendChild(QM.el('div', 'value', result.score));
+  var bar = QM.el('div', 'score-bar' +
+    (result.score < 60 ? ' low' : result.score < 85 ? ' mid' : ''));
+  var fill = QM.el('span');
+  fill.style.width = Math.max(2, result.score) + '%';
+  bar.appendChild(fill);
+  scoreM.appendChild(bar);
+  row.appendChild(scoreM);
+
+  var gradeM = QM.el('div', 'metric');
+  gradeM.appendChild(QM.el('div', 'label', 'Grade'));
+  var g = QM.el('div', 'value');
+  g.appendChild(QM.gradeChip(result.gradeCode));
+  gradeM.appendChild(g);
+  row.appendChild(gradeM);
+
+  var valueM = QM.el('div', 'metric');
+  valueM.style.textAlign = 'right';
+  valueM.appendChild(QM.el('div', 'label', 'Customer receives'));
+  valueM.appendChild(QM.el('div', 'value',
+    result.priced ? QM.moneyCcy(result.customerValue, result.currency) : '—'));
+  row.appendChild(valueM);
+
+  box.appendChild(row);
+
+  // Said plainly, every time. The technician should never wonder whether
+  // this is a suggestion they are meant to adjust.
+  box.appendChild(QM.el('div', 'computed',
+    '🔒 Calculated by the system from your answers. Not editable.'));
+
+  if (!result.priced && result.priceMessage) {
+    box.appendChild(QM.el('div', 'notice warn mt', result.priceMessage));
+  }
+
+  panel.appendChild(box);
+  panel.appendChild(completeButton(result));
+}
+
+function completeButton(result) {
+  var wrap = QM.el('div', 'mt');
+
+  if (!insp.gates.imeiConfirmed && insp.gates.imeiRequired) {
+    wrap.appendChild(QM.el('div', 'notice warn',
+      'Confirm the IMEI before finishing.'));
+    return wrap;
+  }
+
+  if (!result.complete) {
+    wrap.appendChild(QM.el('div', 'notice warn',
+      result.missing.length + ' question(s) still unanswered.'));
+    return wrap;
+  }
+
+  var b = QM.button('Review and complete', function () { showSummary(); },
+                    'gold block');
+  wrap.appendChild(b);
+  return wrap;
+}
+
+/**
+ * The confirmation before the offer goes out.
+ *
+ * Everything on it is read-only. The technician is confirming what they
+ * observed, not approving a number.
+ */
+function showSummary() {
+  QM.call('tech.summary', { tradeInId: insp.tradeInId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+
+    var body = QM.el('div');
+
+    body.appendChild(detailList([
+      { label: 'Device',        value: res.device },
+      { label: 'Colour',        value: res.color },
+      { label: 'IMEI',          value: res.imeiConfirmed ? 'Confirmed' : 'Not confirmed' },
+      { label: 'Battery',       value: res.batteryHealth === null
+                                        ? '—' : res.batteryHealth + '%' },
+      { label: 'Activation lock', value: res.activationLock ? 'ON' : 'Off' },
+      { label: 'Photographs',   value: res.photoCount }
+    ]));
+
+    if (res.result.faults.length) {
+      body.appendChild(QM.el('div', 'label mt', 'Faults found'));
+      var ul = QM.el('ul');
+      ul.style.margin = '.3rem 0 0'; ul.style.paddingLeft = '1.2rem';
+      res.result.faults.forEach(function (f) {
+        ul.appendChild(QM.el('li', null, f.question + ' — ' + f.detail));
+      });
+      body.appendChild(ul);
+    }
+
+    /* ---- what the customer said, shown ONLY NOW --------------------
+     * Deliberately absent from the inspection screen and present on this
+     * confirmation. A technician who could read "the customer says the
+     * screen is perfect" WHILE answering the screen question is being
+     * handed an answer, and an objective check quietly becomes an
+     * agreement.
+     *
+     * Afterwards it is useful: a large disagreement is worth resolving
+     * with the customer standing there, which is far cheaper than
+     * resolving it after an offer has gone out.
+     * ---------------------------------------------------------------- */
+    if (res.comparison && res.comparison.length) {
+      body.appendChild(QM.el('div', 'label mt', 'What the customer told us'));
+
+      var differences = res.comparison.filter(function (c) {
+        return c.agrees === false;
+      });
+
+      if (differences.length) {
+        var n = QM.el('div', 'notice warn');
+        n.appendChild(QM.el('strong', null,
+          differences.length + ' answer(s) differ from what you found'));
+        n.appendChild(document.createTextNode(
+          'Worth mentioning to the customer before the offer goes out — it is ' +
+          'why their estimate and this offer are not the same number.'));
+        body.appendChild(n);
+      }
+
+      body.appendChild(QM.table([
+        { key: 'item', label: 'Item' },
+        { key: 'customer', label: 'Customer said' },
+        { key: 'technician', label: 'You found' },
+        { key: 'agrees', label: '',
+          render: function (c) {
+            if (c.agrees === null) return QM.el('span', 'muted', '—');
+            return c.agrees ? QM.el('span', 'pill ok', 'Agrees')
+                            : QM.el('span', 'pill warn', 'Differs');
+          } }
+      ], res.comparison));
+
+      if (res.estimated && res.estimated.value) {
+        body.appendChild(detailList([
+          { label: 'Their estimate', value: QM.moneyCcy(res.estimated.value,
+                                                        res.currency) +
+                                            ' at grade ' + res.estimated.grade },
+          { label: 'This offer', value: res.result.priced
+              ? QM.moneyCcy(res.result.customerValue, res.currency) +
+                ' at grade ' + res.result.gradeCode : '—' }
+        ]));
+      }
+    }
+
+    var hero = QM.el('div', 'notice ' + (res.result.blocked ? 'danger' : 'ok'));
+    hero.appendChild(QM.el('strong', null,
+      res.result.blocked
+        ? 'Refused: ' + res.result.blockedReason
+        : 'Grade ' + res.result.gradeCode + ' — ' +
+          QM.moneyCcy(res.result.customerValue, res.currency)));
+    hero.appendChild(document.createTextNode(
+      'Condition score ' + res.result.score + ' out of 100, calculated by ' +
+      'the system from your answers.'));
+    body.appendChild(hero);
+
+    QM.modal({
+      title: 'Complete inspection',
+      body: body,
+      confirmLabel: 'Send this offer'
+    }).then(function (yes) {
+      if (!yes) return;
+      QM.call('tech.submitOffer', { tradeInId: insp.tradeInId })
+        .then(function (r2) {
+          if (QM.report(r2)) QM.go('t-queue');
+        });
+    });
+  });
+}
+
+/* ====================================================================
+ * PHOTOGRAPHS
+ * ================================================================== */
+
+/**
+ * Evidence photographs, CATEGORISED.
+ *
+ * V3 asks what each picture shows before it is taken. A folder of eight
+ * untitled images is evidence nobody can use in a dispute; the same eight
+ * labelled "IMEI label", "Damage", "Screen on" are. The category list
+ * comes from the server so the uploader and the viewer cannot disagree
+ * about what a category is called.
+ */
+function photosCard() {
+  var body = QM.el('div');
+
+  body.appendChild(QM.el('p', 'soft',
+    'Front, back, screen, the IMEI label, and any damage. Kept privately ' +
+    'and visible only to staff working on this trade-in — never given a ' +
+    'shareable link.'));
+
+  var taken = {};
+  (insp.inspection.photos || []).forEach(function (p) {
+    taken[p.category] = (taken[p.category] || 0) + 1;
+  });
+
+  /* ---- what is still missing, said plainly ------------------------ */
+  var categories = insp.photoCategories || [];
+  var missing = categories.filter(function (c) {
+    return c.required && !taken[c.key];
+  });
+
+  if (missing.length) {
+    var warn = QM.el('div', 'notice warn');
+    warn.appendChild(QM.el('strong', null, 'Still to photograph'));
+    warn.appendChild(document.createTextNode(
+      missing.map(function (c) { return c.label; }).join(', ') + '.'));
+    body.appendChild(warn);
+  }
+
+  var strip = QM.el('div', 'gap mb');
+  categories.forEach(function (c) {
+    var n = taken[c.key] || 0;
+    var chip = QM.el('span', 'pill ' + (n ? 'ok' : (c.required ? 'warn' : '')),
+      c.label + (n ? ' ×' + n : ''));
+    strip.appendChild(chip);
+  });
+  body.appendChild(strip);
+
+  /* ---- take one --------------------------------------------------- */
+  var category = QM.select(categories.map(function (c) {
+    return { value: c.key, label: c.label };
+  }), (missing[0] || categories[0] || {}).key);
+  body.appendChild(QM.field('This photograph shows', category));
+
+  var picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = 'image/*';
+  picker.multiple = true;
+  picker.capture = 'environment';
+  body.appendChild(QM.field('Add photographs', picker));
+
+  picker.onchange = function () {
+    var files = Array.prototype.slice.call(picker.files || []);
+    if (!files.length) return;
+    if (files.length > 8) { QM.toast('Up to eight at a time.', 'danger'); return; }
+
+    Promise.all(files.map(readAsDataUrl)).then(function (photos) {
+      photos.forEach(function (p) { p.category = category.value; });
+      QM.call('tech.uploadPhotos', {
+        tradeInId: insp.tradeInId, photos: photos
+      }).then(function (res) {
+        if (QM.report(res)) openInspection(insp.tradeInId);
+      });
+    });
+  };
+
+  /* ---- what has already been taken -------------------------------- */
+  if ((insp.inspection.photos || []).length) {
+    var list = QM.el('div', 'gap mt');
+    insp.inspection.photos.forEach(function (p) {
+      var b = QM.button((p.category || 'other').toLowerCase(), function () {
+        techViewPhoto(p);
+      }, 'small secondary');
+      b.title = 'Taken by ' + (p.uploadedBy || '—') + ', ' + (p.uploadedAt || '');
+      list.appendChild(b);
+    });
+    body.appendChild(list);
+  }
+
+  return QM.card('Photographs', body);
+}
+
+function techViewPhoto(meta) {
+  var body = QM.el('div');
+  body.appendChild(QM.loadingBlock());
+
+  QM.modal({
+    title: meta.category || 'Photograph',
+    body: body, confirmLabel: '', cancelLabel: 'Close'
+  });
+
+  QM.call('tech.viewPhoto', {
+    tradeInId: insp.tradeInId, fileId: meta.fileId
+  }).then(function (res) {
+    QM.clear(body);
+    if (!res.ok) { body.appendChild(QM.errorBlock(res.message)); return; }
+
+    var img = document.createElement('img');
+    img.src = QM.safeImageUrl(res.dataUrl);
+    img.alt = meta.category || '';
+    img.style.width = '100%';
+    img.style.borderRadius = 'var(--radius)';
+    body.appendChild(img);
+
+    body.appendChild(detailList([
+      { label: 'Shows',       value: meta.category },
+      { label: 'Taken by',    value: meta.uploadedBy },
+      { label: 'Taken',       value: meta.uploadedAt }
+    ]));
+  });
+}
+
+function readAsDataUrl(file) {
+  return new Promise(function (resolve) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      resolve({ label: file.name, dataUrl: reader.result });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ====================================================================
+ * CUSTODY
+ * ================================================================== */
+
+function receiveDevice(t) {
+  QM.modal({
+    title: 'Take the device in?',
+    body: 'Confirm you physically have the ' + t.device + ' for ' +
+          t.customerName + '. A voucher can only be issued after this.',
+    confirmLabel: 'Device received'
+  }).then(function (yes) {
+    if (!yes) return;
+    QM.call('tech.receiveDevice', { tradeInId: t.tradeInId }).then(function (res) {
+      if (QM.report(res)) QM.go('t-receive');
+    });
+  });
+}
+
+function completeReturn(t) {
+  QM.modal({
+    title: 'Device handed back?',
+    body: 'Confirm the customer has physically collected the ' + t.device +
+          '. This closes the trade-in.',
+    confirmLabel: 'Customer has it'
+  }).then(function (yes) {
+    if (!yes) return;
+    QM.call('tech.returnDevice', {
+      tradeInId: t.tradeInId, stage: 'COMPLETE'
+    }).then(function (res) {
+      if (QM.report(res)) QM.go('t-returns');
+    });
+  });
+}
+</script>

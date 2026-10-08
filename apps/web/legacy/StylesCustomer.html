@@ -1,0 +1,816 @@
+<style>
+/*******************************************************************
+ * StylesCustomer.html — the consumer skin.
+ *
+ * WHY A SECOND STYLESHEET AND NOT MORE OF THE FIRST ONE
+ *   Styles.html dresses an operations system: a navy sidebar, dense
+ *   tables, tight rows, eighteen destinations. That is right for an
+ *   administrator with two screens and wrong for a person standing in a
+ *   shop holding the phone they want to sell.
+ *
+ *   The customer portal shares the design SYSTEM — the same colours, the
+ *   same radii, the same 44px minimum target — and almost none of the
+ *   layout. Everything here is scoped under .cx so it cannot leak into
+ *   the other three portals.
+ *
+ * MOBILE FIRST, LITERALLY
+ *   Every rule below is written for a phone. The media queries add
+ *   desktop, not the other way round. That ordering matters: a stylesheet
+ *   written desktop-first and narrowed later is one where the phone case
+ *   is the afterthought, and the phone is the case that matters here.
+ *
+ * ONE COLUMN, ALWAYS
+ *   There is no multi-column layout anywhere in this file, at any width.
+ *   On a large screen the column is centred and capped rather than
+ *   spread — a trade-in is a sequence of single decisions, and putting
+ *   two of them side by side only asks the customer which one to do
+ *   first.
+ *
+ * NO TABLES
+ *   Not one. Everything is a card. A table on a phone is either a
+ *   horizontal scroll nobody finds or a stack of labelled rows
+ *   pretending to be a table.
+ *******************************************************************/
+
+.cx {
+  /* Every colour below resolves to a token in BrandAssets.html. Nothing
+     in this file invents a brand colour of its own, so re-skinning the
+     portal means editing one file and not this one.
+
+     THE SPLIT THAT MATTERS
+       V3.0 used a single navy for two unrelated jobs: dark SURFACES and
+       interactive ACCENT. The Qatar Mobile palette separates them, so
+       this file does too.
+
+         --cx-dark    paints a surface. Heroes, the estimate panel.
+         --cx-accent  means "you can touch this" or "this is selected".
+
+       Collapsing them again is how a dark panel starts looking like a
+       button and a selected card stops looking selected. */
+  --cx-ink:        var(--qm-dark);
+  --cx-ink-soft:   #56606B;
+  --cx-ink-faint:  #868F9B;
+  --cx-line:       #E4E9EE;
+  --cx-surface:    var(--qm-white);
+  --cx-canvas:     var(--qm-light);
+
+  --cx-dark:       var(--qm-dark);
+  --cx-dark-deep:  var(--qm-dark-deep);
+
+  /* Accent, in its four weights. --cx-accent is the fill and is always
+     exactly #16BCDC; --cx-accent-ink is the same hue darkened for TEXT
+     on a light background, where the brand cyan measures 2.3:1 and is
+     not readable. See the note in BrandAssets.html. */
+  --cx-accent:      var(--qm-cyan);
+  --cx-accent-hov:  var(--qm-cyan-hov);
+  --cx-accent-ink:  var(--qm-cyan-ink);
+  --cx-accent-soft: var(--qm-cyan-soft);
+  --cx-accent-line: var(--qm-cyan-line);
+  --cx-ok:         #1E7A47;
+  --cx-ok-soft:    #E8F5EE;
+  --cx-warn:       #B5730B;
+  --cx-warn-soft:  #FDF4E3;
+  --cx-danger:     #B3261E;
+  --cx-danger-soft:#FCEAE9;
+  --cx-radius:     16px;
+  --cx-radius-sm:  12px;
+  --cx-shadow:     0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+  --cx-shadow-up:  0 2px 4px rgba(16,24,40,.06), 0 12px 28px rgba(16,24,40,.10);
+  --cx-ring:       0 0 0 3px rgba(22,188,220,.32);
+
+  min-height: 100vh;
+  background: var(--cx-canvas);
+  color: var(--cx-ink);
+  display: flex;
+  flex-direction: column;
+}
+
+/* =====================================================================
+   THE SHELL
+   ===================================================================== */
+
+.cx-top {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--cx-surface);
+  border-bottom: 1px solid var(--cx-line);
+  display: flex; align-items: center; gap: .7rem;
+  padding: .7rem 1rem;
+  padding-top: calc(.7rem + env(safe-area-inset-top));
+}
+/* The official mark. A box with the asset as a contained background:
+   it cannot be stretched by whatever lays it out, and it carries no
+   text, because the thing it replaced was two letters in a coloured
+   square pretending to be a logo. */
+.cx-top .mark { width: 36px; height: 36px; }
+.cx-top .who { min-width: 0; flex: 1; }
+.cx-top .who .name { font-weight: 700; font-size: .95rem; line-height: 1.2; }
+.cx-top .who .sub  { font-size: .75rem; color: var(--cx-ink-faint); }
+
+/* The back arrow. Its own control rather than the browser's, because a
+   published Apps Script app is inside an iframe and the browser's back
+   button leaves the app entirely. */
+/* 44px, like every other target in this file. The two controls in the top
+   bar are the ones a person reaches for while walking, and they were the
+   two that had been left at 40. */
+.cx-back {
+  border: 0; background: none; cursor: pointer;
+  width: 44px; height: 44px; flex: 0 0 auto;
+  font-size: 1.4rem; line-height: 1; color: var(--cx-ink);
+  display: grid; place-items: center; border-radius: 10px;
+}
+.cx-back:hover { background: var(--cx-canvas); }
+
+.cx-bell {
+  position: relative; border: 0; background: none; cursor: pointer;
+  width: 44px; height: 44px; flex: 0 0 auto; font-size: 1.15rem;
+  border-radius: 10px; color: var(--cx-ink);
+}
+.cx-bell .dot {
+  position: absolute; top: 6px; right: 6px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px; background: var(--cx-danger); color: #fff;
+  font-size: .62rem; font-weight: 700; line-height: 16px;
+}
+
+.cx-main {
+  flex: 1;
+  width: 100%;
+  max-width: 620px;         /* one column, centred, never spread */
+  margin: 0 auto;
+  padding: 1rem 1rem 6.5rem;
+}
+
+/* =====================================================================
+   BOTTOM NAVIGATION
+   Four destinations, thumb-height, always visible.
+   ===================================================================== */
+
+.cx-tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex;
+  background: var(--cx-surface);
+  border-top: 1px solid var(--cx-line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.cx-tabs button {
+  flex: 1; border: 0; background: none; cursor: pointer;
+  min-height: 60px; padding: .5rem .25rem .55rem;
+  display: flex; flex-direction: column; align-items: center; gap: .2rem;
+  font-family: inherit; font-size: .68rem; font-weight: 600;
+  color: var(--cx-ink-faint);
+}
+.cx-tabs button .icon { font-size: 1.2rem; line-height: 1; }
+.cx-tabs button.active { color: var(--cx-accent-ink); }
+.cx-tabs button.active .icon { transform: translateY(-1px); }
+/* Colour alone is not a state. On a phone the active tab also carries a
+   cyan rule along the top edge of the bar. */
+.cx-tabs button.active { box-shadow: inset 0 3px 0 var(--cx-accent); }
+.cx-tabs button:active { background: var(--cx-accent-soft); }
+
+@media (min-width: 760px) {
+  /* On a desktop the tab bar becomes a top row rather than a floating
+     bar at the bottom of a very tall window. */
+  /* On a desktop the bar is a white band across the FULL width of the
+     window — it reads as part of the header, not as a floating strip on
+     the grey canvas — while the four tabs themselves stay centred on the
+     620px reading column. The centring is done with side padding rather
+     than max-width so the white can run edge to edge. */
+  .cx-tabs {
+    position: static; border-top: 0; border-bottom: 1px solid var(--cx-line);
+    width: 100%; max-width: none; margin: 0;
+    padding: 0 max(0px, calc((100% - 620px) / 2));
+    box-sizing: border-box;
+    background: var(--cx-surface);
+  }
+  .cx-tabs button { white-space: nowrap; }
+  .cx-tabs button { min-height: 52px; flex-direction: row; gap: .4rem; font-size: .85rem; }
+  .cx-tabs button.active { box-shadow: inset 0 -2px 0 var(--cx-accent); }
+  .cx-main { padding-bottom: 3rem; }
+}
+
+/* =====================================================================
+   HERO — the home page
+   ===================================================================== */
+
+.cx-hero {
+  background: linear-gradient(155deg, var(--cx-dark) 0%, var(--cx-dark-deep) 100%);
+  color: var(--qm-white);
+  border-radius: var(--cx-radius);
+  padding: 1.6rem 1.3rem;
+  margin-bottom: 1rem;
+}
+.cx-hero h1 { font-size: 1.55rem; line-height: 1.2; margin: 0 0 .4rem; color: #fff; }
+.cx-hero p  { margin: 0 0 1.1rem; opacity: .88; font-size: .95rem; line-height: 1.5; }
+
+.cx-cta {
+  display: block; width: 100%;
+  border: 0; border-radius: 14px; cursor: pointer;
+  background: var(--cx-accent); color: var(--qm-white);
+  font-family: inherit; font-size: 1.05rem; font-weight: 700;
+  min-height: 54px; padding: .9rem 1rem;
+  transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+/* Premium means restrained. One pixel of lift, a slightly deeper cyan
+   and a soft shadow in the accent's own colour — enough that the button
+   acknowledges the pointer, not enough to notice it moving. */
+.cx-cta:hover:not(:disabled) {
+  background: var(--cx-accent-hov);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(22, 188, 220, .18);
+}
+/* Touch has no hover, so the pressed state carries the whole feedback
+   job on a phone. It presses IN rather than lifting. */
+.cx-cta:active:not(:disabled) {
+  background: var(--cx-accent-hov);
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(22, 188, 220, .22);
+}
+.cx-cta:disabled { opacity: .45; cursor: not-allowed; }
+
+.cx-cta.secondary {
+  background: var(--cx-surface); color: var(--cx-ink);
+  border: 1px solid var(--cx-line);
+}
+.cx-cta.ghost {
+  background: none; color: var(--cx-accent-ink); border: 0;
+  font-weight: 600; min-height: 46px; font-size: .95rem;
+}
+.cx-cta.ghost:hover:not(:disabled) {
+  background: var(--cx-accent-soft); transform: none; box-shadow: none;
+}
+.cx-cta.secondary:hover:not(:disabled) {
+  background: var(--cx-canvas); border-color: var(--cx-accent-line);
+  transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,24,40,.07);
+}
+.cx-cta.danger:hover:not(:disabled) {
+  background: #9E211A; box-shadow: 0 6px 18px rgba(179,38,30,.2);
+}
+.cx-cta.danger { background: var(--cx-danger); color: #fff; }
+
+.cx-btn-row { display: flex; gap: .6rem; }
+.cx-btn-row .cx-cta { flex: 1; }
+
+/* =====================================================================
+   CARDS
+   ===================================================================== */
+
+.cx-card {
+  background: var(--cx-surface);
+  border: 1px solid var(--cx-line);
+  border-radius: var(--cx-radius);
+  box-shadow: var(--cx-shadow);
+  padding: 1.1rem;
+  margin-bottom: .85rem;
+  transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease;
+}
+.cx-card.flat { box-shadow: none; }
+.cx-card h2 { font-size: 1.15rem; margin: 0 0 .3rem; }
+.cx-card h3 { font-size: 1rem; margin: 0 0 .25rem; }
+
+.cx-section-title {
+  font-size: .74rem; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--cx-ink-faint); font-weight: 700;
+  margin: 1.4rem .25rem .5rem;
+}
+
+/* A trade-in, as a card rather than a table row. */
+.cx-tradein { cursor: pointer; }
+/* Desktop only, and deliberately smaller than the button's lift: a grid
+   of cards that all rise on hover reads as fidgety. */
+@media (hover: hover) and (pointer: fine) {
+  .cx-tradein:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--cx-shadow-up);
+    border-color: var(--cx-accent-line);
+  }
+}
+.cx-tradein:active { transform: translateY(0); box-shadow: var(--cx-shadow); }
+.cx-tradein .head { display: flex; align-items: flex-start; gap: .7rem; }
+.cx-tradein .device { font-weight: 700; font-size: 1.02rem; line-height: 1.3; flex: 1; }
+.cx-tradein .ref {
+  font-size: .76rem; color: var(--cx-ink-faint);
+  font-variant-numeric: tabular-nums; margin-top: .15rem;
+}
+.cx-tradein .money {
+  margin-top: .8rem; padding-top: .8rem;
+  border-top: 1px solid var(--cx-line);
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+}
+.cx-tradein .money .label { font-size: .78rem; color: var(--cx-ink-faint); }
+.cx-tradein .money .amount {
+  font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.cx-tradein .money .amount .ccy {
+  font-size: .78rem; font-weight: 600; color: var(--cx-ink-faint); margin-left: .2rem;
+}
+
+/* Every currency suffix, wherever it appears. Without this a figure built
+   outside a card renders as "1,000.00QAR". */
+.cx .ccy { margin-left: .25rem; font-size: .8em; color: var(--cx-ink-faint); }
+.cx-estimate .ccy { color: inherit; }
+
+/* Status pill. Wraps rather than truncating: "Your device is being
+   inspected" is longer than a status code and must not be cut. */
+.cx-pill {
+  display: inline-block; padding: .3rem .65rem; border-radius: 999px;
+  font-size: .74rem; font-weight: 700; line-height: 1.35;
+  background: var(--cx-canvas); color: var(--cx-ink-soft);
+  max-width: 58%; text-align: center;
+}
+.cx-pill.ok    { background: var(--cx-ok-soft);     color: var(--cx-ok); }
+.cx-pill.warn  { background: var(--cx-warn-soft);   color: var(--cx-warn); }
+.cx-pill.stop  { background: var(--cx-danger-soft); color: var(--cx-danger); }
+.cx-pill.go    { background: var(--cx-accent-soft);  color: var(--cx-accent-ink); }
+
+/* =====================================================================
+   NOTICES
+   ===================================================================== */
+
+.cx-note {
+  border-radius: var(--cx-radius-sm);
+  padding: .85rem 1rem;
+  font-size: .9rem; line-height: 1.5;
+  background: var(--cx-accent-soft); color: var(--cx-ink);
+  border-left: 4px solid var(--cx-accent);
+  margin-bottom: .85rem;
+}
+.cx-note.ok    { background: var(--cx-ok-soft);     border-color: var(--cx-ok); }
+.cx-note.warn  { background: var(--cx-warn-soft);   border-color: var(--cx-warn); }
+.cx-note.stop  { background: var(--cx-danger-soft); border-color: var(--cx-danger); }
+.cx-note strong { display: block; margin-bottom: .15rem; }
+
+.cx-quiet { color: var(--cx-ink-faint); font-size: .84rem; line-height: 1.5; }
+.cx-soft  { color: var(--cx-ink-soft);  font-size: .92rem; line-height: 1.55; }
+
+/* =====================================================================
+   THE FLOW
+   ===================================================================== */
+
+.cx-progress { margin-bottom: 1.2rem; }
+.cx-progress .bar {
+  height: 6px; border-radius: 999px; background: var(--cx-line);
+  overflow: hidden;
+}
+.cx-progress .bar > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--cx-accent);
+  transition: width .3s cubic-bezier(.4,0,.2,1);
+}
+.cx-progress .count {
+  margin-top: .5rem; font-size: .78rem; font-weight: 600;
+  color: var(--cx-ink-faint);
+}
+
+.cx-q { margin-bottom: 1.1rem; }
+.cx-q h2 { font-size: 1.4rem; line-height: 1.25; margin: 0 0 .35rem; }
+.cx-q p  { margin: 0; color: var(--cx-ink-soft); font-size: .92rem; line-height: 1.55; }
+
+/* An answer. One per row, full width, big enough to hit without looking.
+   Never a dropdown: a select on a phone is a modal wheel that hides the
+   other options, and comparing options is the entire task here. */
+.cx-choice {
+  display: flex; align-items: center; gap: .85rem; width: 100%;
+  border: 2px solid var(--cx-line); border-radius: var(--cx-radius-sm);
+  background: var(--cx-surface); color: var(--cx-ink);
+  font-family: inherit; text-align: left; cursor: pointer;
+  padding: .95rem 1rem; min-height: 62px; margin-bottom: .6rem;
+  transition: border-color .12s ease, background .12s ease, transform .08s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cx-choice:hover { border-color: var(--cx-accent-line); background: var(--cx-canvas); }
+}
+.cx-choice:active { transform: scale(.995); background: var(--cx-accent-soft); }
+.cx-choice.on {
+  border-color: var(--cx-accent); background: var(--cx-accent-soft);
+}
+.cx-choice .body { flex: 1; min-width: 0; }
+.cx-choice .label { font-weight: 600; font-size: 1rem; line-height: 1.3; }
+.cx-choice .sub   { font-size: .82rem; color: var(--cx-ink-faint); margin-top: .12rem; }
+.cx-choice .tick {
+  width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+  border: 2px solid var(--cx-line);
+  display: grid; place-items: center;
+  font-size: .72rem; color: transparent;
+}
+.cx-choice.on .tick {
+  background: var(--cx-accent); border-color: var(--cx-accent); color: var(--qm-white);
+}
+.cx-choice img {
+  width: 46px; height: 46px; object-fit: contain; flex: 0 0 auto;
+}
+
+/* Storage sizes read better as a grid of pills than as a list. */
+.cx-pills { display: flex; flex-wrap: wrap; gap: .55rem; }
+.cx-pills button {
+  border: 2px solid var(--cx-line); border-radius: 999px;
+  background: var(--cx-surface); color: var(--cx-ink);
+  font-family: inherit; font-size: 1rem; font-weight: 700;
+  padding: .7rem 1.4rem; min-height: 52px; cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cx-pills button:hover { border-color: var(--cx-accent-line); }
+}
+.cx-pills button:active { transform: scale(.98); }
+.cx-pills button.on {
+  border-color: var(--cx-accent); background: var(--cx-accent); color: var(--qm-white);
+}
+
+/* Brand and model tiles. Two columns on the narrowest phone, more when
+   there is room — this is the ONE grid in the file, and it holds
+   equivalent choices rather than sequential ones. */
+.cx-tiles {
+  display: grid; gap: .6rem;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.cx-tile {
+  border: 2px solid var(--cx-line); border-radius: var(--cx-radius-sm);
+  background: var(--cx-surface); color: var(--cx-ink);
+  font-family: inherit; cursor: pointer;
+  min-height: 116px; padding: .9rem .6rem;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: .45rem; text-align: center;
+}
+.cx-tile {
+  transition: border-color .18s ease, background .18s ease,
+              box-shadow .18s ease, transform .18s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cx-tile:hover {
+    border-color: var(--cx-accent-line); transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(16,24,40,.07);
+  }
+}
+.cx-tile:active { transform: translateY(0); background: var(--cx-accent-soft); }
+.cx-tile.on {
+  border-color: var(--cx-accent); background: var(--cx-accent-soft);
+}
+.cx-tile img   { max-height: 54px; max-width: 100%; object-fit: contain; }
+.cx-tile .name { font-weight: 600; font-size: .92rem; line-height: 1.25; }
+.cx-tile .sub  { font-size: .76rem; color: var(--cx-ink-faint); }
+.cx-tile .glyph { font-size: 2rem; line-height: 1; }
+
+/* The sticky footer. On a phone the next action must be reachable with a
+   thumb without scrolling to find it. */
+.cx-foot {
+  position: sticky; bottom: 0; z-index: 20;
+  margin: 1.2rem -1rem 0;
+  padding: .9rem 1rem calc(.9rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--cx-canvas) 70%, rgba(245,247,249,0));
+  display: flex; gap: .6rem;
+}
+.cx-foot .cx-cta { flex: 1; }
+.cx-foot .cx-cta.back { flex: 0 0 88px; }
+
+@media (min-width: 760px) {
+  .cx-foot { position: static; margin: 1.2rem 0 0; padding: 0; background: none; }
+}
+
+/* =====================================================================
+   THE ESTIMATE
+   The one screen the whole flow exists to reach.
+   ===================================================================== */
+
+.cx-estimate {
+  background: linear-gradient(155deg, var(--cx-dark) 0%, var(--cx-dark-deep) 100%);
+  color: var(--qm-white); border-radius: var(--cx-radius);
+  padding: 2rem 1.3rem; text-align: center; margin-bottom: .85rem;
+  /* A hairline of accent along the top edge. The dark panel is the
+     surface; this is the only thing on it that says which brand. */
+  border-top: 3px solid var(--cx-accent);
+}
+.cx-estimate .label {
+  font-size: .76rem; text-transform: uppercase; letter-spacing: .11em;
+  opacity: .82; font-weight: 700;
+}
+.cx-estimate .amount {
+  font-size: 2.9rem; font-weight: 800; line-height: 1.05; margin: .5rem 0 .1rem;
+  font-variant-numeric: tabular-nums;
+}
+.cx-estimate .amount .ccy { font-size: 1.1rem; opacity: .8; margin-left: .35rem; }
+.cx-estimate .device { font-size: .95rem; opacity: .9; }
+.cx-estimate .grade {
+  display: inline-block; margin-top: .3rem;
+  padding: .35rem 1.1rem; border-radius: 999px;
+  background: rgba(22,188,220,.20); font-size: .95rem; font-weight: 700;
+  border: 1px solid rgba(22,188,220,.45);
+  /* The pill now holds the VALUE only — "Excellent", "Fair" — with its
+     label on the line above. The previous version put the whole phrase
+     inside the pill and set it nowrap, which on a 390px screen ran the
+     text straight out through the right edge of the panel. A pill that
+     can only ever contain one word cannot do that. */
+  white-space: nowrap; max-width: 100%;
+}
+.cx-estimate .grade-label {
+  margin-top: 1rem; font-size: .72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em; opacity: .72;
+}
+
+/* The caveat. Outside the hero and in ordinary body text, because a
+   disclaimer set in 11px inside a coloured panel is a disclaimer nobody
+   reads — and this is the sentence that stops an argument at a counter. */
+.cx-caveat {
+  background: var(--cx-warn-soft);
+  border-left: 4px solid var(--cx-warn);
+  border-radius: var(--cx-radius-sm);
+  padding: .85rem 1rem; font-size: .88rem; line-height: 1.55;
+  margin-bottom: .85rem;
+}
+
+.cx-assumed {
+  font-size: .82rem; color: var(--cx-ink-faint); line-height: 1.5;
+  margin: .5rem .25rem 1rem;
+}
+
+/* =====================================================================
+   RECORD ROWS
+   ===================================================================== */
+
+.cx-kv {
+  display: grid; grid-template-columns: minmax(96px, 38%) 1fr;
+  gap: .8rem; align-items: baseline;
+  padding: .62rem 0; border-bottom: 1px solid var(--cx-line);
+}
+.cx-kv:last-child { border-bottom: 0; }
+.cx-kv .k { font-size: .82rem; color: var(--cx-ink-faint); }
+.cx-kv .v { font-weight: 600; unicode-bidi: isolate; overflow-wrap: anywhere; }
+.cx-kv .v.edit {
+  display: flex; align-items: baseline; gap: .5rem;
+  justify-content: space-between;
+}
+.cx-kv .v button {
+  border: 0; background: none; color: var(--cx-accent-ink); cursor: pointer;
+  font-family: inherit; font-size: .82rem; font-weight: 600; padding: .2rem;
+  /* "Change" must never break into "Chan / ge". It is a fixed word in a
+     flexible row, so it keeps its own width and the value gives way. */
+  white-space: nowrap; flex: 0 0 auto;
+}
+.cx-kv .v.edit > :first-child { min-width: 0; overflow-wrap: anywhere; }
+
+/* =====================================================================
+   THE PROGRESS TIMELINE
+   ===================================================================== */
+
+.cx-timeline { position: relative; padding-left: 1.75rem; margin: .3rem 0; }
+.cx-timeline::before {
+  content: ''; position: absolute; left: 8px; top: 12px; bottom: 12px;
+  width: 2px; background: var(--cx-line);
+}
+.cx-step { position: relative; padding: .55rem 0; }
+.cx-step::before {
+  content: ''; position: absolute; left: -1.75rem; top: .8rem;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--cx-surface); border: 2px solid var(--cx-line);
+}
+.cx-step.done::before {
+  background: var(--cx-ok); border-color: var(--cx-ok);
+  content: '✓'; color: #fff; font-size: .66rem; line-height: 14px;
+  text-align: center; font-weight: 700;
+}
+.cx-step.now::before {
+  background: var(--cx-accent); border-color: var(--cx-accent);
+  box-shadow: 0 0 0 4px var(--cx-accent-soft);
+}
+.cx-step .label { font-size: .95rem; font-weight: 500; }
+.cx-step.now  .label { font-weight: 700; }
+.cx-step.todo .label { color: var(--cx-ink-faint); }
+.cx-step .when { font-size: .78rem; color: var(--cx-ink-faint); }
+
+/* =====================================================================
+   EMPTY, LOADING, SUCCESS
+   ===================================================================== */
+
+.cx-empty { text-align: center; padding: 3rem 1.5rem; }
+.cx-empty .glyph { font-size: 2.6rem; margin-bottom: .6rem; }
+.cx-empty h2 { font-size: 1.15rem; margin-bottom: .35rem; }
+.cx-empty p { color: var(--cx-ink-faint); font-size: .92rem; margin-bottom: 1.2rem; }
+
+.cx-loading { display: grid; place-items: center; padding: 3.5rem 1rem; gap: .8rem; }
+
+.cx-skeleton {
+  background: linear-gradient(90deg, #EDF1F5 25%, #E1E7ED 37%, #EDF1F5 63%);
+  background-size: 400% 100%;
+  animation: cx-shimmer 1.3s ease infinite;
+  border-radius: var(--cx-radius); height: 108px; margin-bottom: .85rem;
+}
+@keyframes cx-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+.cx-success { text-align: center; padding: 1rem 0 .5rem; }
+.cx-success .tick {
+  width: 76px; height: 76px; margin: 0 auto 1rem; border-radius: 50%;
+  background: var(--cx-ok-soft); color: var(--cx-ok);
+  display: grid; place-items: center; font-size: 2.2rem;
+  animation: cx-pop .38s cubic-bezier(.2,.9,.3,1.3);
+}
+@keyframes cx-pop { from { transform: scale(.5); opacity: 0; } }
+.cx-success h2 { font-size: 1.35rem; margin-bottom: .35rem; }
+
+/* Inputs, sized so iOS does not zoom on focus. */
+.cx-field { margin-bottom: 1rem; }
+.cx-field label {
+  display: block; font-size: .84rem; font-weight: 700;
+  color: var(--cx-ink-soft); margin-bottom: .35rem;
+}
+.cx-field .hint { font-size: .8rem; color: var(--cx-ink-faint); margin-top: .3rem; line-height: 1.45; }
+.cx input, .cx textarea {
+  width: 100%; min-height: 52px;
+  padding: .8rem .9rem;
+  border: 1px solid var(--cx-line); border-radius: var(--cx-radius-sm);
+  font-size: 16px; font-family: inherit; color: var(--cx-ink);
+  background: var(--cx-surface);
+}
+.cx textarea { min-height: 96px; resize: vertical; }
+.cx input:focus, .cx textarea:focus {
+  outline: 2px solid var(--cx-accent); outline-offset: -1px;
+  border-color: var(--cx-accent); box-shadow: var(--cx-ring);
+}
+.cx .imei-input {
+  font-size: 1.2rem; letter-spacing: .1em; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   FOCUS
+   One visible ring for every interactive thing, drawn in the accent.
+   :focus-visible rather than :focus, so a mouse click does not leave a
+   ring behind but a Tab key does.
+   ===================================================================== */
+
+.cx button:focus-visible,
+.cx a:focus-visible,
+.cx [tabindex]:focus-visible,
+.cx summary:focus-visible {
+  outline: 3px solid var(--cx-accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* =====================================================================
+   PHASE PROGRESS
+   Internally the flow is sixteen screens. "Step 5 of 16" is an honest
+   number and a discouraging one, so the customer is shown the PHASE they
+   are in — Device, Condition, Estimate, Details, Review — and a count
+   only inside the phase that actually has a run of screens.
+   ===================================================================== */
+
+.cx-progress .count {
+  display: flex; align-items: baseline; gap: .45rem; flex-wrap: wrap;
+}
+.cx-progress .phase {
+  color: var(--cx-accent-ink); font-weight: 700;
+}
+.cx-progress .within { color: var(--cx-ink-faint); font-weight: 600; }
+
+/* The phase rail. Hidden on the narrowest phones, where the caption
+   alone carries it and five labels would wrap to three lines. */
+.cx-rail { display: none; }
+@media (min-width: 400px) {
+  .cx-rail {
+    display: flex; gap: .3rem; margin-bottom: .55rem;
+    list-style: none; padding: 0;
+  }
+  .cx-rail li {
+    flex: 1; font-size: .66rem; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--cx-ink-faint);
+    padding-top: .4rem; border-top: 3px solid var(--cx-line);
+    transition: color .2s ease, border-color .2s ease;
+  }
+  .cx-rail li.done { color: var(--cx-ink-soft); border-top-color: var(--cx-accent); }
+  .cx-rail li.now  { color: var(--cx-accent-ink); border-top-color: var(--cx-accent); }
+}
+
+/* =====================================================================
+   SEGMENTED FILTER — Active | Completed | All
+   ===================================================================== */
+
+.cx-seg {
+  display: flex; gap: .25rem; padding: .25rem;
+  background: var(--cx-canvas); border: 1px solid var(--cx-line);
+  border-radius: 999px; margin-bottom: 1rem;
+  /* Capped and left-aligned rather than stretched: a three-way switch
+     spread across 1200px stops reading as a switch. */
+  max-width: 420px; box-sizing: border-box;
+}
+.cx-seg button {
+  flex: 1; min-height: 44px; border: 0; border-radius: 999px;
+  background: none; color: var(--cx-ink-soft); cursor: pointer;
+  font-family: inherit; font-size: .88rem; font-weight: 700;
+  transition: background .18s ease, color .18s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cx-seg button:hover:not(.on) { background: var(--qm-white); }
+}
+.cx-seg button.on {
+  background: var(--cx-accent); color: var(--qm-white);
+  box-shadow: 0 1px 3px rgba(22,188,220,.30);
+}
+
+/* =====================================================================
+   THE TRADE-IN GRID
+   The one place in this portal that goes multi-column. A list of past
+   trade-ins is a set of equivalent things to scan, not a sequence of
+   decisions — so on a wide screen it fills the width instead of leaving
+   a 620px ribbon of cards in the middle of a 1440px monitor.
+   The FLOW stays one column at every width; that rule has not moved.
+   ===================================================================== */
+
+.cx-main.wide { max-width: 620px; }
+.cx-grid { display: grid; gap: .85rem; grid-template-columns: 1fr; }
+.cx-grid .cx-card { margin-bottom: 0; }
+
+@media (min-width: 760px) {
+  .cx-main.wide { max-width: 960px; }
+  .cx-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1180px) {
+  .cx-main.wide { max-width: 1200px; }
+  .cx-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* The tabs are centred on the content, so their window widens with it.
+   The white band itself is always full width. */
+@media (min-width: 760px) {
+  .cx-tabs.wide { padding: 0 max(0px, calc((100% - 960px) / 2)); }
+}
+@media (min-width: 1180px) {
+  .cx-tabs.wide { padding: 0 max(0px, calc((100% - 1200px) / 2)); }
+}
+
+/* =====================================================================
+   COLLAPSIBLE DETAIL
+   The reference, the address, the serial: real, rarely read, and on a
+   phone they push the timeline off the screen. Closed by default.
+   ===================================================================== */
+
+.cx-details {
+  background: var(--cx-surface);
+  border: 1px solid var(--cx-line);
+  border-radius: var(--cx-radius);
+  box-shadow: var(--cx-shadow);
+  margin-bottom: .85rem;
+  overflow: hidden;
+}
+.cx-details > summary {
+  list-style: none; cursor: pointer;
+  min-height: 56px; padding: 1rem 1.1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  font-weight: 700; font-size: .95rem;
+}
+.cx-details > summary::-webkit-details-marker { display: none; }
+.cx-details > summary::after {
+  content: '⌄'; font-size: 1.1rem; line-height: 1;
+  color: var(--cx-ink-faint); transition: transform .2s ease;
+}
+.cx-details[open] > summary::after { transform: rotate(180deg); }
+.cx-details[open] > summary { border-bottom: 1px solid var(--cx-line); }
+.cx-details .inner { padding: .3rem 1.1rem 1rem; }
+
+/* =====================================================================
+   CONTEXT ACTIONS
+   ===================================================================== */
+
+.cx-actions { display: grid; gap: .55rem; margin-top: .9rem; }
+@media (min-width: 520px) {
+  .cx-actions.two { grid-template-columns: 1fr 1fr; }
+}
+
+/* The mark, on the home hero.
+   No plate, no padding, no shadow — the asset has its own transparency
+   and the logo's blues (#0089CF through #42C8F5) sit at roughly 6:1
+   against the #1F2024 panel, so a white tile behind it would only be a
+   box the brand does not have. */
+.cx-brand {
+  width: 56px; height: 56px;
+  margin-bottom: .9rem;
+  background-color: transparent;
+}
+
+/* A masked IMEI is a number people check character by character. */
+.cx .masked { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+
+/* =====================================================================
+   NO SIDEWAYS SCROLL, AT ANY WIDTH
+
+   This used to read `.cx, .cx * { max-width: 100%; }`. That is one
+   selector with the same specificity as `.cx-main`, sitting at the end of
+   the file — so it quietly won every specificity tie and overrode the
+   620px reading column, the 960px grid and every other deliberate cap in
+   this stylesheet. On a 1440px monitor the customer portal was drawing a
+   1410px-wide hero and nobody noticed, because "max-width: 100%" looks
+   like a safety net rather than an override.
+
+   The replacement names the things that actually overflow — replaced
+   content, and long unbroken strings — and leaves layout alone.
+   ===================================================================== */
+
+.cx img, .cx svg, .cx video, .cx canvas, .cx iframe, .cx table {
+  max-width: 100%;
+}
+.cx pre, .cx code { max-width: 100%; overflow-x: auto; }
+
+/* An IMEI, a reference or a pasted URL must break rather than push the
+   card wider than the screen. */
+.cx { overflow-wrap: anywhere; word-break: normal; }
+
+.cx-main { overflow-x: hidden; }
+</style>

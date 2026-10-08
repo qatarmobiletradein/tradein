@@ -1,0 +1,467 @@
+<script>
+/*******************************************************************
+ * Frame.html — the shell every portal is drawn inside.
+ *
+ * Sidebar, top bar, content area, sign-out. One implementation, so the
+ * four portals cannot drift into four different navigations, and so a
+ * fix to the phone drawer fixes it everywhere.
+ *
+ * THE NAVIGATION IS NOT A PERMISSION SYSTEM
+ *   Each portal passes the pages it wants in its sidebar. Leaving a page
+ *   out hides it; it does not protect it. Every action behind every page
+ *   is checked on the server against the session, so a person who types
+ *   their way to a hidden page sees an empty screen and an audited
+ *   refusal, not somebody else's data.
+ *
+ * SIGN-OUT IS A SERVER ACTION
+ *   It revokes the session on the server, not merely forgets the token
+ *   here. A token that has only been forgotten still works for anyone
+ *   who copied it.
+ *******************************************************************/
+
+function buildFrame(config) {
+  var me = QM.state.me || {};
+  var root = document.getElementById('root');
+  QM.clear(root);
+
+  var app = QM.el('div', 'app');
+
+  /* ================================================================
+   * SIDEBAR
+   * ============================================================== */
+
+  var sidebar = QM.el('aside', 'sidebar');
+
+  // The official mark and the bilingual wordmark, as the live project
+  // already showed them (installed 7 Sep 2026) — carried into V3 so the
+  // push does not put a two-letter badge back in their place. Both are
+  // background images drawn by BrandAssets.html; neither is text.
+  var brand = QM.el('div', 'sidebar-brand');
+  var mark = QM.el('div', 'mark qm-logo');
+  mark.setAttribute('role', 'img');
+  mark.setAttribute('aria-label', 'Qatar Mobile');
+  brand.appendChild(mark);
+  var brandLabel = QM.el('div', 'label');
+  var wordmark = QM.el('div', 'wordmark qm-wordmark');
+  wordmark.setAttribute('role', 'img');
+  wordmark.setAttribute('aria-label', config.title || me.platform || 'Qatar Mobile');
+  brandLabel.appendChild(wordmark);
+  // A vendor's own short code, when there is one, sits under the wordmark
+  // so a cashier can still see which account they are signed into.
+  if (config.mark && config.mark !== 'QM') {
+    brandLabel.appendChild(QM.el('div', 'account-code', config.mark));
+  }
+  brand.appendChild(brandLabel);
+  sidebar.appendChild(brand);
+
+  var nav = QM.el('nav', 'sidebar-nav');
+
+  config.nav.forEach(function (entry) {
+    if (entry.section) {
+      nav.appendChild(QM.el('div', 'nav-section', entry.section));
+      return;
+    }
+
+    QM.setNavLabel(entry.page, entry.label);
+
+    var item = QM.el('button', 'nav-item');
+    item.dataset.page = entry.page;
+    item.appendChild(QM.el('span', 'icon', entry.icon || '•'));
+    item.appendChild(QM.el('span', 'label', entry.label));
+
+    if (entry.badge) {
+      var badge = QM.el('span', 'badge', entry.badge);
+      badge.id = 'badge-' + entry.page;
+      item.appendChild(badge);
+    }
+
+    item.onclick = function () { QM.go(entry.page); };
+    nav.appendChild(item);
+  });
+
+  sidebar.appendChild(nav);
+
+  /* ---- who is signed in, and a way out ---------------------------- */
+  var foot = QM.el('div', 'sidebar-foot');
+  var who = QM.el('div', 'label');
+  who.appendChild(QM.el('div', 'strong', me.name || ''));
+  who.appendChild(QM.el('div', 'detail small', me.roleLabel || ''));
+  if (me.vendor) who.appendChild(QM.el('div', 'detail small', me.vendor.name));
+  if (me.branch) who.appendChild(QM.el('div', 'detail small', me.branch.name));
+  // The version, from CFG on the server. One string, one place.
+  who.appendChild(QM.el('div', 'detail small',
+    'Version ' + (QM.state.boot.version || '')));
+  foot.appendChild(who);
+
+  var out = QM.el('button', 'btn secondary small block mt', 'Sign out');
+  out.onclick = function () {
+    QM.modal({
+      title: 'Sign out?',
+      body: 'You will need your mobile number and a new code to sign back in.',
+      confirmLabel: 'Sign out'
+    }).then(function (yes) { if (yes) QM.signOut(); });
+  };
+  foot.appendChild(out);
+  sidebar.appendChild(foot);
+
+  app.appendChild(sidebar);
+
+  /* ================================================================
+   * MAIN
+   * ============================================================== */
+
+  var main = QM.el('div', 'main');
+
+  var topbar = QM.el('header', 'topbar');
+
+  var burger = QM.el('button', 'hamburger', '☰');
+  burger.setAttribute('aria-label', 'Menu');
+  burger.onclick = QM.toggleDrawer;
+  topbar.appendChild(burger);
+
+  var title = QM.el('div', 'title');
+  title.id = 'page-title';
+  topbar.appendChild(title);
+
+  topbar.appendChild(QM.el('div', 'spacer'));
+
+  /* ---- global search ------------------------------------------------
+   * In the top bar of every operational portal rather than on a page of
+   * its own. Somebody holding a printed voucher and a question should not
+   * have to know which screen owns that kind of number before they can
+   * start looking.
+   * ------------------------------------------------------------------ */
+  if (config.search !== false) {
+    var searchBtn = QM.el('button', 'btn secondary small', '🔍 Search');
+    searchBtn.title = 'Find a trade-in, voucher, IMEI, note or settlement';
+    searchBtn.onclick = openGlobalSearch;
+    topbar.appendChild(searchBtn);
+  }
+
+  /* ---- notifications ------------------------------------------------ */
+  var bell = QM.el('button', 'btn secondary small', '🔔');
+  bell.setAttribute('aria-label', 'Notifications');
+  bell.onclick = openNotifications;
+  var unread = QM.el('span', 'badge hidden', '0');
+  unread.id = 'notify-count';
+  bell.appendChild(unread);
+  topbar.appendChild(bell);
+
+  // The test-environment banner. It rides in the top bar of every portal
+  // rather than only the login screen, so nobody forgets which environment
+  // they are in while testing a settlement. 3.1: it is shown only when the
+  // SERVER says this is a non-production environment with test codes on;
+  // the flag decides nothing — every check happens on the server.
+  if (QM.state.boot.testMode) {
+    var devPill = QM.el('span', 'pill warn', 'Test environment');
+    devPill.title = 'Test sign-in codes are enabled for allow-listed numbers in this ' +
+                    (QM.state.boot.environment || 'test').toLowerCase() +
+                    ' environment. They never exist in production.';
+    topbar.appendChild(devPill);
+  }
+
+  if (config.topbarExtra) topbar.appendChild(config.topbarExtra);
+
+  main.appendChild(topbar);
+
+  var content = QM.el('main', 'content');
+  content.id = 'content';
+  main.appendChild(content);
+
+  app.appendChild(main);
+
+  var scrim = QM.el('div', 'scrim');
+  scrim.onclick = QM.closeDrawer;
+
+  root.appendChild(app);
+  root.appendChild(scrim);
+
+  var pages = config.nav.filter(function (e) { return e.page; });
+
+  /* ================================================================
+   * BOTTOM TABS — phones only, and only where the portal asks for it.
+   *
+   * A customer has four destinations and will be holding the phone in
+   * one hand. A hamburger that hides all four behind a tap is the wrong
+   * shape for that; a drawer is right for an administrator with
+   * eighteen pages, and wrong here.
+   * ============================================================== */
+  if (config.tabbar) {
+    app.classList.add('has-tabbar');
+
+    var tabs = QM.el('nav', 'tabbar');
+    pages.forEach(function (entry) {
+      var b = QM.el('button');
+      b.dataset.tab = entry.page;
+      b.appendChild(QM.el('span', 'icon', entry.icon || '•'));
+      b.appendChild(QM.el('span', null, entry.label));
+      b.onclick = function () { QM.go(entry.page); };
+      tabs.appendChild(b);
+    });
+    root.appendChild(tabs);
+  }
+
+  /* ---- open the first page --------------------------------------- */
+  var requested = QM.state.boot.requestedPage;
+  var start = pages.filter(function (p) { return p.page === requested; })[0];
+  QM.go((start || pages[0]).page);
+
+  refreshNotificationCount();
+}
+
+
+/* ====================================================================
+ * GLOBAL SEARCH
+ *
+ * One box. The server decides what this person may find — see
+ * 27_Search.gs, where scope is applied BEFORE the search rather than to
+ * its results, so a vendor cannot even learn that another vendor's
+ * handset exists.
+ * ================================================================== */
+
+function openGlobalSearch() {
+  var body = QM.el('div');
+
+  var input = QM.input('search', '',
+    'Trade-in, voucher, IMEI, phone, note or settlement');
+  body.appendChild(QM.field(null, input,
+    'Three characters or more. An IMEI can be pasted with spaces in it.'));
+
+  var results = QM.el('div');
+  body.appendChild(results);
+
+  var timer = null;
+  function search() {
+    var q = input.value.trim();
+    QM.clear(results);
+    if (q.length < 3) return;
+
+    results.appendChild(QM.loadingBlock());
+    QM.call('search.global', { query: q }).then(function (res) {
+      QM.clear(results);
+      if (!res.ok) { results.appendChild(QM.errorBlock(res.message)); return; }
+
+      if (!res.total) {
+        results.appendChild(QM.el('div', 'muted', res.message || 'Nothing matched.'));
+        return;
+      }
+
+      res.groups.forEach(function (group) {
+        results.appendChild(QM.el('div', 'section-head', group.label));
+
+        group.results.forEach(function (row) {
+          var item = QM.el('button', 'btn secondary block');
+          item.style.textAlign = 'left';
+          item.style.marginBottom = '.35rem';
+          item.style.display = 'block';
+          item.style.minHeight = 'auto';
+          item.style.padding = '.6rem .8rem';
+
+          item.appendChild(QM.el('div', 'strong', row.title));
+          item.appendChild(QM.el('div', 'small muted',
+            [row.subtitle, row.detail, row.status].filter(Boolean).join(' · ')));
+
+          item.onclick = function () {
+            document.querySelectorAll('.modal-scrim').forEach(function (s) { s.remove(); });
+            openSearchResult(group.kind, row.id);
+          };
+          results.appendChild(item);
+        });
+
+        if (group.more) {
+          results.appendChild(QM.el('div', 'small muted',
+            'and ' + group.more + ' more — narrow the search to see them.'));
+        }
+      });
+    });
+  }
+
+  input.oninput = function () { clearTimeout(timer); timer = setTimeout(search, 280); };
+
+  QM.modal({ title: 'Search', body: body, confirmLabel: '', cancelLabel: 'Close' });
+  setTimeout(function () { input.focus(); }, 50);
+}
+
+/**
+ * Open whatever was found, on the screen that owns it.
+ *
+ * A result the current portal has no screen for falls back to a toast
+ * rather than a broken navigation — an administrator and a branch
+ * assistant see different pages, and search is shared between them.
+ */
+function openSearchResult(kind, id) {
+  var isAdmin = (QM.state.me || {}).isPlatform;
+
+  if (kind === 'TRADEIN') {
+    if (typeof showTradeIn === 'function' && isAdmin) return showTradeIn(id);
+    if (typeof showVendorTradeIn === 'function') return showVendorTradeIn(id);
+  }
+  if (kind === 'COLLECTION' && typeof showBatch === 'function') return showBatch(id);
+  if (kind === 'SETTLEMENT') {
+    if (typeof showAdminSettlement === 'function' && isAdmin) {
+      return showAdminSettlement({ settlementId: id });
+    }
+    if (typeof showSettlement === 'function') return showSettlement(id);
+  }
+  if (kind === 'PRODUCT' && typeof showProduct === 'function') return showProduct(id);
+  if (kind === 'VOUCHER') {
+    QM.go(isAdmin ? 'a-tradeins' : 'v-vouchers');
+    return;
+  }
+
+  QM.toast(id, 'ok');
+}
+
+
+/* ====================================================================
+ * NOTIFICATIONS
+ * ================================================================== */
+
+function refreshNotificationCount() {
+  QM.call('notify.list', { limit: 1 }).then(function (res) {
+    var badge = document.getElementById('notify-count');
+    if (!badge || !res.ok) return;
+    badge.textContent = res.unread > 99 ? '99+' : String(res.unread);
+    badge.classList.toggle('hidden', !res.unread);
+  });
+}
+
+function openNotifications() {
+  QM.call('notify.list', {}).then(function (res) {
+    var body = QM.el('div');
+
+    if (!res.ok) {
+      body.appendChild(QM.errorBlock(res.message));
+    } else if (!res.notifications.length) {
+      body.appendChild(QM.emptyBlock('Nothing yet',
+        'You will be told here when something needs you.'));
+    } else {
+      body.appendChild(QM.el('div', 'small muted mb',
+        res.unread + ' unread of ' + res.total + '.'));
+
+      res.notifications.forEach(function (n) {
+        var row = QM.el('div', 'kv-row');
+        if (!n.read) row.style.background = 'var(--warn-bg)';
+
+        row.appendChild(QM.el('div', 'k', n.date));
+
+        var v = QM.el('div', 'v');
+        v.appendChild(QM.el('div', 'strong', n.title));
+        v.appendChild(QM.el('div', 'small', n.message));
+        if (n.entityId) v.appendChild(QM.el('div', 'small muted', n.entityId));
+        row.appendChild(v);
+
+        row.style.cursor = 'pointer';
+        row.onclick = function () {
+          QM.call('notify.markRead', { notificationId: n.notificationId })
+            .then(refreshNotificationCount);
+          if (n.entityType && n.entityId) {
+            document.querySelectorAll('.modal-scrim').forEach(function (s) { s.remove(); });
+            openSearchResult(n.entityType, n.entityId);
+          }
+        };
+        body.appendChild(row);
+      });
+    }
+
+    QM.modal({
+      title: 'Notifications',
+      body: body,
+      confirmLabel: 'Mark all as read',
+      cancelLabel: 'Close'
+    }).then(function (markAll) {
+      if (!markAll) return;
+      QM.call('notify.markAllRead', {}).then(function (r) {
+        QM.report(r);
+        refreshNotificationCount();
+      });
+    });
+  });
+}
+
+/**
+ * Update a badge in the sidebar — a queue count, usually.
+ * Silently does nothing if that page has no badge, so a portal can call
+ * it without knowing how it was configured.
+ */
+function setBadge(page, count) {
+  var el = document.getElementById('badge-' + page);
+  if (!el) return;
+  el.textContent = count;
+  el.classList.toggle('hidden', !count);
+}
+
+/**
+ * A filter bar. Every list screen has one, and they behave the same way:
+ * change a control, the list reloads.
+ */
+function filterBar(controls, onChange) {
+  var bar = QM.el('div', 'row mb');
+
+  controls.forEach(function (c) {
+    var wrap = QM.el('div');
+    if (c.label) wrap.appendChild(QM.el('label', null, c.label));
+
+    var control;
+    if (c.type === 'select') {
+      control = QM.select(c.options, c.value);
+    } else {
+      control = QM.input(c.type || 'search', c.value || '', c.placeholder || '');
+    }
+    control.dataset.key = c.key;
+    control.onchange = function () { onChange(readFilters(bar)); };
+    if (c.type === 'search') {
+      var timer = null;
+      control.oninput = function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { onChange(readFilters(bar)); }, 300);
+      };
+    }
+
+    wrap.appendChild(control);
+    bar.appendChild(wrap);
+  });
+
+  return bar;
+}
+
+function readFilters(bar) {
+  var out = {};
+  bar.querySelectorAll('[data-key]').forEach(function (c) {
+    if (c.value) out[c.dataset.key] = c.value;
+  });
+  return out;
+}
+
+/**
+ * A list of label-and-value rows.
+ *
+ * The value sits beside its label rather than being flung to the far
+ * right of the card. The earlier version borrowed the technician's
+ * inspection row, which right-aligned the value — on a wide card that
+ * read as a broken right-to-left layout, which is exactly how it was
+ * reported.
+ *
+ * dir="auto" on the value lets an Arabic branch name lay itself out
+ * correctly inside an otherwise English page, without dragging the
+ * punctuation around it to the wrong end.
+ */
+function detailList(pairs) {
+  var wrap = QM.el('div');
+  pairs.forEach(function (p) {
+    if (p.value === undefined || p.value === null || p.value === '') return;
+
+    var row = QM.el('div', 'kv-row');
+    row.appendChild(QM.el('div', 'k', p.label));
+
+    var cell = QM.el('div', 'v');
+    cell.setAttribute('dir', 'auto');
+    if (p.value instanceof Node) cell.appendChild(p.value);
+    else cell.textContent = String(p.value);
+    row.appendChild(cell);
+
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+</script>

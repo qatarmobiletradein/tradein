@@ -1,0 +1,652 @@
+<script>
+/*******************************************************************
+ * Client.html — the browser-side runtime shared by every portal.
+ *
+ * WHAT THIS LAYER IS FOR
+ *   One way to call the server, one way to hold a session, one way to
+ *   render a message. Four portals using four conventions is how a
+ *   security check ends up applied in three of them.
+ *
+ * WHAT IT IS NOT FOR
+ *   Deciding anything. This file has no authority whatsoever. It hides
+ *   buttons a role cannot use, and hiding them is a COURTESY, not a
+ *   control — the server refuses the action regardless, and a page with
+ *   every button visible would be exactly as safe.
+ *
+ *   Treat everything here as reversible by anyone with a developer
+ *   console, because it is.
+ *
+ * THE TOKEN
+ *   Held in memory and mirrored to sessionStorage so a refresh does not
+ *   sign the person out. It is the RAW token; the server stores only its
+ *   hash. sessionStorage rather than localStorage: a shared counter
+ *   tablet should not keep somebody signed in after the tab closes.
+ *******************************************************************/
+
+var QM = (function () {
+
+  var state = {
+    token:   null,
+    me:      null,
+    boot:    {},
+    page:    null,
+    busy:    0
+  };
+
+  /* ==================================================================
+   * SESSION TOKEN
+   * ================================================================ */
+
+  function loadToken() {
+    try { state.token = sessionStorage.getItem('qm.token') || null; }
+    catch (e) { state.token = null; }   // private mode, or storage blocked
+    return state.token;
+  }
+
+  function setToken(token) {
+    state.token = token || null;
+    try {
+      if (token) sessionStorage.setItem('qm.token', token);
+      else sessionStorage.removeItem('qm.token');
+    } catch (e) { /* the in-memory copy still works for this tab */ }
+  }
+
+  /* ==================================================================
+   * CALLING THE SERVER
+   *
+   * Every request goes through apiCall(token, action, params). There is
+   * no second path, so there is no second place a token could be
+   * forgotten or a failure handled differently.
+   * ================================================================ */
+
+  /*
+   * 3.1 — IDEMPOTENT ACTIONS.
+   *
+   * These change money or custody. Each INTENDED action gets one random
+   * idempotencyKey, and the server executes a keyed request at most once
+   * (28_Idempotency.gs). So:
+   *
+   *   a double click       sends nothing new — the second click gets the
+   *                        same promise as the first;
+   *   a dropped connection is retried ONCE automatically with the SAME
+   *                        key, and if the first attempt had in fact
+   *                        succeeded the server replays its answer
+   *                        instead of doing it twice.
+   *
+   * The list mirrors the `idem` entries in ACTION_REGISTRY. Missing one
+   * here is not unsafe — the server's own state checks still refuse a
+   * duplicate — it only loses the friendly replay.
+   */
+  var IDEMPOTENT_ACTIONS = {
+    'customer.submitTradeIn': 1, 'customer.acceptOffer': 1, 'customer.declineOffer': 1,
+    'tech.complete': 1, 'tech.submitOffer': 1, 'tech.receiveDevice': 1, 'tech.returnDevice': 1,
+    'vendor.issueVoucher': 1, 'vendor.voidVoucher': 1, 'vendor.saveStaff': 1,
+    'admin.overridePrice': 1, 'admin.overrideGrade': 1, 'admin.updateStaff': 1,
+    'admin.approveStaff': 1, 'admin.createBatch': 1, 'admin.updateBatch': 1,
+    'admin.createSettlement': 1, 'admin.advanceSettlement': 1
+  };
+  var inflight = {};
+
+  function newRequestKey() {
+    var bytes = new Uint8Array(16);
+    var c = window.crypto || window.msCrypto;
+    if (c && c.getRandomValues) c.getRandomValues(bytes);
+    else for (var i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+    var hex = '';
+    for (var j = 0; j < bytes.length; j++) hex += ('0' + bytes[j].toString(16)).slice(-2);
+    return 'k' + Date.now().toString(36) + hex;
+  }
+
+  function stableStringify(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+    return '{' + Object.keys(v).sort().map(function (k) {
+      return JSON.stringify(k) + ':' + stableStringify(v[k]);
+    }).join(',') + '}';
+  }
+
+  function call(action, params) {
+    var p = params || {};
+    if (!IDEMPOTENT_ACTIONS[action]) return send(action, p, 0);
+
+    var signature = action + '|' + stableStringify(p);
+    if (inflight[signature]) return inflight[signature];
+
+    var keyed = Object.assign({}, p, { idempotencyKey: p.idempotencyKey || newRequestKey() });
+    var promise = send(action, keyed, 1);
+    inflight[signature] = promise;
+    promise.then(function () { delete inflight[signature]; });
+    return promise;
+  }
+
+  function send(action, params, retriesLeft) {
+    return new Promise(function (resolve) {
+      busy(1);
+      google.script.run
+        .withSuccessHandler(function (res) {
+          busy(-1);
+
+          // The server says the session is gone. Clear it and show the
+          // sign-in screen rather than leaving a dead page behind.
+          if (res && res.reauth) {
+            setToken(null);
+            state.me = null;
+            renderAuth();
+            resolve(res);
+            return;
+          }
+          resolve(res || { ok: false, message: 'No response from the server.' });
+        })
+        .withFailureHandler(function (err) {
+          busy(-1);
+          console.error(action, err);
+          if (retriesLeft > 0) {
+            // Same params, same idempotencyKey: safe to resend.
+            setTimeout(function () {
+              send(action, params, retriesLeft - 1).then(resolve);
+            }, 1500);
+            return;
+          }
+          resolve({
+            ok: false,
+            message: 'Could not reach the server. Check your connection and try again.'
+          });
+        })
+        .apiCall(state.token || '', action, params || {});
+    });
+  }
+
+  function busy(delta) {
+    state.busy = Math.max(0, state.busy + delta);
+    var el = document.getElementById('busy');
+    if (el) el.classList.toggle('hidden', state.busy === 0);
+  }
+
+  /* ==================================================================
+   * MESSAGES
+   * ================================================================ */
+
+  function toast(message, kind) {
+    var host = document.getElementById('toasts');
+    if (!host) return;
+
+    var el = document.createElement('div');
+    el.className = 'toast ' + (kind || '');
+    el.textContent = message;
+    host.appendChild(el);
+
+    setTimeout(function () {
+      el.style.opacity = '0';
+      setTimeout(function () { el.remove(); }, 200);
+    }, kind === 'danger' ? 6000 : 3500);
+  }
+
+  /** Show whatever a server reply said, in the right colour. */
+  function report(res, successMessage) {
+    if (res && res.ok) {
+      toast(successMessage || res.message || 'Done.', 'ok');
+      return true;
+    }
+    toast((res && res.message) || 'Something went wrong.', 'danger');
+    return false;
+  }
+
+  /* ==================================================================
+   * SAFE RENDERING
+   *
+   * text() writes with textContent. Nothing in this file ever assigns a
+   * value from the server into innerHTML — a customer's name, a note or
+   * a device model would then be able to run script in an
+   * administrator's browser.
+   * ================================================================ */
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function clear(node) {
+    while (node && node.firstChild) node.removeChild(node.firstChild);
+    return node;
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /*
+   * 3.1 — THE IMAGE URL POLICY, IN THE BROWSER.
+   *
+   * The server already refuses to store or serve anything else; this is
+   * the second line. Accepted: https: links, and data: URLs of raster
+   * image types (the private inspection photos arrive that way). Refused:
+   * javascript:, http:, relative or protocol-relative paths, SVG data
+   * URLs, and anything with characters a URL has no business containing.
+   */
+  var SAFE_DATA_IMAGE = /^data:image\/(png|jpe?g|gif|webp|heic|heif|bmp);base64,[a-z0-9+\/=\s]+$/i;
+
+  function safeImageUrl(url) {
+    var s = String(url === null || url === undefined ? '' : url).trim();
+    if (!s) return '';
+    if (/^https:\/\/[^\s"'<>\\]+$/i.test(s)) {
+      try {
+        var u = new URL(s);
+        return u.protocol === 'https:' ? s : '';
+      } catch (e) { return ''; }
+    }
+    return SAFE_DATA_IMAGE.test(s) ? s : '';
+  }
+
+  /** An <img> for a URL that passes the policy, or null. */
+  function img(url, alt) {
+    var safe = safeImageUrl(url);
+    if (!safe) return null;
+    var node = document.createElement('img');
+    node.src = safe;
+    node.alt = alt || '';
+    return node;
+  }
+
+  /* ==================================================================
+   * FORMATTING
+   * ================================================================ */
+
+  function money(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return '—';
+    return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function moneyCcy(n, currency) {
+    return money(n) + ' ' + (currency || state.boot.currency || 'QAR');
+  }
+
+  function statusPill(status, label) {
+    var kind = 'info';
+    if (['CLOSED', 'SETTLED', 'COLLECTED'].indexOf(status) > -1) kind = 'ok';
+    if (['CANCELLED', 'CUSTOMER_DECLINED', 'DEVICE_RETURNED'].indexOf(status) > -1) kind = '';
+    if (['FINAL_OFFER_READY', 'DEVICE_RECEIVED', 'AWAITING_VOUCHER',
+         'RETURN_PENDING'].indexOf(status) > -1) kind = 'warn';
+
+    var pill = el('span', 'pill ' + kind, label || status);
+    return pill;
+  }
+
+  function gradeChip(code) {
+    if (!code) return el('span', 'muted', '—');
+    return el('span', 'grade ' + code, code);
+  }
+
+  /* ==================================================================
+   * MODAL AND CONFIRM
+   * ================================================================ */
+
+  function modal(opts) {
+    return new Promise(function (resolve) {
+      var scrim = el('div', 'modal-scrim');
+      var box = el('div', 'modal');
+
+      var head = el('div', 'modal-head');
+      head.appendChild(el('h3', null, opts.title || ''));
+      box.appendChild(head);
+
+      var body = el('div', 'modal-body');
+      if (typeof opts.body === 'string') body.appendChild(el('p', null, opts.body));
+      else if (opts.body) body.appendChild(opts.body);
+      box.appendChild(body);
+
+      var foot = el('div', 'modal-foot');
+
+      // An informational modal has one way out, not two. Without this a
+      // "Where to bring it" panel offers Cancel and Close side by side,
+      // which reads as a decision the customer has to make.
+      if (!opts.hideCancel) {
+        var cancel = el('button', 'btn secondary', opts.cancelLabel || 'Cancel');
+        cancel.onclick = function () { scrim.remove(); resolve(null); };
+        foot.appendChild(cancel);
+      }
+
+      var confirm = el('button', 'btn ' + (opts.danger ? 'danger' : ''),
+                       opts.confirmLabel || 'Confirm');
+      confirm.onclick = function () {
+        var value = opts.collect ? opts.collect(body) : true;
+        if (value === false) return;     // the collector rejected it
+        scrim.remove();
+        resolve(value);
+      };
+      foot.appendChild(confirm);
+
+      box.appendChild(foot);
+      scrim.appendChild(box);
+
+      scrim.onclick = function (ev) {
+        if (ev.target === scrim) { scrim.remove(); resolve(null); }
+      };
+
+      document.body.appendChild(scrim);
+      var first = body.querySelector('input, textarea, select');
+      if (first) first.focus();
+    });
+  }
+
+  /**
+   * Ask for a reason, and refuse to proceed without one.
+   *
+   * Used for voiding a voucher, returning a device, cancelling a
+   * trade-in — every action the server also refuses without a reason.
+   * Asking here means the person is not told "no" after committing.
+   */
+  function askReason(title, prompt, danger) {
+    var body = el('div');
+    body.appendChild(el('p', 'soft', prompt));
+
+    var field = el('div', 'field');
+    var input = el('textarea');
+    input.placeholder = 'Give a reason. This is recorded.';
+    field.appendChild(input);
+    body.appendChild(field);
+
+    var error = el('div', 'error');
+    body.appendChild(error);
+
+    return modal({
+      title: title, body: body, danger: danger,
+      confirmLabel: 'Confirm',
+      collect: function () {
+        var v = input.value.trim();
+        if (v.length < 4) {
+          error.textContent = 'Please write a reason.';
+          input.focus();
+          return false;
+        }
+        return v;
+      }
+    });
+  }
+
+  /* ==================================================================
+   * NAVIGATION
+   *
+   * Pages are switched in JavaScript, not by loading a URL.
+   *
+   * That is not a preference. A published Apps Script app runs inside a
+   * sandboxed iframe on googleusercontent.com, so a relative link like
+   * "?page=admin" resolves against the iframe's origin and lands on a
+   * blank page — which is exactly what happened in V1, on every link in
+   * the interface. Keeping navigation in memory removes the class of
+   * bug entirely.
+   * ================================================================ */
+
+  var routes = {};
+
+  function route(name, renderer) { routes[name] = renderer; }
+
+  function go(name, params) {
+    var renderer = routes[name];
+    if (!renderer) { toast('That page is not available.', 'danger'); return; }
+
+    state.page = name;
+
+    document.querySelectorAll('.nav-item').forEach(function (item) {
+      item.classList.toggle('active', item.dataset.page === name);
+    });
+    // Both tab bars: the operational one and the customer portal's own.
+    // Selecting on the data attribute rather than the container means a
+    // fifth portal with a fifth chrome needs no change here.
+    document.querySelectorAll('[data-tab]').forEach(function (tab) {
+      tab.classList.toggle('active', tab.dataset.tab === name);
+    });
+
+    var title = document.getElementById('page-title');
+    if (title) title.textContent = navLabel(name);
+
+    closeDrawer();
+
+    var content = document.getElementById('content');
+    if (!content) return;
+    clear(content);
+    content.appendChild(loadingBlock());
+
+    Promise.resolve(renderer(params || {})).then(function (node) {
+      clear(content);
+      if (node) content.appendChild(node);
+    }).catch(function (err) {
+      console.error(err);
+      clear(content);
+      content.appendChild(errorBlock('This page could not be loaded.'));
+    });
+  }
+
+  var navLabels = {};
+  function navLabel(name) { return navLabels[name] || name; }
+  function setNavLabel(name, label) { navLabels[name] = label; }
+
+  function loadingBlock() {
+    var box = el('div', 'loading');
+    box.appendChild(el('div', 'spinner'));
+    box.appendChild(el('div', 'muted', 'Loading…'));
+    return box;
+  }
+
+  function errorBlock(message) {
+    var box = el('div', 'empty');
+    box.appendChild(el('div', 'big', '⚠'));
+    box.appendChild(el('div', null, message));
+    return box;
+  }
+
+  function emptyBlock(message, hint) {
+    var box = el('div', 'empty');
+    box.appendChild(el('div', 'big', '—'));
+    box.appendChild(el('div', 'strong', message));
+    if (hint) box.appendChild(el('div', 'small', hint));
+    return box;
+  }
+
+  /* ==================================================================
+   * DRAWER (phone)
+   * ================================================================ */
+
+  function toggleDrawer() {
+    document.querySelector('.sidebar').classList.toggle('open');
+    document.querySelector('.scrim').classList.toggle('open');
+  }
+
+  function closeDrawer() {
+    var s = document.querySelector('.sidebar');
+    var c = document.querySelector('.scrim');
+    if (s) s.classList.remove('open');
+    if (c) c.classList.remove('open');
+  }
+
+  /* ==================================================================
+   * TABLE BUILDER
+   *
+   * Builds with DOM nodes rather than an HTML string, so no value from
+   * the server is ever parsed as markup. data-label is set on every cell
+   * so the stacked phone layout has something to show.
+   * ================================================================ */
+
+  function table(columns, rows, options) {
+    var opts = options || {};
+    var wrap = el('div', 'table-wrap');
+    var t = el('table', 'stacked');
+
+    var thead = el('thead');
+    var hr = el('tr');
+    columns.forEach(function (c) {
+      var th = el('th', c.numeric ? 'num' : null, c.label);
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    t.appendChild(thead);
+
+    var tbody = el('tbody');
+    rows.forEach(function (row) {
+      var tr = el('tr');
+      if (opts.onClick) {
+        tr.style.cursor = 'pointer';
+        tr.onclick = function () { opts.onClick(row); };
+      }
+      columns.forEach(function (c) {
+        var td = el('td', c.numeric ? 'num' : (c.className || null));
+        td.setAttribute('data-label', c.label);
+        var value = c.render ? c.render(row) : row[c.key];
+        if (value instanceof Node) td.appendChild(value);
+        else td.textContent = (value === null || value === undefined || value === '')
+          ? '—' : String(value);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    t.appendChild(tbody);
+
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  /** A KPI tile. The caption explains the number; it is not optional. */
+  function kpi(label, value, caption, opts) {
+    var o = opts || {};
+    var box = el('div', 'kpi' + (o.attention ? ' attention' : ''));
+    box.appendChild(el('div', 'label', label));
+    var v = el('div', 'value' + (o.money ? ' money' : ''),
+               o.money ? money(value) : value);
+    box.appendChild(v);
+    if (caption) box.appendChild(el('div', 'caption', caption));
+    return box;
+  }
+
+  function card(title, bodyNode, headExtra) {
+    var c = el('div', 'card');
+    if (title) {
+      var head = el('div', 'card-head');
+      head.appendChild(el('h3', null, title));
+      if (headExtra) {
+        head.appendChild(el('div', 'spacer'));
+        head.appendChild(headExtra);
+      }
+      c.appendChild(head);
+    }
+    var body = el('div', 'card-body');
+    if (bodyNode) body.appendChild(bodyNode);
+    c.appendChild(body);
+    return c;
+  }
+
+  function field(label, control, hint) {
+    var f = el('div', 'field');
+    if (label) {
+      var l = el('label', null, label);
+      f.appendChild(l);
+    }
+    f.appendChild(control);
+    if (hint) f.appendChild(el('div', 'hint', hint));
+    return f;
+  }
+
+  function input(type, value, placeholder) {
+    var i = document.createElement('input');
+    i.type = type || 'text';
+    if (value !== undefined && value !== null) i.value = value;
+    if (placeholder) i.placeholder = placeholder;
+    return i;
+  }
+
+  function select(options, value) {
+    var s = document.createElement('select');
+    options.forEach(function (o) {
+      var opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      if (String(o.value) === String(value)) opt.selected = true;
+      s.appendChild(opt);
+    });
+    return s;
+  }
+
+  function button(label, onClick, className) {
+    var b = el('button', 'btn ' + (className || ''), label);
+    b.onclick = onClick;
+    return b;
+  }
+
+  /* ==================================================================
+   * BOOT
+   * ================================================================ */
+
+  function boot(bootData) {
+    state.boot = bootData || {};
+    loadToken();
+
+    if (!state.token) { renderAuth(); return; }
+
+    call('me.context', {}).then(function (res) {
+      if (!res.ok) { renderAuth(); return; }
+      state.me = res;
+      renderPortal(res.portal);
+    });
+  }
+
+  /**
+   * Draw the portal the SERVER named.
+   *
+   * res.portal came from ROLE_HOME on the server, from the role on the
+   * user's own row. The requestedPage in the URL is used only to pick a
+   * starting page inside a portal the person already has.
+   */
+  function renderPortal(portal) {
+    var builder = portals[portal];
+    if (!builder) {
+      document.body.appendChild(errorBlock('No portal is configured for your account.'));
+      return;
+    }
+    builder(state.me);
+  }
+
+  var portals = {};
+  function portal(name, builder) { portals[name] = builder; }
+
+  function renderAuth() {
+    if (typeof buildAuthScreen === 'function') buildAuthScreen();
+  }
+
+  async function signOut() {
+    await call('auth.logout', {});
+    setToken(null);
+    state.me = null;
+    location.reload();
+  }
+
+  /* ==================================================================
+   * PUBLIC SURFACE
+   * ================================================================ */
+
+  return {
+    state: state,
+    call: call,
+    setToken: setToken,
+    toast: toast,
+    report: report,
+
+    el: el, clear: clear, esc: esc,
+    safeImageUrl: safeImageUrl, img: img,
+    money: money, moneyCcy: moneyCcy,
+    statusPill: statusPill, gradeChip: gradeChip,
+
+    modal: modal, askReason: askReason,
+    table: table, kpi: kpi, card: card,
+    field: field, input: input, select: select, button: button,
+    emptyBlock: emptyBlock, errorBlock: errorBlock, loadingBlock: loadingBlock,
+
+    route: route, go: go, setNavLabel: setNavLabel,
+    portal: portal, boot: boot, renderPortal: renderPortal,
+    toggleDrawer: toggleDrawer, closeDrawer: closeDrawer,
+    signOut: signOut
+  };
+})();
+</script>

@@ -1,0 +1,21 @@
+# Cutover plan — 13 steps (**NOT EXECUTED**)
+
+None of these steps has been carried out. The production Apps Script deployment and its data were not touched. Each step has an exit check and a rollback point; owners are to be assigned in step 1.
+
+| # | Step | Exit check | Rollback |
+|---|---|---|---|
+| 1 | **Decide open business questions** — how to freeze 3.1 writes (step 9), finance role (QM_ADMIN vs new role), settlement approval (SUPER_ADMIN only today), keyless idempotent calls (`IDEMPOTENCY_KEY_REQUIRED`), SMS provider and sender id, SMTP provider for staff e-mails, MFA for SUPER_ADMIN. *(Staff sign-in method: decided 2026-10-08 — email + password.)* | Written decisions. | — |
+| 2 | **Provision staging** — Supabase staging project (`SUPABASE_SETUP.md`), Railway staging service (`RAILWAY_DEPLOYMENT.md`), secrets set as sealed variables by the owner. | `/ready` ok; migrations applied; buckets present; hook signature verified with a real OTP to a team phone. | Delete staging. |
+| 3 | **Staging verification** — run the platform-dependent checks marked NOT EXECUTED in `TEST_RESULTS.md` (real GoTrue OTP, Send SMS hook, JWKS/secret verification, Storage upload + signed URL, RLS with real anon/user keys over REST, refresh/logout). Run the browser through every 3.1 screen by role. | Checklist signed off. | Fix and repeat. |
+| 4 | **Rehearsal export** — owner runs `migrationExportSheet_` for each sheet on a copy taken at a quiet time; operator stores it encrypted. | Files present; `migrationInventory_` counts recorded. | Delete export. |
+| 5 | **Dry run + validate on staging** — `import:sheets --mode dry-run`, then `--mode validate` against staging. | Zero unexplained failed rows; every failed row has a written decision. | — |
+| 6 | **Rehearsal apply + compare on staging** — `--mode apply`, `compare:sheets`, `import:files`, `job:reconcile`. | Counts equal; financial totals equal to the cent; no orphans/duplicates/invalid states/broken files; reconciliation 0 issues. | Recreate staging DB. |
+| 7 | **User acceptance on staging** — each role (customer, technician, partner admin/manager/staff, QM admin, owner) runs a trade-in from submission to settlement with fictional devices. | Sign-off. | — |
+| 8 | **Announce freeze** — schedule a window; tell partners vouchers issued in the old system remain valid (numbers are preserved). | Notice sent. | Cancel window. |
+| 9 | **Freeze 3.1** — 3.1 has **no built-in read-only switch** (checked). The owner stops writes by restricting the web-app deployment's access (or archiving that deployment version) for the window, after telling users. Choosing how is a decision for step 1. | No new rows after the freeze timestamp (`migrationInventory_` counts unchanged). | Restore the deployment's access. |
+| 10 | **Production export, import, compare** — repeat steps 4–6 against the **production** Supabase project with `MIGRATION_TARGET_CONFIRM` set to that project's ref (and the production ref removed from `QM_PROTECTED_TARGETS` only for this step, by the approver). | Same exit checks as step 6. | Do not switch traffic; restore 3.1 access; truncate the new production DB. |
+| 11 | **Switch frontend** — build with `QM_API_BASE=<prod api>`, `QM_ENVIRONMENT_LABEL=PRODUCTION`, `QM_STAFF_SIGN_IN=password`; publish the static page; point users to the new URL. Tell staff: first sign-in is "Staff sign-in" → "Set or reset password" with their work email (check every staff profile has a valid, unique address first). Keep 3.1 deployed but closed to writes. | Sign-ins succeed; first real trade-ins flow; `/ready` ok; logs clean. | Revert link to 3.1, restore 3.1 access (data written in the new system during the window must then be reconciled by hand — keep the window short). |
+| 12 | **Hypercare (≥ 2 weeks)** — hourly reconciliation job, daily review of `job_runs`, failed requests, audit denials; compare daily voucher and settlement totals with partners. | No unexplained discrepancy. | Per incident. |
+| 13 | **Decommission** — archive the 3.1 spreadsheet export (encrypted, retention per policy), remove Apps Script triggers, delete the migration export files from operator machines. | Archive verified; 3.1 no longer reachable for writes. | — |
+
+Status of every step: **not started**.

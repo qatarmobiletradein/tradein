@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "sourceMap": false },
+  "include": ["apps/api/src/**/*.ts", "packages/*/src/**/*.ts", "tools/**/*.ts"],
+  "exclude": ["**/*.test.ts", "tests/**"]
+}

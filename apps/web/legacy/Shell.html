@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!--
+  dir="ltr" is stated rather than left to default. The interface is
+  English, but much of the DATA is Arabic — branch names, customer
+  names, notes. Declaring the page direction once here means an Arabic
+  value lays itself out correctly inside its own element (dir="auto")
+  without ever flipping the layout around it.
+-->
+<html lang="en" dir="ltr">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <!-- Brand tokens and the official mark, before anything that consumes them. -->
+  <?!= partials.BrandAssets ?>
+  <?!= partials.Styles ?>
+  <?!= partials.StylesCustomer ?>
+</head>
+<body>
+
+  <!-- Every portal is drawn into this one element. There is no page
+       navigation and no second HTML document: see the note on the
+       sandboxed iframe in Client.html. -->
+  <div id="root"></div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <div id="busy" class="hidden"
+       style="position:fixed;top:0;left:0;right:0;height:3px;z-index:90;
+              background:linear-gradient(90deg,var(--qm-cyan),var(--qm-cyan-line));
+              animation:shimmer 1s linear infinite"></div>
+
+  <?!= partials.Client ?>
+  <?!= partials.Frame ?>
+  <?!= partials.Auth ?>
+  <?!= partials.PortalCustomer ?>
+  <?!= partials.PortalCustomerFlow ?>
+  <?!= partials.PortalTechnician ?>
+  <?!= partials.PortalVendor ?>
+  <?!= partials.PortalAdmin ?>
+
+  <script>
+    // boot is written by the server template. It carries no session and
+    // no permissions — only the platform name, the currency and which
+    // page was asked for. It is produced by jsonForScript_ (00b_Security.gs),
+    // which escapes everything an HTML parser could act on, so printing it
+    // unescaped here is safe; the page name was also checked against an
+    // allow-list first.
+    QM.boot(<?!= boot ?>);
+  </script>
+
+</body>
+</html>

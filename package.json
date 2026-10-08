@@ -1,0 +1,57 @@
+{
+  "name": "qatar-mobile-tradein-platform",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Qatar Mobile Multi-Vendor Trade-In \u2014 Railway API + Supabase (PostgreSQL, Auth, RLS, Storage). Staging-ready; NOT deployed.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/apps/api/src/server.js",
+    "dev": "tsx watch apps/api/src/server.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "node dist/packages/database/src/migrate-cli.js",
+    "migrate:dev": "tsx packages/database/src/migrate-cli.ts",
+    "seed:dev": "tsx packages/database/src/seed-cli.ts",
+    "job:reconcile": "node dist/apps/api/src/jobs/run-job.js reconcile",
+    "job:purge": "node dist/apps/api/src/jobs/run-job.js purge",
+    "worker": "node dist/apps/api/src/jobs/worker.js",
+    "import:sheets": "tsx tools/migration/import-cli.ts",
+    "compare:sheets": "tsx tools/migration/compare-cli.ts",
+    "web:build": "node apps/web/build.mjs",
+    "test": "vitest run",
+    "test:db": "bash tests/scripts/with-local-postgres.sh vitest run",
+    "import:files": "tsx tools/migration/files-cli.ts",
+    "test:ui": "bash tests/scripts/with-local-postgres.sh tsx tests/e2e/ui-smoke.ts",
+    "seed:staging": "node dist/packages/database/src/seed-staging-cli.js",
+    "verify:staging": "node dist/tools/staging/verify-staging.js",
+    "rehearse:staging": "bash tests/scripts/with-local-postgres.sh tsx tests/staging/rehearse.ts",
+    "emulate:staging": "bash tests/staging/local-cloud/run.sh",
+    "make:fictional-export": "tsx tools/migration/fixtures/make-fictional-export.ts",
+    "rehearse:migration": "bash tests/scripts/with-local-postgres.sh tsx tests/staging/migration-dry-run.ts",
+    "openapi": "tsx tools/openapi/generate.ts docs/openapi.json"
+  },
+  "dependencies": {
+    "@fastify/cors": "11.3.0",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "pg": "8.23.1",
+    "pino": "10.4.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "12.0.0",
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "railway": "3.11.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7",
+    "zod-to-json-schema": "3.25.2"
+  }
+}

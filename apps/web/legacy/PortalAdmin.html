@@ -1,0 +1,3080 @@
+<script>
+/*******************************************************************
+ * PortalAdmin.html — Qatar Mobile's own screens.
+ *
+ * SEPARATE PAGES, NOT ONE DASHBOARD WITH TABS
+ *   Pricing, catalogue, vendors, staff, customers, collections,
+ *   settlements, reports and audit each get their own page. A single
+ *   screen carrying all of it is where somebody edits a commission rate
+ *   while meaning to edit a price.
+ *
+ * THE ONE NUMBER AN ADMINISTRATOR TYPES IS THE BASE PRICE
+ *   There is no field anywhere in this file for a "Grade C price". The
+ *   pricing screen takes one number, shows the whole ladder it produces,
+ *   and saves that. Per-grade entry is how a catalogue ends up with
+ *   inconsistent ladders that nobody notices for months.
+ *
+ * DESTRUCTIVE THINGS ASK FOR A REASON
+ *   Cancelling a price, voiding a voucher, disabling an account. The
+ *   server refuses all of them without one; asking here means nobody is
+ *   told "no" after committing to the action.
+ *******************************************************************/
+
+QM.portal('admin', function (me) {
+  var isOwner = me.role === 'SUPER_ADMIN';
+
+  buildFrame({
+    mark: 'QM',
+    title: me.platform,
+    nav: [
+      { page: 'a-home',        label: 'Dashboard',   icon: '▦' },
+
+      { section: 'Operations' },
+      { page: 'a-tradeins',    label: 'Trade-ins',   icon: '▤' },
+      { page: 'a-collections', label: 'Collections', icon: '⇩' },
+      { page: 'a-settlements', label: 'Settlements', icon: '◱' },
+
+      { section: 'Catalogue' },
+      { page: 'a-pricing',     label: 'Pricing',     icon: '¤', badge: '0' },
+      { page: 'a-products',    label: 'Products',    icon: '▢' },
+      { page: 'a-brands',      label: 'Brands',      icon: '◈' },
+      { page: 'a-categories',  label: 'Categories',  icon: '⊞' },
+      { page: 'a-import',      label: 'Bulk import', icon: '⇪' },
+      { page: 'a-grades',      label: 'Grade ladder',icon: '◑' },
+      { page: 'a-inspection',  label: 'Inspection rules', icon: '◎' },
+
+      { section: 'Marketplace' },
+      { page: 'a-vendors',     label: 'Vendors',     icon: '⌂' },
+      { page: 'a-branches',    label: 'Branches',    icon: '⌗' },
+      { page: 'a-commission',  label: 'Commission',  icon: '％' },
+
+      { section: 'People' },
+      { page: 'a-staff',       label: 'Staff',       icon: '☺', badge: '0' },
+      { page: 'a-customers',   label: 'Customers',   icon: '☻' },
+
+      { section: 'System' },
+      { page: 'a-reports',     label: 'Reports',     icon: '◔' },
+      { page: 'a-audit',       label: 'Audit log',   icon: '❐' },
+      { page: 'a-settings',    label: 'Settings',    icon: '⚙' }
+    ]
+  });
+});
+
+/* ====================================================================
+ * DASHBOARD
+ * ================================================================== */
+
+QM.route('a-home', function () {
+  return QM.call('admin.dashboard', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+    var a = res.attention;
+
+    setBadge('a-pricing', a.unpricedVariants);
+    setBadge('a-staff', a.pendingStaff);
+
+    /* ---- what needs a person -------------------------------------
+     * Above the numbers on purpose. A dashboard whose first row is
+     * revenue and whose problems are below the fold is a dashboard that
+     * gets read as reassurance.
+     * -------------------------------------------------------------- */
+    var problems = [];
+    if (a.unpricedVariants) {
+      problems.push(a.unpricedVariants +
+        ' variant(s) have no price and cannot be quoted at all');
+    }
+    if (a.pendingStaff) {
+      problems.push(a.pendingStaff + ' person(s) waiting for approval');
+    }
+    if (a.stuckOverAWeek) {
+      problems.push(a.stuckOverAWeek + ' trade-in(s) have not moved in over a week');
+    }
+    if (a.unsettledCollected > 0) {
+      problems.push(QM.moneyCcy(a.unsettledCollected) +
+        ' collected and not yet settled');
+    }
+    if (a.undatedCollected) {
+      problems.push(a.undatedCollected + ' collected device(s) have no collection ' +
+        'date, so no settlement run can ever pick them up');
+    }
+    if (a.collectionExceptions) {
+      problems.push(a.collectionExceptions +
+        ' collection note(s) have a device nobody could account for');
+    }
+
+    if (problems.length) {
+      var n = QM.el('div', 'notice warn');
+      n.appendChild(QM.el('strong', null, 'Needs attention'));
+      var ul = QM.el('ul');
+      ul.style.margin = '.4rem 0 0'; ul.style.paddingLeft = '1.2rem';
+      problems.forEach(function (p) { ul.appendChild(QM.el('li', null, p)); });
+      n.appendChild(ul);
+      wrap.appendChild(n);
+    }
+
+    /* ---- money --------------------------------------------------- */
+    var grid = QM.el('div', 'grid cols-4 mb');
+    grid.appendChild(QM.kpi('Today', res.today.submitted,
+      'Trade-ins started today'));
+    grid.appendChild(QM.kpi('This month', res.month.submitted,
+      'Trade-ins started since the 1st'));
+    grid.appendChild(QM.kpi('Paid to customers', res.month.customerValue,
+      'This month', { money: true }));
+    grid.appendChild(QM.kpi('Commission owed', res.month.commission,
+      'To vendors, this month', { money: true }));
+    wrap.appendChild(grid);
+
+    /* ---- the pipeline -------------------------------------------- */
+    var q = res.queues;
+    var queues = QM.el('div', 'grid cols-4 mb');
+    queues.appendChild(QM.kpi('To inspect', q.awaitingInspection,
+      'Waiting for a technician'));
+    queues.appendChild(QM.kpi('With customer', q.awaitingCustomer,
+      'Offer made, no answer yet'));
+    queues.appendChild(QM.kpi('To voucher', q.awaitingVoucher,
+      'Device here, vendor has not issued'));
+    queues.appendChild(QM.kpi('To collect', q.awaitingCollection,
+      'Paid for, still in the shop',
+      { attention: q.awaitingCollection > 0 }));
+    wrap.appendChild(queues);
+
+    /* ---- the marketplace, and the average the totals hide ---------- */
+    var m = res.marketplace || {};
+    var scale = QM.el('div', 'grid cols-4 mb');
+    scale.appendChild(QM.kpi('Vendors', m.vendors, 'Active partners'));
+    scale.appendChild(QM.kpi('Branches', m.branches, 'Accepting trade-ins'));
+    scale.appendChild(QM.kpi('Average trade-in', (res.average || {}).tradeInValue,
+      'Across every completed device', { money: true }));
+    scale.appendChild(QM.kpi('Paid settlements',
+      (res.settlementSummary || {}).paid,
+      QM.moneyCcy((res.settlementSummary || {}).paidValue) + ' paid to vendors'));
+    wrap.appendChild(scale);
+
+    /* ---- the rest of the pipeline ---------------------------------- */
+    var q2 = QM.el('div', 'grid cols-4 mb');
+    q2.appendChild(QM.kpi('Collected', q.awaitingSettlement,
+      'Ours, not yet settled'));
+    q2.appendChild(QM.kpi('Pending settlement',
+      (res.settlementSummary || {}).pending, 'Draft, submitted or approved'));
+    q2.appendChild(QM.kpi('Returns', q.returnsPending,
+      'Going back to a customer'));
+    q2.appendChild(QM.kpi('Collection exceptions',
+      a.collectionExceptions,
+      'Notes with a device unaccounted for',
+      { attention: a.collectionExceptions > 0 }));
+    wrap.appendChild(q2);
+
+    /* ---- top branches and models ----------------------------------- */
+    if (res.branchesTop && res.branchesTop.length) {
+      wrap.appendChild(QM.card('Busiest branches', QM.table([
+        { key: 'label', label: 'Branch' },
+        { key: 'count', label: 'Trade-ins', numeric: true },
+        { key: 'value', label: 'Paid out', numeric: true,
+          render: function (r) { return QM.money(r.value); } }
+      ], res.branchesTop)));
+    }
+
+    if (res.modelsTop && res.modelsTop.length) {
+      wrap.appendChild(QM.card('Most traded models', QM.table([
+        { key: 'label', label: 'Model' },
+        { key: 'count', label: 'Devices', numeric: true },
+        { key: 'value', label: 'Paid out', numeric: true,
+          render: function (r) { return QM.money(r.value); } }
+      ], res.modelsTop)));
+    }
+
+    /* ---- vendors -------------------------------------------------- */
+    if (res.vendors && res.vendors.length) {
+      wrap.appendChild(QM.card('Vendors', QM.table([
+        { key: 'vendorName', label: 'Vendor' },
+        { key: 'tradeIns', label: 'Trade-ins', numeric: true },
+        { key: 'completed', label: 'Completed', numeric: true },
+        { key: 'customerValue', label: 'Paid out', numeric: true,
+          render: function (r) { return QM.money(r.customerValue); } },
+        { key: 'commission', label: 'Commission', numeric: true,
+          render: function (r) { return QM.money(r.commission); } },
+        { key: 'settlement', label: 'Total cost', numeric: true,
+          render: function (r) { return QM.money(r.settlement); } }
+      ], res.vendors)));
+    }
+
+    /* ---- grade mix ------------------------------------------------ */
+    wrap.appendChild(QM.card('Condition mix this month', QM.table([
+      { key: 'code', label: 'Grade',
+        render: function (r) { return QM.gradeChip(r.code); } },
+      { key: 'name', label: 'Condition' },
+      { key: 'count', label: 'Devices', numeric: true },
+      { key: 'percentage', label: 'Share', numeric: true,
+        render: function (r) { return r.percentage + '%'; } }
+    ], res.grades)));
+
+    return wrap;
+  });
+});
+
+/* ====================================================================
+ * PRICING
+ *
+ * The most consequential screen in the system, so it is also the
+ * plainest: one number in, the whole ladder shown, nothing else typed.
+ * ================================================================== */
+
+QM.route('a-pricing', function (params) {
+  var filters = params.filters || { status: 'UNPRICED' };
+  var wrap = QM.el('div');
+
+  var note = QM.el('div', 'notice');
+  note.appendChild(QM.el('strong', null, 'One price per storage size'));
+  note.appendChild(document.createTextNode(
+    'You enter the Grade A price — what a device in excellent condition is ' +
+    'worth. Every other grade is a percentage of it, so the ladder can never ' +
+    'be inconsistent.'));
+  wrap.appendChild(note);
+
+  /* ---- vendor override pricing --------------------------------------
+   * The server has supported per-vendor prices since V2 — resolveBasePrice_
+   * checks a vendor list before the master one — and no screen ever sent a
+   * vendorId, so the feature was unreachable. Choosing a vendor here shows
+   * their overrides beside the master price and lets one be set.
+   * ------------------------------------------------------------------ */
+  var vendorRow = QM.el('div', 'notice');
+  vendorRow.appendChild(QM.el('strong', null,
+    filters.vendorId ? 'Showing one vendor\'s price list'
+                     : 'Showing Qatar Mobile\'s master price list'));
+  vendorRow.appendChild(document.createTextNode(
+    filters.vendorId
+      ? 'A vendor override beats the master price for that vendor only, and ' +
+        'only while it is in force. Everything without an override falls back ' +
+        'to the master price.'
+      : 'Choose a vendor to see and set their own prices.'));
+  wrap.appendChild(vendorRow);
+
+  var vendorSelect = QM.select([{ value: '', label: 'Master price list' }],
+                               filters.vendorId);
+  vendorSelect.dataset.key = 'vendorId';
+  QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return;
+    res.vendors.forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v.vendorId;
+      opt.textContent = v.name;
+      if (filters.vendorId === v.vendorId) opt.selected = true;
+      vendorSelect.appendChild(opt);
+    });
+  });
+  vendorSelect.onchange = function () {
+    var f = {};
+    Object.keys(filters).forEach(function (k) { f[k] = filters[k]; });
+    f.vendorId = vendorSelect.value;
+    QM.go('a-pricing', { filters: f });
+  };
+  wrap.appendChild(QM.field('Price list', vendorSelect));
+
+  wrap.appendChild(filterBar([
+    { key: 'status', type: 'select', label: 'Show', value: filters.status,
+      options: [
+        { value: 'UNPRICED', label: 'Needs a price' },
+        { value: 'PRICED', label: 'Priced' },
+        { value: '', label: 'Everything' }
+      ] },
+    { key: 'search', type: 'search', label: 'Search',
+      placeholder: 'Model or storage', value: filters.search }
+  ], function (f) {
+    f.vendorId = filters.vendorId || '';
+    QM.go('a-pricing', { filters: f });
+  }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.pricing', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    setBadge('a-pricing', res.unpriced);
+
+    if (res.unpriced) {
+      var warn = QM.el('div', 'notice warn');
+      warn.appendChild(QM.el('strong', null,
+        res.unpriced + ' variant(s) cannot be quoted'));
+      warn.appendChild(document.createTextNode(
+        'A customer choosing one of these is told we are not buying that model. ' +
+        'They are not worth zero — they have no price at all.'));
+      list.appendChild(warn);
+    }
+
+    if (!res.rows.length) {
+      list.appendChild(QM.emptyBlock('Nothing matches'));
+      return;
+    }
+
+    var columns = [
+      { key: 'brand', label: 'Brand' },
+      { key: 'model', label: 'Model' },
+      { key: 'storage', label: 'Storage' },
+      { key: 'masterPrice', label: 'Master', numeric: true,
+        render: function (r) {
+          return r.masterPrice === null ? QM.el('span', 'muted', '—')
+                                        : QM.money(r.masterPrice);
+        } }
+    ];
+
+    if (filters.vendorId) {
+      columns.push({ key: 'vendorPrice', label: 'This vendor', numeric: true,
+        render: function (r) {
+          return r.vendorPrice === null
+            ? QM.el('span', 'muted', 'uses master')
+            : QM.el('span', 'strong', QM.money(r.vendorPrice));
+        } });
+    }
+
+    columns.push({ key: 'resolvedPrice', label: 'In force', numeric: true,
+      render: function (r) {
+        if (r.resolvedPrice === null) return QM.el('span', 'pill warn', 'No price');
+        return QM.el('span', 'strong', QM.money(r.resolvedPrice));
+      } });
+
+    columns.push({ key: 'grades', label: 'Ladder',
+      render: function (r) {
+        if (!r.grades.length) return QM.el('span', 'muted', '—');
+        var box = QM.el('div', 'gap');
+        r.grades.forEach(function (g) {
+          box.appendChild(QM.el('span', 'pill', g.code + ' ' + QM.money(g.value)));
+        });
+        return box;
+      } });
+
+    list.appendChild(QM.table(columns, res.rows, {
+      onClick: function (row) { editPrice(row, filters.vendorId); }
+    }));
+  });
+
+  return wrap;
+});
+
+function editPrice(row, vendorId) {
+  var body = QM.el('div');
+
+  body.appendChild(detailList([
+    { label: 'Device', value: row.brand + ' ' + row.model },
+    { label: 'Storage', value: row.storage },
+    { label: 'Price list', value: vendorId ? 'Vendor override' : 'Master' },
+    { label: 'Master price',
+      value: row.masterPrice === null ? 'None' : QM.moneyCcy(row.masterPrice) },
+    { label: 'Vendor override',
+      value: !vendorId ? null
+           : (row.vendorPrice === null ? 'None — uses the master price'
+                                       : QM.moneyCcy(row.vendorPrice)) }
+  ]));
+
+  var current = vendorId ? row.vendorPrice : row.masterPrice;
+  var price = QM.input('number', current === null ? '' : current);
+  price.min = 0; price.step = '1';
+  body.appendChild(QM.field(
+    vendorId ? 'Vendor base price (Grade A)' : 'Base price (Grade A)', price,
+    'What this device is worth in excellent condition.'));
+
+  var from = QM.input('date');
+  body.appendChild(QM.field('Effective from', from,
+    'Leave blank for today. The price in force is CLOSED with this date ' +
+    'rather than overwritten, so a trade-in from last week still resolves ' +
+    'to the price it was quoted at.'));
+
+  /* ---- the history, which V2 could produce and never showed -------- */
+  var history = QM.el('div');
+  body.appendChild(history);
+
+  QM.call('admin.priceHistory', {
+    variantId: row.variantId, vendorId: vendorId || ''
+  }).then(function (res) {
+    if (!res.ok || !res.history.length) return;
+    history.appendChild(QM.el('div', 'label mt', 'Price history'));
+    history.appendChild(QM.table([
+      { key: 'basePrice', label: 'Price', numeric: true,
+        render: function (h) { return QM.money(h.basePrice); } },
+      { key: 'effectiveFrom', label: 'From' },
+      { key: 'effectiveTo', label: 'To' },
+      { key: 'cancelled', label: '',
+        render: function (h) {
+          return h.cancelled ? QM.el('span', 'pill danger', 'Cancelled')
+                             : QM.el('span');
+        } }
+    ], res.history));
+    history.appendChild(QM.el('div', 'hint',
+      'A closed price stays active — it was real, and a trade-in from that ' +
+      'period must still resolve to it. Only a price entered in error is ' +
+      'cancelled, and a cancelled row is excluded at every date.'));
+  });
+
+  var preview = QM.el('div');
+  body.appendChild(preview);
+
+  function drawPreview() {
+    QM.clear(preview);
+    var base = Number(price.value);
+    if (!isFinite(base) || base <= 0) return;
+
+    // Drawn from the same percentages the server uses, so what an
+    // administrator sees before saving is what a customer is offered.
+    var t = QM.el('table');
+    var tb = QM.el('tbody');
+    (window.__gradeLadder || []).forEach(function (g) {
+      var tr = QM.el('tr');
+      tr.appendChild(QM.el('td', null, g.code + ' — ' + g.name));
+      tr.appendChild(QM.el('td', null, Math.round(g.percentage * 100) + '%'));
+      tr.appendChild(QM.el('td', 'num strong',
+        QM.money(Math.round(base * g.percentage * 100) / 100)));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    preview.appendChild(QM.el('div', 'label mt', 'What each grade would pay'));
+    preview.appendChild(t);
+  }
+
+  // The ladder is fetched once and cached on the window, because it is
+  // the same for every row on the screen.
+  if (!window.__gradeLadder) {
+    QM.call('admin.gradeRules', {}).then(function (res) {
+      if (res.ok) { window.__gradeLadder = res.grades; drawPreview(); }
+    });
+  } else {
+    drawPreview();
+  }
+  price.oninput = drawPreview;
+
+  QM.modal({
+    title: vendorId ? 'Set vendor price' : 'Set base price',
+    body: body,
+    confirmLabel: 'Save price',
+    collect: function () {
+      var v = Number(price.value);
+      if (!isFinite(v) || v < 0) { QM.toast('Enter a price.', 'danger'); return false; }
+      return {
+        variantId: row.variantId,
+        basePrice: v,
+        vendorId: vendorId || '',
+        effectiveFrom: from.value
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.setBasePrice', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-pricing', { filters: { vendorId: vendorId || '' } });
+    });
+  });
+}
+
+/* ====================================================================
+ * GRADE LADDER
+ * ================================================================== */
+
+QM.route('a-grades', function () {
+  return QM.call('admin.gradeRules', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    var note = QM.el('div', 'notice');
+    note.appendChild(QM.el('strong', null, 'Every grade is a share of the base price'));
+    note.appendChild(document.createTextNode(
+      'Never of the grade above it. Changing a percentage here affects future ' +
+      'offers only — trade-ins already made keep the percentage they were quoted at.'));
+    wrap.appendChild(note);
+
+    if (!res.valid) {
+      var bad = QM.el('div', 'notice danger');
+      bad.appendChild(QM.el('strong', null, 'This ladder is not safe to price with'));
+      var ul = QM.el('ul');
+      ul.style.margin = '.4rem 0 0'; ul.style.paddingLeft = '1.2rem';
+      res.problems.forEach(function (p) { ul.appendChild(QM.el('li', null, p)); });
+      bad.appendChild(ul);
+      wrap.appendChild(bad);
+    }
+
+    wrap.appendChild(QM.table([
+      { key: 'code', label: 'Grade',
+        render: function (r) { return QM.gradeChip(r.code); } },
+      { key: 'name', label: 'Condition' },
+      { key: 'percentLabel', label: 'Of base price' },
+      { key: 'minScore', label: 'Minimum score', numeric: true },
+      { key: 'example', label: 'On a 2,000 device', numeric: true,
+        render: function (r) {
+          var match = res.example.filter(function (e) { return e.code === r.code; })[0];
+          return match ? QM.money(match.value) : '—';
+        } }
+    ], res.grades, { onClick: function (row) { editGrade(row); } }));
+
+    return wrap;
+  });
+});
+
+function editGrade(grade) {
+  var body = QM.el('div');
+
+  var warn = QM.el('div', 'notice warn');
+  warn.appendChild(QM.el('strong', null, 'This reprices the whole catalogue'));
+  warn.appendChild(document.createTextNode(
+    'Every future offer at grade ' + grade.code + ' uses this percentage.'));
+  body.appendChild(warn);
+
+  var name = QM.input('text', grade.name);
+  body.appendChild(QM.field('Condition name', name));
+
+  var pct = QM.input('number', grade.percentage);
+  pct.min = 0; pct.max = 1; pct.step = '0.01';
+  body.appendChild(QM.field('Share of base price', pct,
+    'Written as a fraction. Seventy percent is 0.7.'));
+
+  var minScore = QM.input('number', grade.minScore);
+  minScore.min = 0; minScore.max = 100;
+  body.appendChild(QM.field('Minimum inspection score', minScore,
+    'A device scoring this or above earns this grade.'));
+
+  var example = QM.el('div', 'notice');
+  body.appendChild(example);
+
+  function updateExample() {
+    QM.clear(example);
+    var p = Number(pct.value);
+    if (!isFinite(p)) return;
+    example.appendChild(QM.el('strong', null,
+      'A 2,000 device would pay ' + QM.money(2000 * p)));
+  }
+  updateExample();
+  pct.oninput = updateExample;
+
+  QM.modal({
+    title: 'Grade ' + grade.code,
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      var p = Number(pct.value);
+      if (!isFinite(p) || p < 0 || p > 1) {
+        QM.toast('A percentage is between 0 and 1.', 'danger'); return false;
+      }
+      return {
+        gradeCode: grade.code,
+        gradeName: name.value.trim(),
+        percentage: p,
+        minScore: Number(minScore.value),
+        order: grade.order,
+        terminal: grade.terminal,
+        active: true
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveGradeRule', data).then(function (res) {
+      if (QM.report(res)) { window.__gradeLadder = null; QM.go('a-grades'); }
+    });
+  });
+}
+
+/* ====================================================================
+ * INSPECTION RULES
+ *
+ * What each fault costs. This is the ONLY screen in the system that
+ * shows these numbers — the technician deliberately never sees them,
+ * because somebody who knows the back glass is worth ten points can
+ * work backwards from the grade they want.
+ * ================================================================== */
+
+QM.route('a-inspection', function () {
+  return QM.call('admin.inspectionRules', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    var note = QM.el('div', 'notice');
+    note.appendChild(QM.el('strong', null, 'The technician answers; the system grades'));
+    note.appendChild(document.createTextNode(
+      'Every device starts at 100. Each fault below subtracts its impact, ' +
+      'and the score that remains maps onto the grade ladder. No technician ' +
+      'chooses a grade, and none of these numbers reaches their screen.'));
+    wrap.appendChild(note);
+
+    // Anything still marked NEEDS_APPROVAL is a number nobody has signed
+    // off. Surfacing it here is the whole point of the flag.
+    var unapproved = res.rules.filter(function (r) {
+      return /NEEDS_APPROVAL/i.test(r.notes || '');
+    });
+    if (unapproved.length) {
+      var warn = QM.el('div', 'notice warn');
+      warn.appendChild(QM.el('strong', null,
+        unapproved.length + ' impact(s) still need your approval'));
+      warn.appendChild(document.createTextNode(
+        'These questions are new, so their impacts are a starting proposal ' +
+        'rather than an agreed figure. Open each one and set the number you ' +
+        'want; saving clears the flag.'));
+      wrap.appendChild(warn);
+    }
+
+    /* ---- the band cliff, stated before it costs anybody money ------
+     * Worth saying out loud: grade A starts at 95, so any fault worth
+     * more than five points drops a device straight to B — which pays
+     * 70%. On a 2,000 handset a single light scratch is a 600 riyal
+     * difference. That may be exactly right, or it may be far harsher
+     * than intended, but it should be a decision rather than a surprise.
+     * -------------------------------------------------------------- */
+    var top = null, second = null;
+    QM.call('admin.gradeRules', {}).then(function (g) {
+      if (!g.ok || g.grades.length < 2) return;
+      window.__gradeLadder = g.grades;
+      top = g.grades[0]; second = g.grades[1];
+
+      var headroom = 100 - top.minScore;
+      var tight = res.rules.filter(function (r) {
+        return !r.blocking && r.impact > headroom;
+      });
+      if (!tight.length) return;
+
+      var cliff = QM.el('div', 'notice');
+      cliff.appendChild(QM.el('strong', null,
+        'Grade ' + top.code + ' allows only ' + headroom + ' points of wear'));
+      cliff.appendChild(document.createTextNode(
+        tight.length + ' of these faults cost more than that on their own, so ' +
+        'a device with any one of them drops to ' + second.code + ' — ' +
+        Math.round((1 - second.percentage / top.percentage) * 100) +
+        '% less, whether the fault is trivial or serious. Widen ' + top.code +
+        ' on the grade ladder, or lower these impacts, if that is sharper ' +
+        'than you intend.'));
+      wrap.insertBefore(cliff, wrap.children[1]);
+    });
+
+    var groups = {};
+    res.rules.forEach(function (r) {
+      (groups[r.group] = groups[r.group] || []).push(r);
+    });
+
+    Object.keys(groups).forEach(function (g) {
+      wrap.appendChild(QM.card(g, QM.table([
+        { key: 'question', label: 'Question' },
+        { key: 'good', label: 'Good answer' },
+        { key: 'bad', label: 'Fault' },
+        { key: 'impact', label: 'Impact', numeric: true,
+          render: function (r) {
+            if (r.blocking) return QM.el('span', 'pill danger', 'Refuses device');
+            return QM.el('span', 'strong', '−' + r.impact);
+          } },
+        { key: 'notes', label: '',
+          render: function (r) {
+            if (!/NEEDS_APPROVAL/i.test(r.notes || '')) return QM.el('span');
+            return QM.el('span', 'pill warn', 'Needs approval');
+          } }
+      ], groups[g], { onClick: editInspectionRule })));
+    });
+
+    /* ---- battery bands ------------------------------------------- */
+    wrap.appendChild(QM.card('Battery health', QM.table([
+      { key: 'minHealth', label: 'Health at least', numeric: true,
+        render: function (b) { return b.minHealth + '%'; } },
+      { key: 'label', label: 'Condition' },
+      { key: 'fraction', label: 'Of the battery impact', numeric: true,
+        render: function (b) { return Math.round(b.fraction * 100) + '%'; } }
+    ], res.batteryBands)));
+
+    return wrap;
+  });
+});
+
+function editInspectionRule(rule) {
+  var body = QM.el('div');
+
+  body.appendChild(detailList([
+    { label: 'Question', value: rule.question },
+    { label: 'Good answer', value: rule.good },
+    { label: 'Fault', value: rule.bad },
+    { label: 'Input', value: rule.input }
+  ]));
+
+  if (rule.blocking) {
+    body.appendChild(QM.el('div', 'notice warn',
+      'This fault refuses the device outright rather than reducing its ' +
+      'score, so its impact is not used.'));
+  }
+
+  var impact = QM.input('number', rule.impact);
+  impact.min = 0; impact.max = 100;
+  body.appendChild(QM.field('Points deducted', impact,
+    'Out of 100. A flawless device scores 100 and grades A.'));
+
+  var example = QM.el('div', 'notice');
+  body.appendChild(example);
+
+  /**
+   * What this impact actually costs a customer.
+   *
+   * The score alone hides the important part. Grades are bands, so a
+   * deduction that crosses a boundary is worth far more than one that
+   * does not — seven points can cost nothing or thirty per cent of the
+   * offer depending on where the device started. Showing the resulting
+   * grade and price makes that cliff visible while it is being set,
+   * rather than in an argument at a counter later.
+   */
+  function paint() {
+    QM.clear(example);
+    var v = Number(impact.value);
+    if (!isFinite(v)) return;
+
+    var score = Math.max(0, 100 - v);
+    example.appendChild(QM.el('strong', null,
+      'A device with only this fault scores ' + score));
+
+    var ladder = window.__gradeLadder;
+    if (!ladder) return;
+
+    var earned = null;
+    ladder.forEach(function (g) {
+      if (earned === null && score >= g.minScore) earned = g;
+    });
+    if (!earned) return;
+
+    var top = ladder[0];
+    example.appendChild(document.createTextNode(
+      ' — grade ' + earned.code + ', so on a 2,000 device the customer is ' +
+      'offered ' + QM.money(2000 * earned.percentage) + ' instead of ' +
+      QM.money(2000 * top.percentage) + '.'));
+
+    if (earned.code !== top.code) {
+      var drop = QM.el('div', 'small mt');
+      drop.style.color = 'var(--warn)';
+      drop.textContent = 'This single fault moves the device out of ' +
+        top.code + '. Grades are bands, so the drop is ' +
+        Math.round((1 - earned.percentage / top.percentage) * 100) +
+        '% whether the fault is minor or severe.';
+      example.appendChild(drop);
+    }
+  }
+
+  if (!window.__gradeLadder) {
+    QM.call('admin.gradeRules', {}).then(function (res) {
+      if (res.ok) { window.__gradeLadder = res.grades; paint(); }
+    });
+  }
+  paint();
+  impact.oninput = paint;
+
+  QM.modal({
+    title: rule.question,
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      var v = Number(impact.value);
+      if (!isFinite(v) || v < 0 || v > 100) {
+        QM.toast('An impact is between 0 and 100.', 'danger');
+        return false;
+      }
+      return {
+        code: rule.code, group: rule.group, question: rule.question,
+        input: rule.input, good: rule.good, bad: rule.bad,
+        impact: v, blocking: rule.blocking, order: rule.order,
+        active: true, notes: ''   // clearing the note records approval
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveInspectionRule', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-inspection');
+    });
+  });
+}
+
+/* ====================================================================
+ * TRADE-INS
+ * ================================================================== */
+
+QM.route('a-tradeins', function (params) {
+  var filters = params.filters || {};
+  var wrap = QM.el('div');
+
+  wrap.appendChild(filterBar([
+    { key: 'status', type: 'select', label: 'Status', value: filters.status,
+      options: [{ value: '', label: 'All' }].concat(
+        ['PENDING_TECHNICIAN', 'INSPECTION_IN_PROGRESS', 'FINAL_OFFER_READY',
+         'CUSTOMER_ACCEPTED', 'DEVICE_RECEIVED', 'VOUCHER_ISSUED',
+         'READY_FOR_COLLECTION', 'COLLECTED', 'SETTLED', 'CLOSED', 'CANCELLED']
+        .map(function (s) {
+          return { value: s, label: s.replace(/_/g, ' ').toLowerCase() };
+        })) },
+    { key: 'search', type: 'search', label: 'Search',
+      placeholder: 'Reference, customer, IMEI or model', value: filters.search }
+  ], function (f) { QM.go('a-tradeins', { filters: f }); }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.tradeIns', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    var grid = QM.el('div', 'grid cols-4 mb');
+    grid.appendChild(QM.kpi('Matching', res.total, 'Trade-ins found'));
+    grid.appendChild(QM.kpi('Customer value', res.totals.customerValue,
+      'Total offered', { money: true }));
+    grid.appendChild(QM.kpi('Commission', res.totals.commission,
+      'Owed to vendors', { money: true }));
+    grid.appendChild(QM.kpi('Total cost', res.totals.settlement,
+      'Customer value plus commission', { money: true }));
+    list.appendChild(grid);
+
+    list.appendChild(QM.table([
+      { key: 'tradeInId', label: 'Reference', className: 'mono' },
+      { key: 'device', label: 'Device' },
+      { key: 'grade', label: 'Grade',
+        render: function (r) { return QM.gradeChip(r.grade); } },
+      { key: 'vendorName', label: 'Vendor' },
+      { key: 'customerName', label: 'Customer' },
+      { key: 'customerValue', label: 'Value', numeric: true,
+        render: function (r) { return QM.money(r.customerValue); } },
+      { key: 'status', label: 'Status',
+        render: function (r) { return QM.statusPill(r.status, r.statusLabel); } }
+    ], res.tradeIns, {
+      onClick: function (row) { showTradeIn(row.tradeInId); }
+    }));
+  });
+
+  return wrap;
+});
+
+/**
+ * One trade-in in full, including how the money was arrived at.
+ *
+ * The calculation is shown as a chain rather than a total, because a
+ * total tells nobody why a customer was offered what they were offered.
+ */
+function showTradeIn(tradeInId) {
+  QM.call('admin.tradeIn', { tradeInId: tradeInId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+    var t = res.tradeIn;
+
+    var body = QM.el('div');
+
+    body.appendChild(detailList([
+      { label: 'Device',   value: t.device },
+      { label: 'Colour',   value: t.color },
+      { label: 'IMEI',     value: t.imeiFull },
+      { label: 'Customer', value: t.customerName },
+      { label: 'Phone',    value: t.customerPhone },
+      { label: 'Vendor',   value: t.vendorName },
+      { label: 'Status',   value: t.statusLabel },
+      { label: 'Created',  value: t.createdDate }
+    ]));
+
+    /* ---- how the money was calculated ---------------------------- */
+    if (t.basePriceSnapshot) {
+      var calc = QM.el('div');
+      calc.appendChild(QM.el('div', 'label mt', 'How this figure was reached'));
+      calc.appendChild(detailList([
+        { label: 'Base price at the time',
+          value: QM.moneyCcy(t.basePriceSnapshot, t.currency) +
+                 (t.priceEffectiveDate ? ' (set ' + t.priceEffectiveDate + ')' : '') },
+        { label: 'Price source', value: t.pricingSource },
+        { label: 'Grade', value: t.grade + ' — ' +
+                 Math.round((t.gradePercentage || 0) * 100) + '% of base' },
+        { label: 'Grade value', value: QM.moneyCcy(t.calculatedValue, t.currency) },
+        { label: 'Manual adjustment', value: t.manualAdjustment
+            ? QM.moneyCcy(t.manualAdjustment, t.currency) + ' — ' + t.adjustmentReason
+            : null },
+        { label: 'Customer receives', value: QM.moneyCcy(t.customerValue, t.currency) },
+        { label: 'Vendor commission', value: QM.moneyCcy(t.commission, t.currency) +
+                 ' at ' + (t.commissionRate * 100).toFixed(2).replace(/\.?0+$/, '') + '%' },
+        { label: 'Total we pay', value: QM.moneyCcy(t.settlement, t.currency) }
+      ]));
+      body.appendChild(calc);
+
+      body.appendChild(QM.el('div', 'hint',
+        'These figures were frozen when the offer was made. Changing a price or ' +
+        'a commission rate today does not alter them.'));
+    }
+
+    /* ---- estimated against final ---------------------------------
+     * The two figures side by side, with the difference done for the
+     * reader. It is the first question anybody asks about a trade-in
+     * that went differently from how the customer expected.
+     * -------------------------------------------------------------- */
+    if (t.estimatedValue) {
+      body.appendChild(QM.el('div', 'label mt', 'Estimated against final'));
+      body.appendChild(detailList([
+        { label: 'Customer estimate', value: QM.moneyCcy(t.estimatedValue, t.currency) +
+                 (t.estimatedGrade ? ' at grade ' + t.estimatedGrade : '') },
+        { label: 'Estimated score', value: t.estimatedScore },
+        { label: 'Final offer', value: t.customerValue
+            ? QM.moneyCcy(t.customerValue, t.currency) +
+              (t.grade ? ' at grade ' + t.grade : '') : null },
+        { label: 'Inspected score', value: t.conditionScore },
+        { label: 'Difference', value: t.customerValue
+            ? (t.variance >= 0 ? '+' : '') + QM.money(t.variance) + ' ' + t.currency +
+              (t.variancePct === null ? ''
+                : '  (' + (t.variancePct >= 0 ? '+' : '') + t.variancePct + '%)')
+            : null }
+      ]));
+    }
+
+    /* ---- what the customer said against what was found ------------ */
+    if (t.comparison && t.comparison.length) {
+      body.appendChild(QM.el('div', 'label mt', 'Customer against technician'));
+      body.appendChild(QM.table([
+        { key: 'item', label: 'Inspection item' },
+        { key: 'customer', label: 'Customer answer' },
+        { key: 'technician', label: 'Technician result' },
+        { key: 'agrees', label: '',
+          render: function (r) {
+            if (r.agrees === null) return QM.el('span', 'muted', '—');
+            return r.agrees ? QM.el('span', 'pill ok', 'Agrees')
+                            : QM.el('span', 'pill warn', 'Differs');
+          } }
+      ], t.comparison));
+      body.appendChild(QM.el('div', 'hint',
+        'Both sides answered the same underlying checks, which is the only ' +
+        'reason this table can be built at all. A row that differs is where ' +
+        'the estimate and the offer parted company.'));
+    }
+
+    /* ---- inspection ---------------------------------------------- */
+    if (t.inspection) {
+      body.appendChild(QM.el('div', 'label mt', 'Inspection'));
+      body.appendChild(detailList([
+        { label: 'Technician', value: t.inspection.technician },
+        { label: 'Started', value: t.inspection.startedAt },
+        { label: 'Completed', value: t.inspection.completedAt },
+        { label: 'Condition score', value: t.inspection.score },
+        { label: 'Computed grade', value: t.inspection.grade },
+        { label: 'Battery health', value: t.inspection.batteryHealth === null
+            ? null : t.inspection.batteryHealth + '%' },
+        { label: 'IMEI confirmed', value: t.inspection.imeiConfirmed ? 'Yes' : 'No' },
+        { label: 'Activation lock', value: t.inspection.activationLock ? 'ON' : 'Off' },
+        { label: 'Notes', value: t.inspection.notes }
+      ]));
+
+      if (t.inspection.faults && t.inspection.faults.length) {
+        body.appendChild(QM.table([
+          { key: 'group', label: 'Section' },
+          { key: 'question', label: 'Check' },
+          { key: 'answer', label: 'Found',
+            render: function (f) {
+              return f.fault ? QM.el('span', 'pill warn', f.answer)
+                             : QM.el('span', 'pill ok', f.answer);
+            } }
+        ], t.inspection.faults));
+      }
+
+      /* ---- the evidence, finally viewable ------------------------
+       * Photographs were uploaded and stored privately since V2 and no
+       * screen could display one. tech.viewPhoto existed the whole time
+       * with nothing calling it.
+       * ------------------------------------------------------------ */
+      if (t.inspection.photos && t.inspection.photos.length) {
+        body.appendChild(QM.el('div', 'label mt',
+          'Evidence (' + t.inspection.photos.length + ')'));
+        body.appendChild(photoStrip(t.tradeInId, t.inspection.photos));
+      } else {
+        body.appendChild(QM.el('div', 'hint mt', 'No photographs were taken.'));
+      }
+    }
+
+    /* ---- an overridden grade ------------------------------------- */
+    if (t.gradeOverride) {
+      var ov = QM.el('div', 'notice warn');
+      ov.appendChild(QM.el('strong', null,
+        'Grade overridden: ' + t.gradeOverride.from + ' → ' + t.gradeOverride.to));
+      ov.appendChild(document.createTextNode(
+        t.gradeOverride.reason + ' — ' + t.gradeOverride.by +
+        ', ' + t.gradeOverride.date));
+      body.appendChild(ov);
+    }
+
+    /* ---- the operational timeline -------------------------------- */
+    if (t.timeline && t.timeline.length) {
+      body.appendChild(QM.el('div', 'label mt', 'Timeline'));
+      body.appendChild(QM.table([
+        { key: 'date', label: 'When' },
+        { key: 'label', label: 'What' },
+        { key: 'user', label: 'Who' },
+        { key: 'role', label: 'Role' },
+        { key: 'notes', label: 'Detail' }
+      ], t.timeline));
+    }
+
+    /* ---- corrections --------------------------------------------- */
+    var actions = QM.el('div', 'btn-row mt');
+    actions.appendChild(QM.button('Override grade', function () {
+      document.querySelectorAll('.modal-scrim').forEach(function (s) { s.remove(); });
+      overrideGrade(t);
+    }, 'secondary small'));
+    actions.appendChild(QM.button('Adjust value', function () {
+      document.querySelectorAll('.modal-scrim').forEach(function (s) { s.remove(); });
+      adjustValue(t);
+    }, 'secondary small'));
+    body.appendChild(actions);
+    body.appendChild(QM.el('div', 'hint',
+      'Both need a reason, both are recorded against your name, and both are ' +
+      'refused once the device has been collected — at that point it is a ' +
+      'credit note rather than an edit.'));
+
+    QM.modal({
+      title: t.tradeInId,
+      body: body,
+      confirmLabel: 'Close',
+      cancelLabel: ''
+    });
+  });
+}
+
+/**
+ * Inspection photographs.
+ *
+ * Fetched one at a time, on demand, through tech.viewPhoto — which
+ * re-checks entitlement on the TRADE-IN before it touches the file. The
+ * pictures are never given a URL, so there is no link to forward and
+ * nothing to leak from a browser history.
+ */
+function photoStrip(tradeInId, photos) {
+  var strip = QM.el('div', 'gap');
+
+  photos.forEach(function (p) {
+    var chip = QM.el('button', 'btn secondary small');
+    chip.textContent = (p.category || 'OTHER').toLowerCase();
+    chip.onclick = function () { viewPhoto(tradeInId, p); };
+    strip.appendChild(chip);
+  });
+
+  return strip;
+}
+
+function viewPhoto(tradeInId, meta) {
+  var body = QM.el('div');
+  body.appendChild(QM.loadingBlock());
+
+  QM.modal({
+    title: (meta.category || 'Photograph'),
+    body: body,
+    confirmLabel: '',
+    cancelLabel: 'Close'
+  });
+
+  QM.call('tech.viewPhoto', { tradeInId: tradeInId, fileId: meta.fileId })
+    .then(function (res) {
+      QM.clear(body);
+      if (!res.ok) { body.appendChild(QM.errorBlock(res.message)); return; }
+
+      var img = document.createElement('img');
+      img.src = QM.safeImageUrl(res.dataUrl);
+      img.alt = meta.category || '';
+      img.style.width = '100%';
+      img.style.borderRadius = 'var(--radius)';
+      // Tap to zoom. A cracked screen at thumbnail size proves nothing.
+      img.style.cursor = 'zoom-in';
+      var zoomed = false;
+      img.onclick = function () {
+        zoomed = !zoomed;
+        img.style.transform = zoomed ? 'scale(2)' : '';
+        img.style.transformOrigin = 'center';
+        img.style.cursor = zoomed ? 'zoom-out' : 'zoom-in';
+      };
+      body.appendChild(img);
+
+      body.appendChild(detailList([
+        { label: 'Shows',       value: meta.category },
+        { label: 'Uploaded by', value: meta.uploadedBy },
+        { label: 'Uploaded',    value: meta.uploadedAt }
+      ]));
+    });
+}
+
+/**
+ * Change the grade, and reprice from the ladder.
+ *
+ * A grade is chosen; a price never is. Letting an administrator type a
+ * number directly would make the ladder a suggestion, and the whole
+ * pricing design rests on it not being one.
+ */
+function overrideGrade(t) {
+  var body = QM.el('div');
+
+  var warn = QM.el('div', 'notice warn');
+  warn.appendChild(QM.el('strong', null, 'This changes what the customer is paid'));
+  warn.appendChild(document.createTextNode(
+    'The system graded this device ' + (t.grade || '—') + ' from the ' +
+    'technician\'s answers. Overriding it keeps that grade on the record ' +
+    'alongside yours, with your name and your reason.'));
+  body.appendChild(warn);
+
+  body.appendChild(detailList([
+    { label: 'Device', value: t.device },
+    { label: 'Computed grade', value: t.grade },
+    { label: 'Current value', value: QM.moneyCcy(t.customerValue, t.currency) }
+  ]));
+
+  var grade = QM.select((t.grades || []).map(function (g) {
+    return { value: g.code, label: g.code + ' — ' + g.name };
+  }), t.grade);
+  body.appendChild(QM.field('New grade', grade));
+
+  var reason = QM.el('textarea');
+  reason.placeholder = 'Why is the computed grade wrong for this device?';
+  body.appendChild(QM.field('Reason', reason,
+    'Recorded permanently against your name.'));
+
+  QM.modal({
+    title: 'Override the grade',
+    body: body,
+    danger: true,
+    confirmLabel: 'Override',
+    collect: function () {
+      if (reason.value.trim().length < 6) {
+        QM.toast('Give a reason.', 'danger'); return false;
+      }
+      return { tradeInId: t.tradeInId, gradeCode: grade.value,
+               reason: reason.value.trim() };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.overrideGrade', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-tradeins');
+    });
+  });
+}
+
+function adjustValue(t) {
+  var body = QM.el('div');
+
+  body.appendChild(detailList([
+    { label: 'Device', value: t.device },
+    { label: 'Grade value', value: QM.moneyCcy(t.calculatedValue, t.currency) },
+    { label: 'Current offer', value: QM.moneyCcy(t.customerValue, t.currency) }
+  ]));
+
+  var amount = QM.input('number', t.manualAdjustment || 0);
+  amount.step = '1';
+  body.appendChild(QM.field('Adjustment', amount,
+    'Added to the grade value. A negative number reduces the offer. ' +
+    'The commission is recomputed on the result.'));
+
+  var reason = QM.el('textarea');
+  reason.placeholder = 'Why is this device worth more or less than the ladder says?';
+  body.appendChild(QM.field('Reason', reason));
+
+  QM.modal({
+    title: 'Adjust the value',
+    body: body,
+    confirmLabel: 'Adjust',
+    collect: function () {
+      if (reason.value.trim().length < 6) {
+        QM.toast('Give a reason.', 'danger'); return false;
+      }
+      return { tradeInId: t.tradeInId, manualAdjustment: Number(amount.value),
+               manualAdjustmentReason: reason.value.trim() };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.overridePrice', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-tradeins');
+    });
+  });
+}
+
+/* ====================================================================
+ * COLLECTIONS
+ * ================================================================== */
+
+QM.route('a-collections', function () {
+  return QM.call('admin.collections', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    /* ---- what is sitting in shops -------------------------------- */
+    if (res.pending && res.pending.length) {
+      var n = QM.el('div', 'notice warn');
+      n.appendChild(QM.el('strong', null, 'Waiting in branches'));
+      n.appendChild(document.createTextNode(
+        'These devices are paid for and still on somebody else\'s premises.'));
+      wrap.appendChild(n);
+
+      wrap.appendChild(QM.card('Ready for collection', QM.table([
+        { key: 'vendorName', label: 'Vendor' },
+        { key: 'branchName', label: 'Branch' },
+        { key: 'deviceCount', label: 'Devices', numeric: true },
+        { key: 'value', label: 'Value', numeric: true,
+          render: function (r) { return QM.money(r.value); } },
+        { key: 'oldestDays', label: 'Oldest', numeric: true,
+          render: function (r) {
+            var pill = QM.el('span', 'pill ' + (r.oldestDays > 7 ? 'warn' : ''),
+                             r.oldestDays + ' days');
+            return pill;
+          } },
+        { key: 'actions', label: '',
+          render: function (r) {
+            return QM.button('Create note', function (e) {
+              e.stopPropagation();
+              createBatch(r);
+            }, 'small');
+          } }
+      ], res.pending)));
+    }
+
+    /* ---- existing notes ------------------------------------------- */
+    var batches = res.batches;
+    wrap.appendChild(QM.kpi('Open notes', batches.openCount,
+      QM.moneyCcy(batches.openValue) + ' not yet picked up',
+      { attention: batches.openCount > 0 }));
+
+    if (batches.batches.length) {
+      wrap.appendChild(QM.card('Collection notes', QM.table([
+        { key: 'batchId', label: 'Reference', className: 'mono' },
+        { key: 'vendorName', label: 'Vendor' },
+        { key: 'branchName', label: 'Branch' },
+        { key: 'deviceCount', label: 'Devices', numeric: true },
+        { key: 'settlement', label: 'Value', numeric: true,
+          render: function (r) { return QM.money(r.settlement); } },
+        { key: 'status', label: 'Status',
+          render: function (r) {
+            return QM.el('span', 'pill ' + (r.status === 'OPEN' ? 'warn' : 'ok'),
+                         r.status);
+          } }
+      ], batches.batches, {
+        onClick: function (row) { showBatch(row.batchId); }
+      })));
+    }
+
+    return wrap;
+  });
+});
+
+function createBatch(pending) {
+  QM.modal({
+    title: 'Create a collection note',
+    body: 'This gathers all ' + pending.deviceCount + ' device(s) ready at ' +
+          pending.branchName + ', worth ' + QM.moneyCcy(pending.value) + '. ' +
+          'Print it, collect the devices, then mark it collected.',
+    confirmLabel: 'Create note'
+  }).then(function (yes) {
+    if (!yes) return;
+    QM.call('admin.createBatch', {
+      vendorId: pending.vendorId, branchId: pending.branchId
+    }).then(function (res) {
+      if (QM.report(res)) QM.go('a-collections');
+    });
+  });
+}
+
+/**
+ * One collection note, device by device.
+ *
+ * The important control here is the per-device outcome. V2 offered a
+ * single "Mark collected" button that set the whole batch regardless of
+ * what actually came back; the devices that did not turn up were reported
+ * once in a toast and then invisible everywhere.
+ */
+function showBatch(batchId) {
+  QM.call('admin.collections', { batchId: batchId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+
+    var body = QM.el('div');
+    var open = ['DRAFT', 'READY_FOR_COLLECTION', 'PARTIALLY_COLLECTED',
+                'COLLECTION_EXCEPTION'].indexOf(res.status) > -1;
+
+    body.appendChild(detailList([
+      { label: 'Vendor', value: res.vendorName },
+      { label: 'Branch', value: res.branchName },
+      { label: 'Expected devices', value: res.expectedDevices },
+      { label: 'Collected', value: res.collectedDevices },
+      { label: 'Missing', value: res.missingDevices || null },
+      { label: 'Exceptions', value: res.exceptionDevices || null },
+      { label: 'Expected amount', value: QM.moneyCcy(res.expectedAmount, res.currency) },
+      { label: 'Actual amount', value: QM.moneyCcy(res.actualAmount, res.currency) },
+      { label: 'Status', value: res.statusLabel },
+      { label: 'Created', value: res.createdDate },
+      { label: 'Collected', value: res.collectedDate },
+      { label: 'Collected by', value: res.collectedBy }
+    ]));
+
+    if (res.missingDevices || res.exceptionDevices) {
+      var warn = QM.el('div', 'notice warn');
+      warn.appendChild(QM.el('strong', null,
+        (res.missingDevices + res.exceptionDevices) + ' device(s) unaccounted for'));
+      warn.appendChild(document.createTextNode(
+        'They have been released back to the branch so they can be collected ' +
+        'on a later note. This note cannot be closed until they are resolved.'));
+      body.appendChild(warn);
+    }
+
+    /* ---- the lines, each with its own outcome -------------------- */
+    var decisions = {};
+
+    body.appendChild(QM.table([
+      { key: 'tradeInId', label: 'Reference', className: 'mono' },
+      { key: 'device', label: 'Device' },
+      { key: 'imei', label: 'IMEI', className: 'mono' },
+      { key: 'grade', label: 'Grade' },
+      { key: 'settlement', label: 'Value', numeric: true,
+        render: function (r) { return QM.money(r.settlement); } },
+      { key: 'itemStatus', label: 'Outcome',
+        render: function (r) {
+          if (r.itemStatus !== 'PENDING') {
+            var kind = r.itemStatus === 'COLLECTED' ? 'ok' : 'warn';
+            var pill = QM.el('span', 'pill ' + kind, r.itemStatus.toLowerCase());
+            if (r.reason) pill.title = r.reason;
+            return pill;
+          }
+          if (!open) return QM.el('span', 'muted', 'pending');
+
+          // Defaults to COLLECTED, because the usual case is that the
+          // whole note came back and nobody should have to confirm
+          // twenty devices one at a time to record that.
+          var select = QM.select([
+            { value: 'COLLECTED', label: 'Collected' },
+            { value: 'MISSING',   label: 'Missing' },
+            { value: 'REJECTED',  label: 'Rejected' },
+            { value: 'EXCEPTION', label: 'Other problem' }
+          ], 'COLLECTED');
+          select.onchange = function () {
+            decisions[r.tradeInId] = select.value;
+          };
+          return select;
+        } }
+    ], res.devices));
+
+    if (open) {
+      body.appendChild(QM.el('div', 'hint',
+        'Anything not marked Collected stays with the branch and comes back ' +
+        'onto the pending list. Only devices marked Collected can be settled.'));
+
+      var reason = QM.el('textarea');
+      reason.placeholder = 'Anything worth recording about this collection.';
+      body.appendChild(QM.field('Notes (optional)', reason));
+    }
+
+    QM.modal({
+      title: 'Collection note ' + res.batchId,
+      body: body,
+      confirmLabel: open ? 'Record collection' : 'Print',
+      cancelLabel: 'Close'
+    }).then(function (act) {
+      if (!act) return;
+      if (!open) { window.print(); return; }
+
+      var items = Object.keys(decisions).map(function (tradeInId) {
+        return {
+          tradeInId: tradeInId,
+          status: decisions[tradeInId],
+          reason: decisions[tradeInId] === 'COLLECTED' ? ''
+                : 'Recorded at collection as ' + decisions[tradeInId].toLowerCase() + '.'
+        };
+      });
+
+      var notCollected = items.filter(function (i) { return i.status !== 'COLLECTED'; });
+
+      var proceed = function () {
+        QM.call('admin.updateBatch', {
+          batchId: batchId, items: items, notes: reason ? reason.value : ''
+        }).then(function (r2) {
+          if (QM.report(r2)) QM.go('a-collections');
+        });
+      };
+
+      // Anything not collected needs a reason on the record, so it is
+      // asked for once rather than defaulted silently.
+      if (notCollected.length) {
+        QM.askReason('Why were ' + notCollected.length + ' device(s) not collected?',
+          'This is recorded against each device and shown on the note.', true)
+          .then(function (why) {
+            if (!why) return;
+            notCollected.forEach(function (i) { i.reason = why; });
+            proceed();
+          });
+        return;
+      }
+      proceed();
+    });
+  });
+}
+
+/* ====================================================================
+ * SETTLEMENTS
+ * ================================================================== */
+
+QM.route('a-settlements', function () {
+  return QM.call('admin.settlements', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    wrap.appendChild(QM.button('New settlement',
+      function () { newSettlement(); }, 'mb'));
+
+    wrap.appendChild(QM.kpi('Outstanding', res.outstanding,
+      'Raised but not yet paid', { money: true, attention: res.outstanding > 0 }));
+
+    if (!res.settlements.length) {
+      wrap.appendChild(QM.emptyBlock('No settlements yet',
+        'Raise one once devices have been collected.'));
+      return wrap;
+    }
+
+    wrap.appendChild(QM.table([
+      { key: 'settlementId', label: 'Reference', className: 'mono' },
+      { key: 'vendorName', label: 'Vendor' },
+      { key: 'periodFrom', label: 'From' },
+      { key: 'periodTo', label: 'To' },
+      { key: 'tradeInCount', label: 'Devices', numeric: true },
+      { key: 'settlement', label: 'Total', numeric: true,
+        render: function (r) { return QM.money(r.settlement); } },
+      { key: 'status', label: 'Status',
+        render: function (r) {
+          var kind = ['PAID', 'CLOSED'].indexOf(r.status) > -1 ? 'ok'
+                   : r.status === 'APPROVED' ? 'info' : 'warn';
+          return QM.el('span', 'pill ' + kind, r.status);
+        } }
+    ], res.settlements, {
+      onClick: function (row) { showAdminSettlement(row); }
+    }));
+
+    return wrap;
+  });
+});
+
+function newSettlement() {
+  var body = QM.el('div');
+
+  var vendor = QM.select([{ value: '', label: 'Choose a vendor' }]);
+  body.appendChild(QM.field('Vendor', vendor));
+
+  QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return;
+    res.vendors.filter(function (v) { return v.active; }).forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v.vendorId; opt.textContent = v.name;
+      vendor.appendChild(opt);
+    });
+  });
+
+  var from = QM.input('date');
+  var to = QM.input('date');
+  body.appendChild(QM.field('From', from));
+  body.appendChild(QM.field('To', to));
+
+  var preview = QM.el('div');
+  body.appendChild(preview);
+
+  var check = QM.button('Preview', function () {
+    if (!vendor.value || !from.value || !to.value) {
+      QM.toast('Choose a vendor and a period.', 'danger'); return;
+    }
+    QM.clear(preview);
+    preview.appendChild(QM.loadingBlock());
+
+    QM.call('admin.settlements', {
+      preview: true, vendorId: vendor.value, from: from.value, to: to.value
+    }).then(function (res) {
+      QM.clear(preview);
+      if (!res.ok) { preview.appendChild(QM.el('div', 'notice danger', res.message)); return; }
+
+      var n = QM.el('div', 'notice ' + (res.tradeInCount ? 'ok' : 'warn'));
+      n.appendChild(QM.el('strong', null,
+        res.tradeInCount + ' device(s), ' + QM.moneyCcy(res.settlement, res.currency)));
+      n.appendChild(document.createTextNode(
+        'Only devices we have actually collected are included.'));
+      preview.appendChild(n);
+    });
+  }, 'secondary block');
+  body.appendChild(check);
+
+  QM.modal({
+    title: 'New settlement',
+    body: body,
+    confirmLabel: 'Create',
+    collect: function () {
+      if (!vendor.value || !from.value || !to.value) return false;
+      return { vendorId: vendor.value, from: from.value, to: to.value };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.createSettlement', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-settlements');
+    });
+  });
+}
+
+function showAdminSettlement(row) {
+  QM.call('admin.settlements', { settlementId: row.settlementId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+
+    var body = QM.el('div');
+    body.appendChild(detailList([
+      { label: 'Vendor', value: res.vendorName },
+      { label: 'Period', value: res.periodFrom + ' to ' + res.periodTo },
+      { label: 'Devices', value: res.tradeInCount },
+      { label: 'Paid to customers', value: QM.moneyCcy(res.customerValue, res.currency) },
+      { label: 'Commission', value: QM.moneyCcy(res.commission, res.currency) },
+      { label: 'Total', value: QM.moneyCcy(res.settlement, res.currency) },
+      { label: 'Status', value: res.status },
+      { label: 'Payment reference', value: res.reference }
+    ]));
+
+    if (res.locked) {
+      body.appendChild(QM.el('div', 'notice',
+        'This settlement is approved, so its contents are frozen. Changes need ' +
+        'an adjustment rather than an edit.'));
+    }
+
+    var next = {
+      DRAFT: 'SUBMITTED', SUBMITTED: 'APPROVED',
+      APPROVED: 'PAID', PAID: 'CLOSED', CLOSED: null
+    }[res.status];
+
+    if (res.lines && res.lines.length) {
+      body.appendChild(QM.table([
+        { key: 'tradeInId', label: 'Reference', className: 'mono' },
+        { key: 'device', label: 'Device' },
+        { key: 'customerValue', label: 'Customer', numeric: true,
+          render: function (r) { return QM.money(r.customerValue); } },
+        { key: 'commission', label: 'Commission', numeric: true,
+          render: function (r) { return QM.money(r.commission); } },
+        { key: 'settlement', label: 'Total', numeric: true,
+          render: function (r) { return QM.money(r.settlement); } }
+      ], res.lines));
+    }
+
+    QM.modal({
+      title: 'Settlement ' + res.settlementId,
+      body: body,
+      confirmLabel: next ? ('Move to ' + next.toLowerCase()) : 'Print',
+      cancelLabel: 'Close'
+    }).then(function (act) {
+      if (!act) return;
+      if (!next) { window.print(); return; }
+
+      // Marking paid needs a bank reference. Without it, a payment
+      // exists in this system and nowhere else.
+      if (next === 'PAID') {
+        var refBody = QM.el('div');
+        var ref = QM.input('text', '', 'Bank transfer reference');
+        refBody.appendChild(QM.field('Payment reference', ref,
+          'So this settlement can be matched to the bank statement.'));
+
+        QM.modal({
+          title: 'Record payment',
+          body: refBody,
+          confirmLabel: 'Mark paid',
+          collect: function () {
+            if (!ref.value.trim()) return false;
+            return ref.value.trim();
+          }
+        }).then(function (reference) {
+          if (!reference) return;
+          QM.call('admin.advanceSettlement', {
+            settlementId: res.settlementId, toStatus: 'PAID',
+            paymentReference: reference
+          }).then(function (r2) {
+            if (QM.report(r2)) QM.go('a-settlements');
+          });
+        });
+        return;
+      }
+
+      QM.call('admin.advanceSettlement', {
+        settlementId: res.settlementId, toStatus: next
+      }).then(function (r2) {
+        if (QM.report(r2)) QM.go('a-settlements');
+      });
+    });
+  });
+}
+
+/* ====================================================================
+ * VENDORS
+ * ================================================================== */
+
+QM.route('a-vendors', function () {
+  return QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    var note = QM.el('div', 'notice');
+    note.appendChild(QM.el('strong', null, 'A vendor is a row, not a role'));
+    note.appendChild(document.createTextNode(
+      'Adding a partner here is all it takes. Their staff get the ordinary ' +
+      'vendor roles and are confined to their own data automatically.'));
+    wrap.appendChild(note);
+
+    wrap.appendChild(QM.button('Add a vendor',
+      function () { editVendor(null); }, 'mb'));
+
+    wrap.appendChild(QM.table([
+      { key: 'name', label: 'Vendor' },
+      { key: 'code', label: 'Code', className: 'mono' },
+      { key: 'commissionLabel', label: 'Default commission' },
+      { key: 'branchCount', label: 'Branches', numeric: true },
+      { key: 'staffCount', label: 'Staff', numeric: true },
+      { key: 'tradeInCount', label: 'Trade-ins', numeric: true },
+      { key: 'active', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.active ? 'ok' : ''), r.status);
+        } }
+    ], res.vendors, { onClick: editVendor }));
+
+    return wrap;
+  });
+});
+
+function editVendor(vendor) {
+  var body = QM.el('div');
+  var isNew = !vendor;
+
+  var name = QM.input('text', vendor ? vendor.name : '');
+  body.appendChild(QM.field('Vendor name', name));
+
+  var code = QM.input('text', vendor ? vendor.code : '');
+  code.maxLength = 6;
+  code.disabled = !isNew;
+  body.appendChild(QM.field('Short code', code, isNew
+    ? 'Two to six letters. It becomes part of every trade-in number, such as ' +
+      'TI-CAR-000042.'
+    : 'The code cannot be changed — existing trade-in numbers use it.'));
+
+  var rate = QM.input('number', vendor ? vendor.commissionRate : 0.05);
+  rate.min = 0; rate.max = 1; rate.step = '0.005';
+  body.appendChild(QM.field('Default commission', rate,
+    'A fraction. Five percent is 0.05. Specific rules can override it per brand ' +
+    'or product.'));
+
+  var contact = QM.input('text', vendor ? vendor.contactName : '');
+  body.appendChild(QM.field('Contact name', contact));
+
+  var phone = QM.input('tel', vendor ? vendor.contactPhone : '');
+  body.appendChild(QM.field('Contact phone', phone));
+
+  var terms = QM.el('textarea');
+  terms.value = vendor ? vendor.settlementTerms : '';
+  body.appendChild(QM.field('Settlement terms', terms));
+
+  var statusSelect = null;
+  if (!isNew) {
+    statusSelect = QM.select([
+      { value: 'ACTIVE', label: 'Active' },
+      { value: 'INACTIVE', label: 'Inactive' }
+    ], vendor.status);
+    body.appendChild(QM.field('Status', statusSelect,
+      'Making a vendor inactive signs out all of their staff and stops new ' +
+      'trade-ins. Their history is kept.'));
+  }
+
+  QM.modal({
+    title: isNew ? 'Add a vendor' : vendor.name,
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (name.value.trim().length < 2) { QM.toast('Enter a name.', 'danger'); return false; }
+      if (isNew && code.value.trim().length < 2) {
+        QM.toast('Enter a short code.', 'danger'); return false;
+      }
+      var out = {
+        vendorId: vendor ? vendor.vendorId : '',
+        name: name.value.trim(),
+        code: code.value.trim(),
+        commissionRate: Number(rate.value),
+        contactName: contact.value.trim(),
+        contactPhone: phone.value.trim(),
+        settlementTerms: terms.value.trim()
+      };
+      if (statusSelect) out.status = statusSelect.value;
+      return out;
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveVendor', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-vendors');
+    });
+  });
+}
+
+/* ====================================================================
+ * COMMISSION RULES
+ * ================================================================== */
+
+QM.route('a-commission', function () {
+  return QM.call('admin.commissionRules', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+
+    var note = QM.el('div', 'notice');
+    note.appendChild(QM.el('strong', null, 'Most specific rule wins'));
+    note.appendChild(document.createTextNode(
+      'Product beats category, category beats brand, brand beats the vendor ' +
+      'default. Changing a rate only affects future vouchers — issued ones keep ' +
+      'the rate they were written at.'));
+    wrap.appendChild(note);
+
+    wrap.appendChild(QM.button('Add a rule',
+      function () { editCommission(); }, 'mb'));
+
+    wrap.appendChild(QM.table([
+      { key: 'vendorName', label: 'Vendor' },
+      { key: 'scope', label: 'Applies to' },
+      { key: 'label', label: 'Rate' },
+      { key: 'effectiveFrom', label: 'From' },
+      { key: 'effectiveTo', label: 'To' }
+    ], res.rules));
+
+    return wrap;
+  });
+});
+
+function editCommission() {
+  var body = QM.el('div');
+
+  var vendor = QM.select([{ value: '', label: 'Choose a vendor' }]);
+  body.appendChild(QM.field('Vendor', vendor));
+
+  QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return;
+    res.vendors.forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v.vendorId; opt.textContent = v.name;
+      vendor.appendChild(opt);
+    });
+  });
+
+  var brand = QM.select([{ value: '', label: 'All brands' }]);
+  body.appendChild(QM.field('Brand (optional)', brand,
+    'Leave blank for a rule covering everything this vendor takes.'));
+
+  QM.call('admin.brands', {}).then(function (res) {
+    if (!res.ok) return;
+    res.brands.forEach(function (b) {
+      var opt = document.createElement('option');
+      opt.value = b.brandId; opt.textContent = b.name;
+      brand.appendChild(opt);
+    });
+  });
+
+  var value = QM.input('number', 0.05);
+  value.min = 0; value.max = 1; value.step = '0.005';
+  body.appendChild(QM.field('Commission', value,
+    'A fraction. Five percent is 0.05.'));
+
+  var from = QM.input('date');
+  body.appendChild(QM.field('Effective from', from,
+    'Leave blank for today. The rule in force is closed with this date rather ' +
+    'than overwritten.'));
+
+  QM.modal({
+    title: 'Commission rule',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (!vendor.value) { QM.toast('Choose a vendor.', 'danger'); return false; }
+      return {
+        vendorId: vendor.value,
+        brandId: brand.value,
+        commissionType: 'PERCENTAGE',
+        commissionValue: Number(value.value),
+        effectiveFrom: from.value
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveCommissionRule', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-commission');
+    });
+  });
+}
+
+/* ====================================================================
+ * BRANDS AND PRODUCTS
+ * ================================================================== */
+
+QM.route('a-brands', function () {
+  return QM.call('admin.brands', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+    wrap.appendChild(QM.button('Add a brand', function () { editBrand(null); }, 'mb'));
+
+    wrap.appendChild(QM.table([
+      { key: 'logoUrl', label: 'Logo',
+        render: function (r) {
+          if (!QM.safeImageUrl(r.logoUrl)) return QM.el('span', 'muted', '—');
+          var img = document.createElement('img');
+          img.src = QM.safeImageUrl(r.logoUrl); img.alt = '';
+          img.style.maxHeight = '28px';
+          return img;
+        } },
+      { key: 'name', label: 'Brand' },
+      { key: 'productCount', label: 'Models', numeric: true },
+      { key: 'active', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.active ? 'ok' : ''),
+                       r.active ? 'Active' : 'Hidden');
+        } }
+    ], res.brands, { onClick: editBrand }));
+
+    return wrap;
+  });
+});
+
+function editBrand(brand) {
+  var body = QM.el('div');
+
+  var name = QM.input('text', brand ? brand.name : '');
+  body.appendChild(QM.field('Brand name', name));
+
+  var logoData = null;
+  var picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = 'image/*';
+  body.appendChild(QM.field('Logo', picker,
+    'Shown to customers choosing a brand. PNG or SVG, under 2 MB.'));
+
+  picker.onchange = function () {
+    var file = picker.files && picker.files[0];
+    if (!file) return;
+    readAsDataUrl(file).then(function (p) { logoData = p.dataUrl; });
+  };
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = brand ? brand.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var activeLabel = QM.el('label');
+  activeLabel.appendChild(active);
+  activeLabel.appendChild(document.createTextNode(' Show to customers'));
+  var af = QM.el('div', 'field');
+  af.appendChild(activeLabel);
+  body.appendChild(af);
+
+  QM.modal({
+    title: brand ? brand.name : 'Add a brand',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (name.value.trim().length < 2) return false;
+      return {
+        brandId: brand ? brand.brandId : '',
+        name: name.value.trim(),
+        active: active.checked,
+        logoDataUrl: logoData
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveBrand', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-brands');
+    });
+  });
+}
+
+QM.route('a-products', function (params) {
+  var filters = params.filters || {};
+  var wrap = QM.el('div');
+
+  wrap.appendChild(QM.button('Add a model', function () { editProduct(null); }, 'mb'));
+
+  wrap.appendChild(filterBar([
+    { key: 'search', type: 'search', label: 'Search',
+      placeholder: 'Model name', value: filters.search }
+  ], function (f) { QM.go('a-products', { filters: f }); }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.products', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    list.appendChild(QM.table([
+      { key: 'brand', label: 'Brand' },
+      { key: 'model', label: 'Model' },
+      { key: 'variantCount', label: 'Storage sizes', numeric: true },
+      { key: 'colorCount', label: 'Colours', numeric: true },
+      { key: 'unpricedVariants', label: 'Unpriced', numeric: true,
+        render: function (r) {
+          if (!r.unpricedVariants) return QM.el('span', 'pill ok', 'All priced');
+          return QM.el('span', 'pill warn', r.unpricedVariants + ' unpriced');
+        } },
+      { key: 'active', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.active ? 'ok' : ''),
+                       r.active ? 'Live' : 'Hidden');
+        } }
+    ], res.products, {
+      onClick: function (row) { showProduct(row.productId); }
+    }));
+  });
+
+  return wrap;
+});
+
+/**
+ * One product, with everything about it editable HERE.
+ *
+ * V2 could list a product and could not add a storage size to it. The
+ * server had admin.saveVariant and admin.saveColor the whole time and no
+ * screen called either, so a new model meant opening the spreadsheet by
+ * hand — on the sheet whose columns the whole system resolves by name.
+ */
+function showProduct(productId) {
+  QM.call('admin.product', { productId: productId }).then(function (res) {
+    if (!res.ok) { QM.toast(res.message, 'danger'); return; }
+
+    var body = QM.el('div');
+
+    body.appendChild(detailList([
+      { label: 'Model',       value: res.product.model },
+      { label: 'Model code',  value: res.product.modelCode },
+      { label: 'Device type', value: res.product.deviceType },
+      { label: 'Released',    value: res.product.releaseYear },
+      { label: 'Visible',     value: res.product.active ? 'Yes' : 'Hidden' }
+    ]));
+
+    if (QM.safeImageUrl(res.product.imageUrl)) {
+      var img = document.createElement('img');
+      img.src = QM.safeImageUrl(res.product.imageUrl);
+      img.alt = '';
+      img.style.maxHeight = '110px';
+      body.appendChild(img);
+    }
+
+    var picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'image/*';
+    body.appendChild(QM.field('Product photograph', picker,
+      'Shown to customers choosing a model. Under 2 MB.'));
+    picker.onchange = function () {
+      var file = picker.files && picker.files[0];
+      if (!file) return;
+      readAsDataUrl(file).then(function (p) {
+        QM.call('admin.uploadMedia', {
+          kind: 'PRODUCT', objectId: productId, dataUrl: p.dataUrl
+        }).then(function (r) {
+          if (QM.report(r)) {
+            document.querySelectorAll('.modal-scrim').forEach(function (s) { s.remove(); });
+            showProduct(productId);
+          }
+        });
+      });
+    };
+
+    /* ---- storage sizes -------------------------------------------- */
+    body.appendChild(QM.el('div', 'label mt', 'Storage sizes'));
+    body.appendChild(QM.button('Add a storage size', function () {
+      editVariant(productId, null);
+    }, 'small mb'));
+    body.appendChild(QM.table([
+      { key: 'storage', label: 'Storage' },
+      { key: 'basePrice', label: 'Base price', numeric: true,
+        render: function (r) {
+          return r.priced ? QM.money(r.basePrice)
+                          : QM.el('span', 'pill warn', 'No price');
+        } },
+      { key: 'ladder', label: 'Ladder',
+        render: function (r) {
+          if (!r.ladder.length) return QM.el('span', 'muted', '—');
+          var box = QM.el('div', 'gap');
+          r.ladder.forEach(function (g) {
+            box.appendChild(QM.el('span', 'pill', g.code + ' ' + QM.money(g.value)));
+          });
+          return box;
+        } },
+      { key: 'active', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.active ? 'ok' : ''),
+                       r.active ? 'Live' : 'Hidden');
+        } }
+    ], res.variants, {
+      onClick: function (row) { editVariant(productId, row); }
+    }));
+
+    /* ---- colours --------------------------------------------------- */
+    body.appendChild(QM.el('div', 'label mt', 'Colours'));
+    body.appendChild(QM.el('div', 'hint',
+      'Colour identifies the handset in the box. It does not change the price, ' +
+      'which is why it hangs on the product and not on a price row.'));
+    body.appendChild(QM.button('Add a colour', function () {
+      editColor(productId, null);
+    }, 'small mb'));
+
+    if (res.colors.length) {
+      body.appendChild(QM.table([
+        { key: 'color', label: 'Colour' },
+        { key: 'imageUrl', label: 'Image',
+          render: function (c) {
+            if (!QM.safeImageUrl(c.imageUrl)) return QM.el('span', 'muted', '—');
+            var i = document.createElement('img');
+            i.src = QM.safeImageUrl(c.imageUrl); i.alt = '';
+            i.style.maxHeight = '26px';
+            return i;
+          } },
+        { key: 'active', label: 'Status',
+          render: function (c) {
+            return QM.el('span', 'pill ' + (c.active ? 'ok' : ''),
+                         c.active ? 'Live' : 'Hidden');
+          } }
+      ], res.colors, {
+        onClick: function (row) { editColor(productId, row); }
+      }));
+    }
+
+    QM.modal({
+      title: res.product.model,
+      body: body,
+      confirmLabel: 'Edit model',
+      cancelLabel: 'Close'
+    }).then(function (edit) {
+      if (edit) editProduct(res.product, res.deviceTypes);
+    });
+  });
+}
+
+function editProduct(product, deviceTypes) {
+  var body = QM.el('div');
+
+  var brand = QM.select([{ value: '', label: 'Choose a brand' }],
+                        product ? product.brandId : '');
+  body.appendChild(QM.field('Brand', brand));
+
+  QM.call('admin.brands', {}).then(function (res) {
+    if (!res.ok) return;
+    res.brands.forEach(function (b) {
+      var opt = document.createElement('option');
+      opt.value = b.brandId; opt.textContent = b.name;
+      if (product && product.brandId === b.brandId) opt.selected = true;
+      brand.appendChild(opt);
+    });
+  });
+
+  var category = QM.select([{ value: '', label: 'No category' }],
+                           product ? product.categoryId : '');
+  body.appendChild(QM.field('Category', category));
+
+  QM.call('admin.categories', {}).then(function (res) {
+    if (!res.ok) return;
+    res.categories.forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.categoryId; opt.textContent = c.name;
+      if (product && product.categoryId === c.categoryId) opt.selected = true;
+      category.appendChild(opt);
+    });
+  });
+
+  var model = QM.input('text', product ? product.model : '');
+  body.appendChild(QM.field('Model name', model, 'As a customer would say it.'));
+
+  var modelCode = QM.input('text', product ? product.modelCode : '');
+  body.appendChild(QM.field('Model number (optional)', modelCode,
+    'The manufacturer\'s code, such as A2894 or SM-S928B.'));
+
+  var types = (deviceTypes || [
+    { value: 'SMARTPHONE', label: 'Smartphone' },
+    { value: 'TABLET', label: 'Tablet' },
+    { value: 'WATCH', label: 'Smartwatch' },
+    { value: 'LAPTOP', label: 'Laptop' },
+    { value: 'AUDIO', label: 'Earbuds or headphones' },
+    { value: 'OTHER', label: 'Other' }
+  ]);
+  var deviceType = QM.select([{ value: '', label: 'Not set' }].concat(types),
+                             product ? product.deviceType : '');
+  body.appendChild(QM.field('Device type', deviceType,
+    'A short fixed list, so reports do not end up with four spellings of ' +
+    '"phone".'));
+
+  var year = QM.input('number', product ? product.releaseYear : '');
+  body.appendChild(QM.field('Release year (optional)', year));
+
+  var keywords = QM.input('text', product ? product.keywords : '');
+  body.appendChild(QM.field('Search keywords (optional)', keywords,
+    'Other names customers might search for.'));
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = product ? product.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var activeLabel = QM.el('label');
+  activeLabel.appendChild(active);
+  activeLabel.appendChild(document.createTextNode(' Show to customers'));
+  var af = QM.el('div', 'field');
+  af.appendChild(activeLabel);
+  af.appendChild(QM.el('div', 'hint',
+    'Hiding a model stops new trade-ins. Nothing is deleted — old trade-ins ' +
+    'still name it.'));
+  body.appendChild(af);
+
+  QM.modal({
+    title: product ? 'Edit model' : 'Add a model',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (!brand.value) { QM.toast('Choose a brand.', 'danger'); return false; }
+      if (model.value.trim().length < 2) {
+        QM.toast('Enter the model name.', 'danger'); return false;
+      }
+      return {
+        productId: product ? product.productId : '',
+        brandId: brand.value,
+        categoryId: category.value,
+        model: model.value.trim(),
+        modelCode: modelCode.value.trim(),
+        deviceType: deviceType.value,
+        releaseYear: year.value,
+        keywords: keywords.value.trim(),
+        active: active.checked
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveProduct', data).then(function (res) {
+      if (!QM.report(res)) return;
+      if (!data.productId) {
+        QM.toast('Add storage sizes next, then set prices.', 'ok');
+      }
+      QM.go('a-products');
+    });
+  });
+}
+
+/** A storage size. Prices hang off these, so an unpriced one is flagged. */
+function editVariant(productId, variant) {
+  var body = QM.el('div');
+
+  var storage = QM.input('text', variant ? variant.storage : '', '256GB');
+  body.appendChild(QM.field('Storage size', storage,
+    'Written as the customer would say it: 128GB, 256GB, 1TB.'));
+
+  if (variant && !variant.priced) {
+    body.appendChild(QM.el('div', 'notice warn',
+      'This size has no price, so it cannot be quoted. A customer choosing ' +
+      'it is told we are not buying that model.'));
+  }
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = variant ? variant.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var label = QM.el('label');
+  label.appendChild(active);
+  label.appendChild(document.createTextNode(' Offer this size to customers'));
+  var f = QM.el('div', 'field');
+  f.appendChild(label);
+  body.appendChild(f);
+
+  QM.modal({
+    title: variant ? 'Edit storage size' : 'Add a storage size',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (!storage.value.trim()) {
+        QM.toast('Enter a storage size.', 'danger'); return false;
+      }
+      return {
+        productId: productId,
+        variantId: variant ? variant.variantId : '',
+        storage: storage.value.trim(),
+        active: active.checked
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveVariant', data).then(function (res) {
+      if (!QM.report(res)) return;
+      showProduct(productId);
+    });
+  });
+}
+
+function editColor(productId, color) {
+  var body = QM.el('div');
+
+  var name = QM.input('text', color ? color.color : '', 'Natural Titanium');
+  body.appendChild(QM.field('Colour name', name));
+
+  var picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = 'image/*';
+  body.appendChild(QM.field('Swatch (optional)', picker));
+
+  var imageData = null;
+  picker.onchange = function () {
+    var file = picker.files && picker.files[0];
+    if (!file) return;
+    readAsDataUrl(file).then(function (p) { imageData = p.dataUrl; });
+  };
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = color ? color.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var label = QM.el('label');
+  label.appendChild(active);
+  label.appendChild(document.createTextNode(' Offer this colour'));
+  var f = QM.el('div', 'field');
+  f.appendChild(label);
+  body.appendChild(f);
+
+  QM.modal({
+    title: color ? 'Edit colour' : 'Add a colour',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (!name.value.trim()) { QM.toast('Enter a colour.', 'danger'); return false; }
+      return {
+        productId: productId,
+        colorId: color ? color.colorId : '',
+        color: name.value.trim(),
+        active: active.checked
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveColor', data).then(function (res) {
+      if (!QM.report(res)) return;
+      if (imageData && res.colorId) {
+        QM.call('admin.uploadMedia', {
+          kind: 'COLOR', objectId: res.colorId, dataUrl: imageData
+        }).then(function () { showProduct(productId); });
+        return;
+      }
+      showProduct(productId);
+    });
+  });
+}
+
+
+/* ====================================================================
+ * CATEGORIES
+ * ================================================================== */
+
+QM.route('a-categories', function () {
+  return QM.call('admin.categories', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+    wrap.appendChild(QM.el('div', 'hint mb',
+      'Categories group models for the customer\'s device picker. A brand ' +
+      'with only one category skips that step entirely, so there is no point ' +
+      'creating one until there are two.'));
+
+    wrap.appendChild(QM.button('Add a category',
+      function () { editCategory(null, res.categories); }, 'mb'));
+
+    wrap.appendChild(QM.table([
+      { key: 'name', label: 'Category' },
+      { key: 'parentCategoryId', label: 'Inside',
+        render: function (c) {
+          var parent = res.categories.filter(function (p) {
+            return p.categoryId === c.parentCategoryId; })[0];
+          return parent ? parent.name : QM.el('span', 'muted', '—');
+        } },
+      { key: 'active', label: 'Status',
+        render: function (c) {
+          return QM.el('span', 'pill ' + (c.active ? 'ok' : ''),
+                       c.active ? 'Live' : 'Hidden');
+        } }
+    ], res.categories, {
+      onClick: function (row) { editCategory(row, res.categories); }
+    }));
+
+    return wrap;
+  });
+});
+
+function editCategory(category, all) {
+  var body = QM.el('div');
+
+  var name = QM.input('text', category ? category.name : '');
+  body.appendChild(QM.field('Category name', name));
+
+  var parent = QM.select(
+    [{ value: '', label: 'Top level' }].concat(
+      (all || []).filter(function (c) {
+        return !category || c.categoryId !== category.categoryId;
+      }).map(function (c) {
+        return { value: c.categoryId, label: c.name };
+      })),
+    category ? category.parentCategoryId : '');
+  body.appendChild(QM.field('Inside', parent,
+    'A category cannot be placed inside itself, or inside one of its own ' +
+    'children — the server refuses either.'));
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = category ? category.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var label = QM.el('label');
+  label.appendChild(active);
+  label.appendChild(document.createTextNode(' Show to customers'));
+  var f = QM.el('div', 'field');
+  f.appendChild(label);
+  body.appendChild(f);
+
+  QM.modal({
+    title: category ? category.name : 'Add a category',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (name.value.trim().length < 2) return false;
+      return {
+        categoryId: category ? category.categoryId : '',
+        name: name.value.trim(),
+        parentCategoryId: parent.value,
+        active: active.checked
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveCategory', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-categories');
+    });
+  });
+}
+
+
+/* ====================================================================
+ * BRANCHES  (every vendor's, from one screen)
+ * ================================================================== */
+
+QM.route('a-branches', function (params) {
+  var filters = params.filters || {};
+  var wrap = QM.el('div');
+
+  wrap.appendChild(QM.el('div', 'hint mb',
+    'A branch belongs to exactly one vendor and cannot be moved between ' +
+    'them — its trade-ins, vouchers and settlements all carry that vendor id.'));
+
+  var vendorSelect = QM.select([{ value: '', label: 'All vendors' }], filters.vendorId);
+  QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return;
+    res.vendors.forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v.vendorId; opt.textContent = v.name;
+      if (filters.vendorId === v.vendorId) opt.selected = true;
+      vendorSelect.appendChild(opt);
+    });
+  });
+  vendorSelect.onchange = function () {
+    QM.go('a-branches', { filters: { vendorId: vendorSelect.value } });
+  };
+  wrap.appendChild(QM.field('Vendor', vendorSelect));
+
+  wrap.appendChild(QM.button('Add a branch',
+    function () { editAdminBranch(null, filters.vendorId); }, 'mb'));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.branches', { vendorId: filters.vendorId || '' })
+    .then(function (res) {
+      QM.clear(list);
+      if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+      if (!res.branches.length) {
+        list.appendChild(QM.emptyBlock('No branches',
+          'Customers have nowhere to bring a device until one exists.'));
+        return;
+      }
+
+      list.appendChild(QM.table([
+        { key: 'name', label: 'Branch' },
+        { key: 'vendorId', label: 'Vendor',
+          render: function (b) { return b.vendorId; } },
+        { key: 'address', label: 'Address' },
+        { key: 'phone', label: 'Phone' },
+        { key: 'tradeInCount', label: 'Trade-ins', numeric: true },
+        { key: 'staffCount', label: 'Staff', numeric: true },
+        { key: 'active', label: 'Status',
+          render: function (b) {
+            return QM.el('span', 'pill ' + (b.active ? 'ok' : ''),
+                         b.active ? 'Open' : 'Closed');
+          } }
+      ], res.branches, {
+        onClick: function (row) { editAdminBranch(row, row.vendorId); }
+      }));
+    });
+
+  return wrap;
+});
+
+function editAdminBranch(branch, vendorId) {
+  var body = QM.el('div');
+
+  var vendor = QM.select([{ value: '', label: 'Choose a vendor' }],
+                         branch ? branch.vendorId : (vendorId || ''));
+  vendor.disabled = !!branch;
+  body.appendChild(QM.field('Vendor', vendor, branch
+    ? 'A branch cannot change hands — its history would move with it.'
+    : 'Which partner runs this shop.'));
+
+  QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return;
+    res.vendors.forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v.vendorId; opt.textContent = v.name;
+      if ((branch ? branch.vendorId : vendorId) === v.vendorId) opt.selected = true;
+      vendor.appendChild(opt);
+    });
+  });
+
+  var name = QM.input('text', branch ? branch.name : '', 'Villaggio Mall');
+  body.appendChild(QM.field('Branch name', name));
+
+  var code = QM.input('text', branch ? branch.code : '');
+  body.appendChild(QM.field('Short code (optional)', code));
+
+  var address = QM.input('text', branch ? branch.address : '');
+  body.appendChild(QM.field('Address', address,
+    'Shown to customers choosing where to bring a device.'));
+
+  var phone = QM.input('tel', branch ? branch.phone : '');
+  body.appendChild(QM.field('Phone', phone));
+
+  var active = document.createElement('input');
+  active.type = 'checkbox';
+  active.checked = branch ? branch.active : true;
+  active.style.width = 'auto'; active.style.minHeight = 'auto';
+  var label = QM.el('label');
+  label.appendChild(active);
+  label.appendChild(document.createTextNode(' Open for trade-ins'));
+  var f = QM.el('div', 'field');
+  f.appendChild(label);
+  f.appendChild(QM.el('div', 'hint',
+    'Closing a branch signs out everybody assigned to it and hides it from ' +
+    'customers. Its history is kept.'));
+  body.appendChild(f);
+
+  QM.modal({
+    title: branch ? branch.name : 'Add a branch',
+    body: body,
+    confirmLabel: 'Save',
+    collect: function () {
+      if (!vendor.value && !branch) {
+        QM.toast('Choose a vendor.', 'danger'); return false;
+      }
+      if (name.value.trim().length < 2) {
+        QM.toast('Enter the branch name.', 'danger'); return false;
+      }
+      return {
+        vendorId: branch ? branch.vendorId : vendor.value,
+        branchId: branch ? branch.branchId : '',
+        name: name.value.trim(),
+        code: code.value.trim(),
+        address: address.value.trim(),
+        phone: phone.value.trim(),
+        active: active.checked
+      };
+    }
+  }).then(function (data) {
+    if (!data) return;
+    QM.call('admin.saveBranch', data).then(function (res) {
+      if (QM.report(res)) QM.go('a-branches');
+    });
+  });
+}
+
+
+/* ====================================================================
+ * BULK IMPORT
+ *
+ * Two steps, and the first one writes nothing. A catalogue import that
+ * goes straight in is how sixty duplicate products appear from one
+ * mistyped column heading.
+ * ================================================================== */
+
+QM.route('a-import', function () {
+  var wrap = QM.el('div');
+
+  var note = QM.el('div', 'notice');
+  note.appendChild(QM.el('strong', null, 'Preview first, always'));
+  note.appendChild(document.createTextNode(
+    'Paste rows below, check what the preview says it will create, and only ' +
+    'then import. Nothing is written until you press Import.'));
+  wrap.appendChild(note);
+
+  var help = QM.el('div', 'hint mb');
+  help.textContent = 'One device per line, comma separated: ' +
+    'Brand, Category, Model, Storage, Colour, BasePrice. ' +
+    'The price may be left empty — the model is created unpriced and cannot ' +
+    'be quoted until you set one.';
+  wrap.appendChild(help);
+
+  var area = QM.el('textarea');
+  area.rows = 10;
+  area.placeholder = 'Apple, Smartphones, iPhone 15, 128GB, Black, 1800\n' +
+                     'Apple, Smartphones, iPhone 15, 256GB, Black, 2100\n' +
+                     'Samsung, Smartphones, Galaxy S24, 256GB, Grey, 1900';
+  wrap.appendChild(QM.field('Rows', area));
+
+  var results = QM.el('div');
+  wrap.appendChild(results);
+
+  function parse() {
+    return area.value.split('\n')
+      .map(function (line) { return line.trim(); })
+      .filter(Boolean)
+      .map(function (line) {
+        var cells = line.split(',').map(function (c) { return c.trim(); });
+        return {
+          Brand: cells[0], Category: cells[1], Model: cells[2],
+          Storage: cells[3], Colour: cells[4],
+          BasePrice: cells[5] === undefined ? '' : cells[5]
+        };
+      })
+      // A header row pasted in with the data is skipped rather than
+      // imported as a product called "Model".
+      .filter(function (r) {
+        return String(r.Brand).toLowerCase() !== 'brand';
+      });
+  }
+
+  var row = QM.el('div', 'btn-row mb');
+
+  row.appendChild(QM.button('Preview', function () {
+    var rows = parse();
+    if (!rows.length) { QM.toast('Paste some rows first.', 'danger'); return; }
+
+    QM.clear(results);
+    results.appendChild(QM.loadingBlock());
+
+    QM.call('admin.previewImport', { rows: rows }).then(function (res) {
+      QM.clear(results);
+      if (!res.ok) { results.appendChild(QM.errorBlock(res.message)); return; }
+
+      var summary = QM.el('div', 'notice ' + (res.problems.length ? 'warn' : 'ok'));
+      summary.appendChild(QM.el('strong', null,
+        res.willImport + ' row(s) would be imported'));
+      summary.appendChild(document.createTextNode(
+        res.newBrands.length + ' new brand(s), ' +
+        res.newProducts.length + ' new model(s), ' +
+        res.variantCount + ' storage size(s).'));
+      results.appendChild(summary);
+
+      if (res.problems.length) {
+        var bad = QM.el('div', 'notice danger');
+        bad.appendChild(QM.el('strong', null,
+          res.problems.length + ' row(s) will be skipped'));
+        var ul = QM.el('ul');
+        ul.style.margin = '.4rem 0 0'; ul.style.paddingLeft = '1.2rem';
+        res.problems.slice(0, 20).forEach(function (p) {
+          ul.appendChild(QM.el('li', null, p));
+        });
+        bad.appendChild(ul);
+        results.appendChild(bad);
+      }
+
+      results.appendChild(QM.button('Import ' + res.willImport + ' row(s)',
+        function () {
+          QM.call('admin.applyImport', { rows: res.rows }).then(function (r2) {
+            if (QM.report(r2)) QM.go('a-products');
+          });
+        }, 'gold block'));
+    });
+  }));
+
+  wrap.appendChild(row);
+  return wrap;
+});
+
+/* ====================================================================
+ * STAFF AND CUSTOMERS
+ * ================================================================== */
+
+QM.route('a-staff', function () {
+  return QM.call('admin.staff', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    setBadge('a-staff', res.pending);
+
+    var wrap = QM.el('div');
+
+    if (res.pending) {
+      var n = QM.el('div', 'notice warn');
+      n.appendChild(QM.el('strong', null, res.pending + ' waiting for approval'));
+      n.appendChild(document.createTextNode(
+        'They registered with no role and no vendor, and cannot sign in until ' +
+        'you give them one.'));
+      wrap.appendChild(n);
+    }
+
+    wrap.appendChild(QM.button('Add a member of staff',
+      function () { editAdminStaff(null, res.grantableRoles); }, 'mb'));
+
+    wrap.appendChild(QM.table([
+      { key: 'name', label: 'Name' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'roleLabel', label: 'Role' },
+      { key: 'vendorName', label: 'Vendor' },
+      { key: 'branchName', label: 'Branch' },
+      { key: 'status', label: 'Status',
+        render: function (r) {
+          var kind = r.active ? 'ok' : r.pending ? 'warn' : '';
+          return QM.el('span', 'pill ' + kind,
+            r.pending ? 'Waiting' : r.status);
+        } }
+    ], res.staff, {
+      onClick: function (row) { editAdminStaff(row, res.grantableRoles); }
+    }));
+
+    return wrap;
+  });
+});
+
+/**
+ * The role dropdown is built from grantableRoles, which came from the
+ * server. A QM_ADMIN is never offered SUPER_ADMIN, and would be refused
+ * if they sent it anyway.
+ */
+function editAdminStaff(person, grantableRoles) {
+  var body = QM.el('div');
+  var isNew = !person;
+  var isPending = person && person.pending;
+
+  var name = QM.input('text', person ? person.name : '');
+  var phone = QM.input('tel', person ? person.phone : '');
+
+  if (isNew) {
+    body.appendChild(QM.field('Full name', name));
+    body.appendChild(QM.field('Mobile number', phone,
+      'They sign in with this and a one-time code.'));
+  } else {
+    body.appendChild(detailList([
+      { label: 'Name', value: person.name },
+      { label: 'Phone', value: person.phone },
+      { label: 'Last signed in', value: person.lastLogin }
+    ]));
+  }
+
+  var role = QM.select(
+    [{ value: '', label: 'Choose a role' }].concat(
+      grantableRoles.map(function (r) { return { value: r.role, label: r.label }; })),
+    person ? person.role : '');
+  body.appendChild(QM.field('Role', role));
+
+  var vendor = QM.select([{ value: '', label: 'Qatar Mobile (no vendor)' }],
+                         person ? person.vendorId : '');
+  var vendorField = QM.field('Vendor', vendor,
+    'Only for vendor roles. Platform staff work across every vendor.');
+  body.appendChild(vendorField);
+
+  QM.call('admin.vendors', {}).then(function (res) {
+    if (!res.ok) return;
+    res.vendors.filter(function (v) { return v.active; }).forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v.vendorId; opt.textContent = v.name;
+      if (person && person.vendorId === v.vendorId) opt.selected = true;
+      vendor.appendChild(opt);
+    });
+  });
+
+  function syncVendorVisibility() {
+    var vendorRole = ['VENDOR_ADMIN', 'VENDOR_MANAGER', 'VENDOR_STAFF']
+                       .indexOf(role.value) > -1;
+    vendorField.classList.toggle('hidden', !vendorRole);
+  }
+  syncVendorVisibility();
+  role.onchange = syncVendorVisibility;
+
+  var statusSelect = null;
+  if (person && !isPending) {
+    statusSelect = QM.select([
+      { value: 'ACTIVE', label: 'Active' },
+      { value: 'DISABLED', label: 'Disabled' }
+    ], person.status);
+    body.appendChild(QM.field('Status', statusSelect,
+      'Disabling signs them out immediately. The last platform owner cannot ' +
+      'be disabled.'));
+  }
+
+  QM.modal({
+    title: isNew ? 'Add staff' : isPending ? 'Approve access' : person.name,
+    body: body,
+    confirmLabel: isPending ? 'Approve' : 'Save',
+    collect: function () {
+      if (!role.value) { QM.toast('Choose a role.', 'danger'); return false; }
+      var out = {
+        mode: isNew ? 'CREATE' : 'UPDATE',
+        decision: 'APPROVE',
+        userId: person ? person.userId : '',
+        fullName: name.value.trim(),
+        phone: phone.value.trim(),
+        role: role.value,
+        vendorId: vendor.value
+      };
+      if (statusSelect) out.status = statusSelect.value;
+      return out;
+    }
+  }).then(function (data) {
+    if (!data) return;
+    var action = isPending ? 'admin.approveStaff' : 'admin.updateStaff';
+    QM.call(action, data).then(function (res) {
+      if (QM.report(res)) QM.go('a-staff');
+    });
+  });
+}
+
+QM.route('a-customers', function (params) {
+  var filters = params.filters || {};
+  var wrap = QM.el('div');
+
+  wrap.appendChild(filterBar([
+    { key: 'search', type: 'search', label: 'Search',
+      placeholder: 'Name, phone or email', value: filters.search }
+  ], function (f) { QM.go('a-customers', { filters: f }); }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.customers', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    list.appendChild(QM.el('div', 'hint mb',
+      'Customers belong to the platform, not to a vendor. A vendor only ever ' +
+      'sees the customer on a trade-in they are handling.'));
+
+    list.appendChild(QM.table([
+      { key: 'name', label: 'Name' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'tradeInCount', label: 'Trade-ins', numeric: true },
+      { key: 'totalPaid', label: 'Paid out', numeric: true,
+        render: function (r) { return QM.money(r.totalPaid); } },
+      { key: 'lastLogin', label: 'Last seen' },
+      { key: 'status', label: 'Status',
+        render: function (r) {
+          return QM.el('span', 'pill ' + (r.active ? 'ok' : ''), r.status);
+        } }
+    ], res.customers));
+  });
+
+  return wrap;
+});
+
+/* ====================================================================
+ * REPORTS AND AUDIT
+ * ================================================================== */
+
+QM.route('a-reports', function (params) {
+  var filters = params.filters || { reportType: 'TRADEIN', groupBy: 'vendor' };
+  var wrap = QM.el('div');
+
+  var controls = [
+    { key: 'reportType', type: 'select', label: 'Report', value: filters.reportType,
+      options: [
+        { value: 'TRADEIN',    label: 'Trade-ins' },
+        { value: 'VOUCHER',    label: 'Vouchers' },
+        { value: 'COLLECTION', label: 'Collections' },
+        { value: 'SETTLEMENT', label: 'Settlements' },
+        { value: 'INSPECTION', label: 'Inspections' }
+      ] }
+  ];
+
+  // Grouping only means something for the trade-in report; the others
+  // are lists of their own records. Showing a control that does nothing
+  // is worse than not showing it.
+  if (!filters.reportType || filters.reportType === 'TRADEIN') {
+    controls.push({ key: 'groupBy', type: 'select', label: 'Group by',
+      value: filters.groupBy,
+      options: [
+        { value: 'vendor', label: 'Vendor' },
+        { value: 'branch', label: 'Branch' },
+        { value: 'month',  label: 'Month' },
+        { value: 'day',    label: 'Day' },
+        { value: 'grade',  label: 'Grade' },
+        { value: 'brand',  label: 'Brand' },
+        { value: 'model',  label: 'Model' },
+        { value: 'device', label: 'Device (model and storage)' },
+        { value: 'technician', label: 'Technician' },
+        { value: 'status', label: 'Status' }
+      ] });
+  }
+
+  controls.push({ key: 'from', type: 'date', label: 'From', value: filters.from });
+  controls.push({ key: 'to',   type: 'date', label: 'To',   value: filters.to });
+
+  wrap.appendChild(filterBar(controls, function (f) {
+    QM.go('a-reports', { filters: f });
+  }));
+
+  wrap.appendChild(QM.el('div', 'hint mb',
+    'From and To include the WHOLE of both days. A range ending on the 8th ' +
+    'covers everything up to 23:59 on the 8th.'));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.reports', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    /* ---- headline numbers, per report type ------------------------ */
+    var grid = QM.el('div', 'grid cols-4 mb');
+    var t = res.totals || {};
+
+    if (res.reportType === 'COLLECTION') {
+      grid.appendChild(QM.kpi('Notes', t.count, 'In this period'));
+      grid.appendChild(QM.kpi('Expected', t.expected, 'Value sent for',
+        { money: true }));
+      grid.appendChild(QM.kpi('Actually collected', t.actual, 'Value received',
+        { money: true }));
+      grid.appendChild(QM.kpi('Exceptions', t.exceptions,
+        'Notes with a device unaccounted for',
+        { attention: t.exceptions > 0 }));
+
+    } else if (res.reportType === 'SETTLEMENT') {
+      grid.appendChild(QM.kpi('Settlements', t.count, 'In this period'));
+      grid.appendChild(QM.kpi('Total', t.settlement, 'Across all statuses',
+        { money: true }));
+      grid.appendChild(QM.kpi('Commission', t.commission, 'Vendor share',
+        { money: true }));
+      grid.appendChild(QM.kpi('Outstanding', t.outstanding, 'Raised, not yet paid',
+        { money: true, attention: t.outstanding > 0 }));
+
+    } else if (res.reportType === 'INSPECTION') {
+      grid.appendChild(QM.kpi('Inspections', t.count, 'In this period'));
+      grid.appendChild(QM.kpi('Customer value', t.customerValue, 'Offered',
+        { money: true }));
+
+    } else {
+      grid.appendChild(QM.kpi('Devices', t.count, 'In this period'));
+      grid.appendChild(QM.kpi('Estimated', t.estimated,
+        'What customers were told', { money: true }));
+      grid.appendChild(QM.kpi('Offered', t.customerValue,
+        'What they were paid', { money: true }));
+      grid.appendChild(QM.kpi('Difference', t.variance,
+        'Offered against estimated',
+        { money: true, attention: t.variance < 0 }));
+    }
+    list.appendChild(grid);
+
+    /* ---- the report itself ----------------------------------------- */
+    if (res.groups && res.reportType === 'TRADEIN') {
+      list.appendChild(QM.table([
+        { key: 'label', label: 'Group' },
+        { key: 'count', label: 'Devices', numeric: true },
+        { key: 'estimated', label: 'Estimated', numeric: true,
+          render: function (r) { return QM.money(r.estimated); } },
+        { key: 'customerValue', label: 'Customer', numeric: true,
+          render: function (r) { return QM.money(r.customerValue); } },
+        { key: 'variancePct', label: 'Variance', numeric: true,
+          render: function (r) {
+            if (r.variancePct === null) return QM.el('span', 'muted', '—');
+            var kind = r.variancePct < -15 ? 'warn' : '';
+            return QM.el('span', 'pill ' + kind,
+              (r.variancePct >= 0 ? '+' : '') + r.variancePct + '%');
+          } },
+        { key: 'commission', label: 'Commission', numeric: true,
+          render: function (r) { return QM.money(r.commission); } },
+        { key: 'settlement', label: 'Total', numeric: true,
+          render: function (r) { return QM.money(r.settlement); } }
+      ], res.groups));
+
+    } else if (res.reportType === 'INSPECTION') {
+      list.appendChild(QM.table([
+        { key: 'label', label: 'Technician' },
+        { key: 'count', label: 'Inspections', numeric: true },
+        { key: 'averageScore', label: 'Average score', numeric: true },
+        { key: 'averageVariancePct', label: 'Average variance', numeric: true,
+          render: function (r) {
+            return r.averageVariancePct === null ? '—'
+              : (r.averageVariancePct >= 0 ? '+' : '') + r.averageVariancePct + '%';
+          } },
+        { key: 'overrides', label: 'Grade overrides', numeric: true },
+        { key: 'gradeMix', label: 'Grade mix',
+          render: function (r) {
+            var box = QM.el('div', 'gap');
+            (r.gradeMix || []).forEach(function (g) {
+              box.appendChild(QM.el('span', 'pill', g.label + ' ×' + g.count));
+            });
+            return box;
+          } }
+      ], res.groups));
+
+      list.appendChild(QM.el('div', 'hint',
+        'Grading is meant to be objective, so two technicians working the ' +
+        'same counter should produce similar grade mixes. A persistent ' +
+        'difference between them is worth a conversation.'));
+
+    } else if (res.rows) {
+      // The list-shaped reports arrive as columns and rows.
+      list.appendChild(QM.table(
+        res.columns.map(function (c, i) {
+          return { key: 'c' + i, label: c,
+                   numeric: /value|amount|total|commission|devices|expected|collected|missing|exceptions/i.test(c),
+                   render: function (row) { return row[i]; } };
+        }),
+        res.rows));
+    }
+
+    /* ---- export ----------------------------------------------------- */
+    var exportRow = QM.el('div', 'btn-row mt');
+    exportRow.appendChild(QM.button('Download CSV', function () {
+      var f = {};
+      Object.keys(filters).forEach(function (k) { f[k] = filters[k]; });
+      f.asCsv = true;
+      QM.call('admin.reports', f).then(function (csvRes) {
+        if (!csvRes.ok || !csvRes.csv) {
+          QM.toast('That report could not be exported.', 'danger');
+          return;
+        }
+        downloadCsv((res.reportType || 'report').toLowerCase() + '-' +
+                    (filters.from || 'all') + '-to-' + (filters.to || 'now') + '.csv',
+                    csvRes.csv);
+      });
+    }, 'secondary'));
+    list.appendChild(exportRow);
+  });
+
+  return wrap;
+});
+
+/**
+ * Save a CSV without leaving the page.
+ *
+ * A published Apps Script app runs inside a sandboxed iframe, so a plain
+ * download link is blocked. A Blob URL opened from a click the user made
+ * is not — and the BOM matters: without it Excel reads an Arabic branch
+ * name as mojibake, which is exactly the column somebody will check.
+ */
+function downloadCsv(filename, text) {
+  try {
+    var blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
+  } catch (e) {
+    // If the sandbox refuses, show the text so it can still be copied
+    // out rather than leaving somebody with a button that does nothing.
+    var body = QM.el('div');
+    var area = QM.el('textarea');
+    area.value = text;
+    area.rows = 14;
+    body.appendChild(QM.el('p', 'soft',
+      'Your browser blocked the download. Copy the text below instead.'));
+    body.appendChild(area);
+    QM.modal({ title: filename, body: body, confirmLabel: '', cancelLabel: 'Close' });
+    setTimeout(function () { area.select(); }, 60);
+  }
+}
+
+QM.route('a-audit', function (params) {
+  var filters = params.filters || {};
+  var wrap = QM.el('div');
+
+  wrap.appendChild(QM.el('div', 'hint mb',
+    'Append-only. Nothing in the system edits or deletes a line here, ' +
+    'including refused access attempts.'));
+
+  wrap.appendChild(filterBar([
+    { key: 'action', type: 'search', label: 'Action',
+      placeholder: 'e.g. VOUCHER_ISSUED', value: filters.action },
+    { key: 'objectId', type: 'search', label: 'Object',
+      placeholder: 'A reference', value: filters.objectId },
+    { key: 'from', type: 'date', label: 'From', value: filters.from },
+    { key: 'to', type: 'date', label: 'To', value: filters.to }
+  ], function (f) { QM.go('a-audit', { filters: f }); }));
+
+  var list = QM.el('div');
+  wrap.appendChild(list);
+  list.appendChild(QM.loadingBlock());
+
+  QM.call('admin.audit', filters).then(function (res) {
+    QM.clear(list);
+    if (!res.ok) { list.appendChild(QM.errorBlock(res.message)); return; }
+
+    list.appendChild(QM.el('div', 'small muted mb',
+      'Showing ' + res.shown + ' of ' + res.total + ' entries.'));
+
+    list.appendChild(QM.table([
+      { key: 'timestamp', label: 'When' },
+      { key: 'actor', label: 'Who' },
+      { key: 'role', label: 'Role' },
+      { key: 'action', label: 'Action',
+        render: function (r) {
+          var danger = r.action === 'ACCESS_DENIED' ||
+                       r.action === 'VOUCHER_BLOCKED_NO_DEVICE';
+          return QM.el('span', 'pill ' + (danger ? 'danger' : ''), r.action);
+        } },
+      { key: 'objectId', label: 'Object', className: 'mono' },
+      { key: 'oldValue', label: 'Was' },
+      { key: 'newValue', label: 'Now' }
+    ], res.entries));
+  });
+
+  return wrap;
+});
+
+/* ====================================================================
+ * SETTINGS
+ * ================================================================== */
+
+QM.route('a-settings', function () {
+  return QM.call('admin.settings', {}).then(function (res) {
+    if (!res.ok) return QM.errorBlock(res.message);
+
+    var wrap = QM.el('div');
+    var h = res.health;
+
+    /* ---- the state of the system, said plainly -------------------- */
+    if (h.devMode) {
+      var dev = QM.el('div', 'notice danger');
+      dev.appendChild(QM.el('strong', null, 'Test mode is on'));
+      dev.appendChild(document.createTextNode(h.devModeWarning));
+      wrap.appendChild(dev);
+    }
+
+    var health = QM.el('div', 'grid cols-4 mb');
+    health.appendChild(QM.kpi('Version', res.version || '—',
+      res.versionLabel || ''));
+    health.appendChild(QM.kpi('SMS provider', h.smsProvider,
+      h.smsProvider === 'NONE' ? 'No messages are being sent' : 'Codes are sent by SMS',
+      { attention: h.smsProvider === 'NONE' }));
+    health.appendChild(QM.kpi('Unpriced variants', h.unpricedVariants,
+      'Cannot be quoted at all', { attention: h.unpricedVariants > 0 }));
+    health.appendChild(QM.kpi('Grade ladder', h.gradeLadderValid ? 'Valid' : 'INVALID',
+      'Checked against the pricing rules',
+      { attention: !h.gradeLadderValid }));
+    health.appendChild(QM.kpi('Platform owners', h.activeSuperAdmins,
+      'The last one cannot be disabled',
+      { attention: h.activeSuperAdmins < 2 }));
+    wrap.appendChild(health);
+
+    /* ---- editable settings ---------------------------------------- */
+    var body = QM.el('div');
+    body.appendChild(QM.el('div', 'hint mb',
+      'Anything that changes how money is calculated — prices, grades, ' +
+      'commission — lives on its own page with its own history, not here.'));
+
+    res.settings.forEach(function (s) {
+      var control = QM.input(s.type === 'NUMBER' ? 'number' : 'text', s.value);
+      var f = QM.field(s.label, control);
+
+      var save = QM.button('Save', function () {
+        QM.call('admin.saveSetting', {
+          key: s.key, value: control.value
+        }).then(function (r) { QM.report(r); });
+      }, 'small secondary');
+      f.appendChild(save);
+
+      body.appendChild(f);
+    });
+
+    wrap.appendChild(QM.card('Settings', body));
+
+    return wrap;
+  });
+});
+</script>

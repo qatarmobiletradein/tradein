@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+migration-reports/
+tests/e2e/artifacts/
+*.log
+staging-reports/
+staging-testers.json
+staging-testers.*.json
+!staging-testers.example.json
+staging-tokens*.json
+*.pem
+*.crt
+*.key

@@ -1,0 +1,11 @@
+target: postgres@127.0.0.1:54331/postgres (local)
+applying 20261008000100_core_schema.sql
+applying 20261008000200_integrity.sql
+applying 20261008000300_rls.sql
+applying 20261008000400_storage.sql
+WARNING: qm: storage policy qm_catalog_media_read NOT created (not owner of storage.objects). Optional: create a SELECT policy for bucket catalog-media in Dashboard > Storage > Policies.
+applying 20261008000500_reference_data.sql
+applying 20261008000600_hardening.sql
+applying 20261008000700_staging_readiness.sql
+applying 20261008000800_staff_email_sign_in.sql
+{"applied":8,"alreadyApplied":0}

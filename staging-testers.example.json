@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to staging-testers.json (git-ignored). Customers: YOUR testers' Qatar mobile numbers (they sign in by SMS code). Staff: YOUR testers' WORK email addresses (staff sign in with email + password; the first time they use 'Set or reset password' and receive a code by email). One number / one address per profile. Leave out profiles you will not test; their checks are SKIPPED.",
+  "USR-00001": "tester1@your-company.example",
+  "USR-00002": "tester2@your-company.example",
+  "USR-00003": "tester3@your-company.example",
+  "USR-00004": "tester4@your-company.example",
+  "USR-00005": "tester5@your-company.example",
+  "USR-00006": "tester6@your-company.example",
+  "USR-00009": "tester7@your-company.example",
+  "CUS-00001": "+974XXXXXXXX",
+  "CUS-00002": "+974XXXXXXXX"
+}

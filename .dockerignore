@@ -1,0 +1,22 @@
+# Never send these to the image build context (patterns apply at ANY depth).
+**/node_modules
+**/dist
+tests
+docs
+apps/web
+staging-reports
+migration-reports
+.git
+**/.env
+**/.env.*
+!.env.example
+**/staging-testers*.json
+!staging-testers.example.json
+**/staging-tokens*.json
+**/*.pem
+**/*.crt
+**/*.key
+**/*.p12
+**/*.log
+supabase/.temp
+supabase/.branches

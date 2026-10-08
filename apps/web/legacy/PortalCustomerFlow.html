@@ -1,0 +1,887 @@
+<script>
+/*******************************************************************
+ * PortalCustomerFlow.html — "Trade in your device", start to finish.
+ *
+ * ONE DECISION PER SCREEN
+ *   Brand. Model. Storage. Colour. Then eight condition questions, one
+ *   at a time. Then the estimate, the shop, the device details, and a
+ *   review. Nothing on this path asks two things at once, because a
+ *   person doing this is standing up, holding the phone they are selling,
+ *   and often in a shop with somebody waiting.
+ *
+ * THE ORDER IS BRAND FIRST, SHOP LAST
+ *   The estimate is computed from the master price list and restated once
+ *   if the chosen shop happens to have its own. That restatement is shown
+ *   explicitly rather than slipped in — a number that changes quietly
+ *   reads as a bait and switch even when it is not.
+ *
+ * THE CUSTOMER DESCRIBES; THE SERVER DECIDES
+ *   There is no grade selector anywhere in this file. Not disabled, not
+ *   hidden. The questions ask what the device is LIKE — "perfect", "minor
+ *   scratches", "cracked" — and the server turns that into a grade using
+ *   the same engine the technician's answers go through. Search this file
+ *   for "grade" and you will find only read-only rendering.
+ *
+ * EVERY ANSWER CAN BE CHANGED
+ *   Back moves one step. The review screen has a Change control on every
+ *   line. The estimate screen has "Edit my answers". Somebody who
+ *   mistyped on step three must never have to start again.
+ *
+ * ESTIMATED IS NOT FINAL
+ *   Said on the estimate screen, said again on the review screen, and
+ *   said again on the confirmation. In body text, every time.
+ *******************************************************************/
+
+/* ====================================================================
+ * STATE
+ * ================================================================== */
+
+var F = null;
+
+function freshFlow() {
+  return {
+    step: 0,
+    catalog: null, vendors: null, questions: null,
+
+    brandId: null, brandName: '', brandLogo: '',
+    productId: null, productName: '', productImage: '',
+    variantId: null, storage: '',
+    colorId: null, colorName: '',
+
+    answers: {},                 // question key -> option value
+
+    estimate: null, estimatedGrade: '', gradeName: '',
+    assumed: [], currency: 'QAR', note: '',
+
+    vendorId: null, vendorName: '', branchId: null,
+    branchName: '', branchAddress: '',
+
+    imei: '', serial: '', notes: ''
+  };
+}
+
+/**
+ * The steps, as data.
+ *
+ * The progress bar, the Back button and the review screen's Change
+ * controls all read this list, so they cannot disagree about where a step
+ * is. `skip` lets a step remove itself — a product with one storage size
+ * is not a choice, and making somebody tap a button with no alternative
+ * is a step that exists only to be counted.
+ */
+function flowSteps() {
+  var steps = [
+    { key: 'brand',   label: 'Brand',   render: stepBrand },
+    { key: 'model',   label: 'Model',   render: stepModel },
+    { key: 'storage', label: 'Storage', render: stepStorage },
+    { key: 'colour',  label: 'Colour',  render: stepColour,
+      skip: function () { return !currentProduct() || !currentProduct().colors.length; } }
+  ];
+
+  (F.questions || []).forEach(function (q) {
+    steps.push({
+      key: 'q:' + q.key, label: q.group, question: q,
+      render: function (body) { return stepQuestion(body, q); }
+    });
+  });
+
+  steps.push({ key: 'estimate', label: 'Your value', render: stepEstimate });
+  steps.push({ key: 'shop',     label: 'Shop',       render: stepShop });
+  steps.push({ key: 'device',   label: 'Device',     render: stepDevice });
+  steps.push({ key: 'review',   label: 'Review',     render: stepReview });
+
+  return steps;
+}
+
+/* ====================================================================
+ * PHASES
+ *
+ * Internally this flow is sixteen screens. "Step 5 of 16" is an accurate
+ * number and a discouraging one — it tells somebody who has just started
+ * that there are eleven more of these. So the count the customer sees is
+ * the PHASE, of which there are five, and a within-phase count only for
+ * the condition questions, which are the one genuinely repetitive run.
+ *
+ * The phases are derived from the step list rather than stored beside it,
+ * so a step added to flowSteps() lands in a phase automatically instead
+ * of quietly falling out of the progress bar.
+ * ================================================================== */
+
+var CX_PHASES = [
+  { key: 'device',    label: 'Device' },
+  { key: 'condition', label: 'Condition' },
+  { key: 'estimate',  label: 'Estimate' },
+  { key: 'details',   label: 'Details' },
+  { key: 'review',    label: 'Review' }
+];
+
+function phaseOf(step) {
+  // Order matters: there is a STEP called 'device' (the IMEI screen) that
+  // belongs to the 'details' PHASE, and it must be caught before the
+  // fall-through that puts brand/model/storage/colour in 'device'.
+  if (step.key.indexOf('q:') === 0)              return 'condition';
+  if (step.key === 'estimate')                   return 'estimate';
+  if (step.key === 'review')                     return 'review';
+  if (step.key === 'shop' || step.key === 'device') return 'details';
+  return 'device';
+}
+
+/* ====================================================================
+ * THE ROUTE
+ * ================================================================== */
+
+QM.route('c-new', function () {
+  cxPaintWidth('c-new');
+  F = freshFlow();
+
+  return Promise.all([
+    QM.call('public.catalogTree', {}),
+    QM.call('public.vendorContext', {}),
+    QM.call('customer.questions', {})
+  ]).then(function (r) {
+    if (!r[0].ok) {
+      return QM.el('div', 'cx-note stop', 'The catalogue could not be loaded.');
+    }
+
+    F.catalog   = r[0];
+    F.vendors   = r[1].ok ? r[1].vendors : [];
+    F.questions = r[2].ok ? r[2].questions : [];
+    F.note      = r[2].ok ? r[2].note : '';
+
+    if (!F.catalog.brands.length) {
+      return QM.el('div', 'cx-note warn',
+        'We are not buying any devices at the moment. Please check back soon.');
+    }
+
+    var host = QM.el('div');
+    host.id = 'flow';
+    renderFlow(host);
+    return host;
+  });
+});
+
+function renderFlow(host) {
+  QM.clear(host);
+
+  var steps = flowSteps();
+
+  // Walk past anything that has nothing to ask.
+  var guard = 0;
+  while (F.step < steps.length && steps[F.step].skip &&
+         steps[F.step].skip() && guard++ < 20) {
+    F.step++;
+  }
+  if (F.step >= steps.length) F.step = steps.length - 1;
+  if (F.step < 0) F.step = 0;
+
+  var step = steps[F.step];
+
+  /* ---- progress ---------------------------------------------------- */
+  var phaseKey   = phaseOf(step);
+  var phaseIndex = 0;
+  CX_PHASES.forEach(function (ph, i) { if (ph.key === phaseKey) phaseIndex = i; });
+
+  var progress = QM.el('div', 'cx-progress');
+
+  // The rail: five labels, the ones behind you filled in. Suppressed on
+  // the narrowest phones by CSS, where the caption alone does the job.
+  var rail = QM.el('ul', 'cx-rail');
+  CX_PHASES.forEach(function (ph, i) {
+    rail.appendChild(QM.el('li',
+      i < phaseIndex ? 'done' : (i === phaseIndex ? 'now' : 'todo'), ph.label));
+  });
+  progress.appendChild(rail);
+
+  var bar = QM.el('div', 'bar');
+  var fill = QM.el('span');
+  // The bar still moves with every screen — it is the thing that shows
+  // progress WITHIN a phase without putting a number on it.
+  fill.style.width = Math.round((F.step / (steps.length - 1)) * 100) + '%';
+  bar.appendChild(fill);
+  progress.appendChild(bar);
+
+  var caption = QM.el('div', 'count');
+  caption.appendChild(QM.el('span', 'phase', CX_PHASES[phaseIndex].label));
+
+  if (phaseKey === 'condition') {
+    var qSteps = steps.filter(function (x) { return x.key.indexOf('q:') === 0; });
+    var qAt = qSteps.indexOf(step) + 1;
+    caption.appendChild(QM.el('span', 'within',
+      '· ' + qAt + ' of ' + qSteps.length));
+  } else if (step.label && step.label !== CX_PHASES[phaseIndex].label) {
+    caption.appendChild(QM.el('span', 'within', '· ' + step.label));
+  }
+  progress.appendChild(caption);
+
+  host.appendChild(progress);
+
+  var body = QM.el('div');
+  host.appendChild(body);
+
+  step.render(body, host);
+}
+
+function flowAdvance(host) { F.step++; renderFlow(host); }
+function flowBack(host)    { F.step--; renderFlow(host); }
+
+function flowGoToStep(host, key) {
+  var steps = flowSteps();
+  for (var i = 0; i < steps.length; i++) {
+    if (steps[i].key === key) { F.step = i; renderFlow(host); return; }
+  }
+}
+
+function heading(body, title, explain) {
+  var h = QM.el('div', 'cx-q');
+  h.appendChild(QM.el('h2', null, title));
+  if (explain) h.appendChild(QM.el('p', null, explain));
+  body.appendChild(h);
+}
+
+/**
+ * The footer.
+ *
+ * Back is present on every step after the first, and Continue is
+ * disabled rather than hidden until the step is answered — a button that
+ * appears when you complete a task is a button people do not know to
+ * look for.
+ */
+function flowFoot(host, opts) {
+  var f = QM.el('div', 'cx-foot');
+
+  if (F.step > 0) {
+    f.appendChild(cxButton('Back', function () { flowBack(host); }, 'secondary back'));
+  }
+
+  if (opts && opts.next) {
+    var next = cxButton(opts.label || 'Continue', opts.next);
+    if (opts.disabled) next.disabled = true;
+    f.appendChild(next);
+  }
+
+  return f;
+}
+
+function currentProduct() {
+  return (F.catalog.products || []).filter(function (p) {
+    return p.productId === F.productId;
+  })[0];
+}
+
+/* ====================================================================
+ * 1. BRAND
+ * ================================================================== */
+
+function stepBrand(body, host) {
+  heading(body, 'What brand is your device?');
+
+  // Only brands we actually have priced models for. Offering a brand that
+  // leads to an empty model list is four taps to a dead end.
+  var withModels = {};
+  F.catalog.products.forEach(function (p) { withModels[p.brandId] = true; });
+
+  var tiles = QM.el('div', 'cx-tiles');
+  F.catalog.brands.filter(function (b) { return withModels[b.brandId]; })
+    .forEach(function (b) {
+      var tile = QM.el('button', 'cx-tile' + (F.brandId === b.brandId ? ' on' : ''));
+      tile.type = 'button';
+
+      if (QM.safeImageUrl(b.logoUrl)) {
+        var img = document.createElement('img');
+        img.src = QM.safeImageUrl(b.logoUrl); img.alt = '';
+        tile.appendChild(img);
+      } else {
+        tile.appendChild(QM.el('div', 'glyph', b.name.charAt(0).toUpperCase()));
+      }
+      tile.appendChild(QM.el('div', 'name', b.name));
+
+      tile.onclick = function () {
+        F.brandId = b.brandId; F.brandName = b.name; F.brandLogo = b.logoUrl;
+        F.productId = null; F.variantId = null; F.colorId = null;
+        F.estimate = null;
+        flowAdvance(host);
+      };
+      tiles.appendChild(tile);
+    });
+  body.appendChild(tiles);
+  body.appendChild(flowFoot(host, F.brandId
+    ? { next: function () { flowAdvance(host); } } : {}));
+}
+
+/* ====================================================================
+ * 2. MODEL
+ * ================================================================== */
+
+function stepModel(body, host) {
+  heading(body, 'Which model?', 'Search if you do not see it straight away.');
+
+  var models = F.catalog.products.filter(function (p) {
+    return p.brandId === F.brandId;
+  });
+
+  if (!models.length) {
+    body.appendChild(QM.el('div', 'cx-note warn',
+      'We are not buying ' + F.brandName + ' devices at the moment.'));
+    body.appendChild(flowFoot(host, {}));
+    return;
+  }
+
+  var search = QM.input('search', '', 'Search ' + F.brandName + ' models');
+  var field = QM.el('div', 'cx-field');
+  field.appendChild(search);
+  body.appendChild(field);
+
+  var tiles = QM.el('div', 'cx-tiles');
+  body.appendChild(tiles);
+
+  function draw(filter) {
+    QM.clear(tiles);
+    var q = String(filter || '').toLowerCase();
+    var shown = models.filter(function (p) {
+      return !q || p.model.toLowerCase().indexOf(q) > -1;
+    });
+
+    if (!shown.length) {
+      tiles.appendChild(QM.el('div', 'cx-quiet', 'No models match that.'));
+      return;
+    }
+
+    shown.forEach(function (p) {
+      var tile = QM.el('button', 'cx-tile' + (F.productId === p.productId ? ' on' : ''));
+      tile.type = 'button';
+
+      if (QM.safeImageUrl(p.imageUrl)) {
+        var img = document.createElement('img');
+        img.src = QM.safeImageUrl(p.imageUrl); img.alt = '';
+        tile.appendChild(img);
+      } else {
+        tile.appendChild(QM.el('div', 'glyph', '📱'));
+      }
+      tile.appendChild(QM.el('div', 'name', p.model));
+
+      tile.onclick = function () {
+        F.productId = p.productId; F.productName = p.model;
+        F.productImage = p.imageUrl || '';
+        F.variantId = null; F.colorId = null; F.estimate = null;
+        flowAdvance(host);
+      };
+      tiles.appendChild(tile);
+    });
+  }
+
+  draw('');
+  search.oninput = function () { draw(search.value); };
+
+  body.appendChild(flowFoot(host, F.productId
+    ? { next: function () { flowAdvance(host); } } : {}));
+}
+
+/* ====================================================================
+ * 3. STORAGE
+ * ================================================================== */
+
+function stepStorage(body, host) {
+  var p = currentProduct();
+  heading(body, 'How much storage?',
+    'Settings › General › About on the device, if you are not sure.');
+
+  var pills = QM.el('div', 'cx-pills');
+  p.variants.forEach(function (v) {
+    var b = QM.el('button', F.variantId === v.variantId ? 'on' : '');
+    b.type = 'button';
+    b.textContent = v.storage;
+    b.onclick = function () {
+      F.variantId = v.variantId; F.storage = v.storage;
+      F.estimate = null;
+      flowAdvance(host);
+    };
+    pills.appendChild(b);
+  });
+  body.appendChild(pills);
+  body.appendChild(flowFoot(host, F.variantId
+    ? { next: function () { flowAdvance(host); } } : {}));
+}
+
+/* ====================================================================
+ * 4. COLOUR
+ * ================================================================== */
+
+function stepColour(body, host) {
+  var p = currentProduct();
+  heading(body, 'What colour?',
+    'Colour does not change the value. We record it to identify your device.');
+
+  p.colors.forEach(function (c) {
+    var choice = QM.el('button', 'cx-choice' + (F.colorId === c.colorId ? ' on' : ''));
+    choice.type = 'button';
+
+    if (QM.safeImageUrl(c.imageUrl)) {
+      var img = document.createElement('img');
+      img.src = QM.safeImageUrl(c.imageUrl); img.alt = '';
+      choice.appendChild(img);
+    }
+
+    var inner = QM.el('div', 'body');
+    inner.appendChild(QM.el('div', 'label', c.color));
+    choice.appendChild(inner);
+    choice.appendChild(QM.el('div', 'tick', '✓'));
+
+    choice.onclick = function () {
+      F.colorId = c.colorId; F.colorName = c.color;
+      flowAdvance(host);
+    };
+    body.appendChild(choice);
+  });
+
+  body.appendChild(cxButton('I am not sure', function () {
+    F.colorId = null; F.colorName = '';
+    flowAdvance(host);
+  }, 'ghost'));
+
+  body.appendChild(flowFoot(host, F.colorId
+    ? { next: function () { flowAdvance(host); } } : {}));
+}
+
+/* ====================================================================
+ * 5..12. THE CONDITION QUESTIONS
+ *
+ * One question per screen, from the SERVER. The list, the wording and
+ * the options all come from customerQuestionView_ — this file does not
+ * know what any answer is worth, and could not show it if it wanted to.
+ * ================================================================== */
+
+function stepQuestion(body, question) {
+  var host = document.getElementById('flow');
+
+  heading(body, question.question, question.help);
+
+  /* SELECT, THEN CONTINUE — and not select-and-jump.
+   *
+   * V3.0 advanced on the tap itself, on the reasoning that eight
+   * questions should not cost sixteen taps. In use that is too eager: a
+   * mis-tap is instantly a screen you have to come back from, the
+   * warning attached to an answer flashes past unread, and there is no
+   * moment where the chosen answer simply sits there being looked at.
+   * Selection now paints in place and Continue moves. */
+
+  var noteHost = QM.el('div');
+  var buttons  = [];
+
+  question.options.forEach(function (option) {
+    var choice = QM.el('button', 'cx-choice');
+    choice.type = 'button';
+    choice.setAttribute('role', 'radio');
+
+    var inner = QM.el('div', 'body');
+    inner.appendChild(QM.el('div', 'label', option.label));
+    if (option.sub) inner.appendChild(QM.el('div', 'sub', option.sub));
+    choice.appendChild(inner);
+    choice.appendChild(QM.el('div', 'tick', '✓'));
+
+    choice.onclick = function () {
+      F.answers[question.key] = option.value;
+
+      // An answer changes the estimate, so any estimate already fetched
+      // is stale. Dropping it here means the estimate screen must ask
+      // again rather than showing a number from before the change.
+      F.estimate = null;
+
+      paint();
+    };
+
+    buttons.push({ el: choice, option: option });
+    body.appendChild(choice);
+  });
+
+  body.appendChild(noteHost);
+
+  var foot = flowFoot(host, {
+    next: function () { flowAdvance(host); },
+    disabled: F.answers[question.key] === undefined
+  });
+  body.appendChild(foot);
+
+  var continueBtn = foot.querySelector('.cx-cta:not(.back)');
+
+  function paint() {
+    var answered = F.answers[question.key];
+    QM.clear(noteHost);
+
+    buttons.forEach(function (b) {
+      var on = b.option.value === answered;
+      b.el.classList.toggle('on', on);
+      b.el.setAttribute('aria-checked', String(on));
+      // The warning that belongs to an answer — an activation lock that
+      // cannot be removed, say — appears under the answer that caused it
+      // and stays on screen, which is the whole point of not jumping.
+      if (on && b.option.note) {
+        noteHost.appendChild(QM.el('div', 'cx-note warn', b.option.note));
+      }
+    });
+
+    if (continueBtn) continueBtn.disabled = (answered === undefined);
+  }
+
+  paint();
+}
+
+/* ====================================================================
+ * 13. THE ESTIMATE
+ *
+ * The screen the whole flow exists to reach.
+ * ================================================================== */
+
+function stepEstimate(body, host) {
+  if (F.estimate === null) {
+    body.appendChild(QM.el('div', 'cx-loading'))
+        .appendChild(QM.el('div', 'cx-quiet', 'Working out your value…'));
+    loadEstimate(host);
+    return;
+  }
+
+  if (F.estimate === false) {
+    // Refused: either no price for this model, or a device we cannot
+    // accept. The reason is already on screen from loadEstimate.
+    body.appendChild(QM.el('div', 'cx-note stop', F.estimateError ||
+      'We are not able to value this device.'));
+    body.appendChild(cxButton('Change my answers', function () {
+      flowGoToStep(host, 'q:' + F.questions[0].key);
+    }, 'secondary'));
+    body.appendChild(flowFoot(host, {}));
+    return;
+  }
+
+  /* ---- the number ------------------------------------------------- */
+  var hero = QM.el('div', 'cx-estimate');
+  hero.appendChild(QM.el('div', 'label', 'Your estimated trade-in value'));
+
+  var amount = QM.el('div', 'amount');
+  amount.appendChild(document.createTextNode(QM.money(F.estimate)));
+  amount.appendChild(QM.el('span', 'ccy', F.currency));
+  hero.appendChild(amount);
+
+  hero.appendChild(QM.el('div', 'device',
+    [F.brandName, F.productName, F.storage].filter(Boolean).join(' ')));
+
+  if (F.gradeName) {
+    hero.appendChild(QM.el('div', 'grade-label', 'Estimated condition'));
+    hero.appendChild(QM.el('div', 'grade', F.gradeName));
+  }
+  body.appendChild(hero);
+
+  /* ---- the caveat, in readable text -------------------------------- */
+  body.appendChild(QM.el('div', 'cx-caveat', F.note ||
+    'The estimated value is based on the information you provided. The final ' +
+    'trade-in value will be confirmed after physical inspection of your device.'));
+
+  /* ---- what we assumed, said out loud ------------------------------
+   * Six checks a person cannot answer about their own phone are taken as
+   * working. An estimate built on unstated optimism is how somebody
+   * arrives expecting one number and is offered another.
+   * ------------------------------------------------------------------ */
+  if (F.assumed && F.assumed.length) {
+    body.appendChild(QM.el('div', 'cx-assumed',
+      'We have assumed these are working, and our technician will check them: ' +
+      F.assumed.join(', ').toLowerCase() + '.'));
+  }
+
+  body.appendChild(cxButton('Continue with trade-in', function () {
+    flowAdvance(host);
+  }));
+
+  body.appendChild(cxButton('Edit my answers', function () {
+    flowGoToStep(host, 'q:' + F.questions[0].key);
+  }, 'ghost'));
+
+  /* ---- what they told us, so it can be checked at a glance --------- */
+  var recap = cxCard('flat');
+  recap.appendChild(QM.el('div', 'cx-section-title', 'Your answers'));
+  recap.appendChild(cxKv((F.questions || []).map(function (q) {
+    var option = q.options.filter(function (o) {
+      return o.value === F.answers[q.key];
+    })[0];
+    return {
+      label: q.group,
+      value: option ? option.label : '',
+      onEdit: function () { flowGoToStep(host, 'q:' + q.key); }
+    };
+  })));
+  body.appendChild(recap);
+}
+
+function loadEstimate(host) {
+  QM.call('customer.estimate', {
+    variantId: F.variantId,
+    conditionAnswers: F.answers
+    // No vendorId yet: the shop is chosen after this screen, so the
+    // figure here is the master price. If the chosen shop has its own
+    // list, the review screen restates the number and says so.
+  }).then(function (res) {
+    if (!res.ok) {
+      F.estimate = false;
+      F.estimateError = res.message;
+    } else {
+      F.estimate       = res.estimate;
+      F.estimatedGrade = res.estimatedGrade;
+      F.gradeName      = res.gradeName;
+      F.assumed        = res.assumed || [];
+      F.currency       = res.currency;
+      F.note           = res.note;
+    }
+    renderFlow(host);
+  });
+}
+
+/* ====================================================================
+ * 14. THE SHOP
+ * ================================================================== */
+
+function stepShop(body, host) {
+  heading(body, 'Where will you bring it?',
+    'Choose the shop you can get to. We inspect the device there and hand ' +
+    'you the voucher.');
+
+  if (!F.vendors.length) {
+    body.appendChild(QM.el('div', 'cx-note warn',
+      'No shops are accepting trade-ins right now.'));
+    body.appendChild(flowFoot(host, {}));
+    return;
+  }
+
+  F.vendors.forEach(function (v) {
+    body.appendChild(QM.el('div', 'cx-section-title', v.name));
+
+    v.branches.forEach(function (b) {
+      var choice = QM.el('button', 'cx-choice' + (F.branchId === b.branchId ? ' on' : ''));
+      choice.type = 'button';
+
+      if (QM.safeImageUrl(v.logoUrl)) {
+        var img = document.createElement('img');
+        img.src = QM.safeImageUrl(v.logoUrl); img.alt = '';
+        choice.appendChild(img);
+      }
+
+      var inner = QM.el('div', 'body');
+      inner.appendChild(QM.el('div', 'label', b.name));
+      if (b.address) inner.appendChild(QM.el('div', 'sub', b.address));
+      choice.appendChild(inner);
+      choice.appendChild(QM.el('div', 'tick', '✓'));
+
+      choice.onclick = function () {
+        F.vendorId = v.vendorId; F.vendorName = v.name;
+        F.branchId = b.branchId; F.branchName = b.name;
+        F.branchAddress = b.address || '';
+        flowAdvance(host);
+      };
+      body.appendChild(choice);
+    });
+  });
+
+  body.appendChild(flowFoot(host, {}));
+}
+
+/* ====================================================================
+ * 15. THE DEVICE
+ * ================================================================== */
+
+function stepDevice(body, host) {
+  heading(body, 'Your device details',
+    'The IMEI identifies your exact handset. We check it against the phone ' +
+    'when you bring it in.');
+
+  var imei = QM.input('tel', F.imei, '15 digits');
+  imei.setAttribute('inputmode', 'numeric');
+  imei.maxLength = 17;
+  imei.className = 'imei-input';
+
+  var field = QM.el('div', 'cx-field');
+  field.appendChild(QM.el('label', null, 'IMEI'));
+  field.appendChild(imei);
+  field.appendChild(QM.el('div', 'hint', 'Dial *#06# on the device to see it.'));
+  body.appendChild(field);
+
+  var feedback = QM.el('div', 'cx-quiet');
+  feedback.style.marginTop = '-.6rem';
+  feedback.style.marginBottom = '1rem';
+  body.appendChild(feedback);
+
+  var serial = QM.input('text', F.serial, 'Optional');
+  var sf = QM.el('div', 'cx-field');
+  sf.appendChild(QM.el('label', null, 'Serial number (optional)'));
+  sf.appendChild(serial);
+  body.appendChild(sf);
+
+  var notes = QM.el('textarea');
+  notes.value = F.notes;
+  notes.placeholder = 'A repair, a replaced screen, anything unusual.';
+  var nf = QM.el('div', 'cx-field');
+  nf.appendChild(QM.el('label', null, 'Anything else we should know? (optional)'));
+  nf.appendChild(notes);
+  nf.appendChild(QM.el('div', 'hint',
+    'Being upfront does not lower your value. Our technician will find it ' +
+    'anyway, and it makes the visit quicker.'));
+  body.appendChild(nf);
+
+  var foot = flowFoot(host, {
+    label: 'Continue',
+    disabled: F.imei.replace(/\D/g, '').length !== 15,
+    next: function () {
+      F.imei = imei.value.replace(/\D/g, '');
+      F.serial = serial.value.trim();
+      F.notes = notes.value.trim();
+      if (F.imei.length !== 15) {
+        QM.toast('An IMEI is exactly 15 digits.', 'danger');
+        return;
+      }
+      flowAdvance(host);
+    }
+  });
+  body.appendChild(foot);
+
+  // Live feedback, so nobody types fifteen digits and discovers at the
+  // end that they mistyped the third one.
+  var continueBtn = foot.querySelector('.cx-cta:not(.back)');
+  imei.oninput = function () {
+    var v = imei.value.replace(/\D/g, '');
+    F.imei = v;
+    QM.clear(feedback);
+    if (continueBtn) continueBtn.disabled = v.length !== 15;
+    if (!v.length) return;
+    if (v.length < 15) {
+      feedback.textContent = v.length + ' of 15 digits';
+      feedback.style.color = '';
+    } else if (v.length === 15) {
+      feedback.textContent = '✓ 15 digits';
+      feedback.style.color = 'var(--cx-ok)';
+    } else {
+      feedback.textContent = 'An IMEI is exactly 15 digits';
+      feedback.style.color = 'var(--cx-danger)';
+    }
+  };
+  imei.oninput();
+}
+
+/* ====================================================================
+ * 16. REVIEW AND SUBMIT
+ * ================================================================== */
+
+function stepReview(body, host) {
+  heading(body, 'Check everything is right',
+    'You can change anything before you submit.');
+
+  var card = cxCard();
+  card.appendChild(cxKv([
+    { label: 'Device',  value: [F.brandName, F.productName].filter(Boolean).join(' '),
+      onEdit: function () { flowGoToStep(host, 'model'); } },
+    { label: 'Storage', value: F.storage,
+      onEdit: function () { flowGoToStep(host, 'storage'); } },
+    { label: 'Colour',  value: F.colorName || 'Not sure',
+      onEdit: function () { flowGoToStep(host, 'colour'); } },
+    // Masked, like everywhere else the number is DISPLAYED rather than
+    // typed. The customer knows their own IMEI; a screen held up at a
+    // counter, or photographed, does not need to carry all fifteen.
+    { label: 'IMEI',    value: cxMaskImei(F.imei),
+      onEdit: function () { flowGoToStep(host, 'device'); } },
+    { label: 'Serial',  value: F.serial,
+      onEdit: function () { flowGoToStep(host, 'device'); } },
+    { label: 'Shop',    value: [F.vendorName, F.branchName].filter(Boolean).join(' — '),
+      onEdit: function () { flowGoToStep(host, 'shop'); } },
+    { label: 'Notes',   value: F.notes,
+      onEdit: function () { flowGoToStep(host, 'device'); } }
+  ]));
+  body.appendChild(card);
+
+  /* ---- the answers, with a Change on every line -------------------- */
+  var answers = cxCard();
+  answers.appendChild(QM.el('div', 'cx-section-title', 'Condition'));
+  answers.appendChild(cxKv((F.questions || []).map(function (q) {
+    var option = q.options.filter(function (o) {
+      return o.value === F.answers[q.key];
+    })[0];
+    return {
+      label: q.group,
+      value: option ? option.label : '',
+      onEdit: function () { flowGoToStep(host, 'q:' + q.key); }
+    };
+  })));
+  body.appendChild(answers);
+
+  /* ---- the figure, restated ---------------------------------------- */
+  if (F.estimate) {
+    var hero = QM.el('div', 'cx-estimate');
+    hero.appendChild(QM.el('div', 'label', 'Your estimated trade-in value'));
+    var amount = QM.el('div', 'amount');
+    amount.appendChild(document.createTextNode(QM.money(F.estimate)));
+    amount.appendChild(QM.el('span', 'ccy', F.currency));
+    hero.appendChild(amount);
+    body.appendChild(hero);
+
+    body.appendChild(QM.el('div', 'cx-caveat', F.note));
+  }
+
+  var submit = cxButton('Confirm trade-in', function () {
+    submit.disabled = true;
+    submit.textContent = 'Submitting…';
+
+    QM.call('customer.submitTradeIn', {
+      vendorId:  F.vendorId,
+      branchId:  F.branchId,
+      variantId: F.variantId,
+      colorId:   F.colorId,
+      imei:      F.imei,
+      serialNumber: F.serial,
+      notes:     F.notes,
+      conditionAnswers: F.answers
+    }).then(function (res) {
+      submit.disabled = false;
+      submit.textContent = 'Confirm trade-in';
+      if (!QM.report(res)) return;
+      renderSubmitted(host, res);
+    });
+  });
+
+  var foot = QM.el('div', 'cx-foot');
+  foot.appendChild(cxButton('Back', function () { flowBack(host); }, 'secondary back'));
+  foot.appendChild(submit);
+  body.appendChild(foot);
+}
+
+/* ====================================================================
+ * DONE
+ * ================================================================== */
+
+function renderSubmitted(host, res) {
+  QM.clear(host);
+
+  var success = QM.el('div', 'cx-success');
+  success.appendChild(QM.el('div', 'tick', '✓'));
+  success.appendChild(QM.el('h2', null, 'Trade-in submitted'));
+  success.appendChild(QM.el('p', 'cx-soft',
+    'Bring your device to the shop. Our technician will check it and confirm ' +
+    'your final trade-in value.'));
+  host.appendChild(success);
+
+  var card = cxCard();
+  card.appendChild(cxKv([
+    { label: 'Reference', value: res.tradeInId },
+    { label: 'Device',    value: [F.brandName, F.productName, F.storage]
+                                   .filter(Boolean).join(' ') },
+    { label: 'Estimated', value: QM.money(res.estimate) + ' ' + res.currency },
+    { label: 'Bring it to', value: res.branch ? res.branch.name : F.branchName },
+    { label: 'Address',   value: res.branch ? res.branch.address : F.branchAddress },
+    { label: 'Status',    value: 'Waiting for inspection' }
+  ]));
+  host.appendChild(card);
+
+  // Said once more, at the moment it matters most: this is the number
+  // they will remember and quote back at the counter.
+  host.appendChild(QM.el('div', 'cx-caveat', res.note || F.note));
+
+  host.appendChild(cxButton('View my trade-ins', function () {
+    cxGo('c-orders');
+  }));
+  host.appendChild(cxButton('Trade in another device', function () {
+    cxGo('c-new');
+  }, 'ghost'));
+}
+</script>

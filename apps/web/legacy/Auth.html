@@ -1,0 +1,379 @@
+<script>
+/*******************************************************************
+ * Auth.html — signing in and registering.
+ *
+ * ONE SCREEN FOR EVERYONE
+ *   Customers, technicians, vendor staff and administrators all enter
+ *   the same phone number in the same box. There is no role picker and
+ *   no "staff login" link, because a person does not choose what they
+ *   are — the server looks their number up and tells them where they
+ *   are going.
+ *
+ *   A role picker would also be an information leak: it invites somebody
+ *   to try a number as staff and learn something from how the answer
+ *   differs.
+ *
+ * WHAT THIS SCREEN IS NOT TOLD
+ *   Asking for a code returns whether an account exists, and nothing
+ *   else — no name, no role, no vendor. So the code screen greets nobody
+ *   by name, deliberately. Identity arrives only after the code is
+ *   proved.
+ *
+ * THE VISIBLE CODE (3.1)
+ *   The server returns a code ONLY in a non-production environment, for
+ *   an allow-listed test number, with test mode switched on — all decided
+ *   on the server. In production the reply never contains one, so this
+ *   box can never appear there. When it does appear it says what it is,
+ *   so nobody mistakes a test environment for the real thing.
+ *******************************************************************/
+
+function buildAuthScreen(mode) {
+  var root = document.getElementById('root');
+  QM.clear(root);
+
+  var wrap = QM.el('div', 'auth-wrap');
+  var card = QM.el('div', 'auth-card');
+
+  /* ---- brand ------------------------------------------------------ */
+  var brand = QM.el('div', 'brand');
+  // The official Qatar Mobile mark. This is the first screen a customer
+  // sees, so it is the first place the two-letter badge had to go.
+  var mark = QM.el('div', 'mark qm-logo');
+  mark.setAttribute('role', 'img');
+  mark.setAttribute('aria-label', 'Qatar Mobile');
+  brand.appendChild(mark);
+  brand.appendChild(QM.el('h1', null, QM.state.boot.platform || 'Qatar Mobile'));
+  brand.appendChild(QM.el('p', null, 'Trade in your device'));
+  card.appendChild(brand);
+
+  var host = QM.el('div');
+  card.appendChild(host);
+
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+
+  if (mode === 'register') renderRegister(host);
+  else renderPhoneStep(host);
+}
+
+/* ====================================================================
+ * STEP 1 — the phone number
+ * ================================================================== */
+
+function renderPhoneStep(host) {
+  QM.clear(host);
+
+  var msg = QM.el('div');
+  host.appendChild(msg);
+
+  var phone = QM.input('tel', '', '3312 3456');
+  phone.setAttribute('inputmode', 'numeric');
+  phone.setAttribute('autocomplete', 'tel');
+
+  host.appendChild(QM.field('Mobile number', phone,
+    'Qatar numbers only. We send a one-time code.'));
+
+  var submit = QM.el('button', 'btn block', 'Send code');
+  host.appendChild(submit);
+
+  var alt = QM.el('div', 'center mt small');
+  var link = QM.el('a', null, 'Create an account');
+  link.href = '#';
+  link.onclick = function (e) { e.preventDefault(); buildAuthScreen('register'); };
+  alt.appendChild(QM.el('span', 'muted', 'New here? '));
+  alt.appendChild(link);
+  host.appendChild(alt);
+
+  function send() {
+    var value = phone.value.trim();
+    if (!value) { showMessage(msg, 'Enter your mobile number.', 'danger'); return; }
+
+    submit.disabled = true;
+    submit.textContent = 'Sending…';
+
+    QM.call('auth.start', { phone: value }).then(function (res) {
+      submit.disabled = false;
+      submit.textContent = 'Send code';
+
+      if (!res.ok) {
+        // The one branch worth acting on: an unknown number should offer
+        // registration rather than leaving the person stuck.
+        if (res.needsRegistration) {
+          showMessage(msg, 'We do not have an account for this number yet.', 'warn');
+          setTimeout(function () { buildAuthScreen('register'); }, 900);
+          return;
+        }
+        showMessage(msg, res.message, 'danger');
+        return;
+      }
+
+      renderCodeStep(host, value, res, 'login');
+    });
+  }
+
+  submit.onclick = send;
+  phone.onkeydown = function (e) { if (e.key === 'Enter') send(); };
+  phone.focus();
+}
+
+/* ====================================================================
+ * STEP 2 — the code
+ * ================================================================== */
+
+function renderCodeStep(host, phone, sendResult, purpose, registerData) {
+  QM.clear(host);
+
+  var msg = QM.el('div');
+  host.appendChild(msg);
+
+  // No name here. Nothing about who this number belongs to has been
+  // earned yet — see the file header.
+  host.appendChild(QM.el('p', 'soft',
+    'We sent a 6-digit code to ' + phone + '.'));
+
+  var code = QM.input('tel', '', '••••••');
+  code.className = 'code-input';
+  code.maxLength = 6;
+  code.setAttribute('inputmode', 'numeric');
+  code.setAttribute('autocomplete', 'one-time-code');
+  host.appendChild(QM.field(null, code));
+
+  var submit = QM.el('button', 'btn block', 'Sign in');
+  host.appendChild(submit);
+
+  /* ---- the test-environment code box ------------------------------ */
+  if (sendResult.testMode && sendResult.testCode) {
+    var dev = QM.el('div', 'dev-code');
+    dev.appendChild(QM.el('div', 'label', 'Test environment'));
+    dev.appendChild(QM.el('div', 'code', String(sendResult.testCode)));
+    dev.appendChild(QM.el('div', 'why',
+      'This number is on the test allow-list of a non-production environment, ' +
+      'so the code is shown here instead of being sent. This never happens in production.'));
+    host.appendChild(dev);
+  }
+
+  /* ---- resend ----------------------------------------------------- */
+  var resendWrap = QM.el('div', 'center mt small');
+  var resend = QM.el('a', null, '');
+  resend.href = '#';
+  resendWrap.appendChild(resend);
+  host.appendChild(resendWrap);
+
+  var seconds = sendResult.cooldownSeconds || 60;
+  var timer = setInterval(function () {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(timer);
+      resend.textContent = 'Send a new code';
+      resend.style.pointerEvents = 'auto';
+      resend.classList.remove('muted');
+    } else {
+      resend.textContent = 'Send a new code in ' + seconds + 's';
+    }
+  }, 1000);
+  resend.textContent = 'Send a new code in ' + seconds + 's';
+  resend.style.pointerEvents = 'none';
+  resend.classList.add('muted');
+
+  resend.onclick = function (e) {
+    e.preventDefault();
+    clearInterval(timer);
+    if (purpose === 'register') {
+      QM.call('auth.register', registerData).then(function (res) {
+        if (res.ok) renderCodeStep(host, phone, res, 'register', registerData);
+        else showMessage(msg, res.message, 'danger');
+      });
+    } else {
+      QM.call('auth.start', { phone: phone }).then(function (res) {
+        if (res.ok) renderCodeStep(host, phone, res, 'login');
+        else showMessage(msg, res.message, 'danger');
+      });
+    }
+  };
+
+  var back = QM.el('div', 'center mt small');
+  var backLink = QM.el('a', null, 'Use a different number');
+  backLink.href = '#';
+  backLink.onclick = function (e) {
+    e.preventDefault(); clearInterval(timer); renderPhoneStep(host);
+  };
+  back.appendChild(backLink);
+  host.appendChild(back);
+
+  function verify() {
+    var value = code.value.replace(/\D/g, '');
+    if (value.length !== 6) { showMessage(msg, 'Enter the 6-digit code.', 'danger'); return; }
+
+    submit.disabled = true;
+    submit.textContent = 'Checking…';
+
+    var action = purpose === 'register' ? 'auth.register' : 'auth.verify';
+    var params = purpose === 'register'
+      ? Object.assign({}, registerData, { code: value })
+      : { phone: phone, code: value };
+
+    QM.call(action, params).then(function (res) {
+      submit.disabled = false;
+      submit.textContent = 'Sign in';
+
+      if (!res.ok) { showMessage(msg, res.message, 'danger'); code.select(); return; }
+
+      clearInterval(timer);
+
+      // An employee request is approved by a person, not by a code.
+      if (res.pending) { renderPendingScreen(host, res.message); return; }
+
+      QM.setToken(res.token);
+      QM.call('me.context', {}).then(function (me) {
+        if (!me.ok) { showMessage(msg, 'Could not load your account.', 'danger'); return; }
+        QM.state.me = me;
+        QM.renderPortal(me.portal);
+      });
+    });
+  }
+
+  submit.onclick = verify;
+  code.onkeydown = function (e) { if (e.key === 'Enter') verify(); };
+  // Six digits is the whole code; submitting on the sixth saves a tap
+  // for somebody holding a phone in one hand.
+  code.oninput = function () {
+    if (code.value.replace(/\D/g, '').length === 6) verify();
+  };
+  code.focus();
+}
+
+/* ====================================================================
+ * REGISTRATION
+ * ================================================================== */
+
+function renderRegister(host) {
+  QM.clear(host);
+
+  var msg = QM.el('div');
+  host.appendChild(msg);
+
+  var name = QM.input('text', '', 'Your full name');
+  name.setAttribute('autocomplete', 'name');
+  host.appendChild(QM.field('Full name', name));
+
+  var phone = QM.input('tel', '', '3312 3456');
+  phone.setAttribute('inputmode', 'numeric');
+  phone.setAttribute('autocomplete', 'tel');
+  host.appendChild(QM.field('Mobile number', phone, 'Qatar numbers only.'));
+
+  var email = QM.input('email', '', 'you@example.com');
+  host.appendChild(QM.field('Email (optional)', email));
+
+  /* ---- account type ----------------------------------------------
+   * The only thing an applicant chooses, and choosing "employee" grants
+   * nothing at all: the account is created with no role, no vendor and
+   * no branch, and stays inert until an administrator decides. The text
+   * below says so, so nobody expects otherwise.
+   * ---------------------------------------------------------------- */
+  var typeWrap = QM.el('div', 'choice-grid');
+  var accountType = 'CUSTOMER';
+
+  [
+    { value: 'CUSTOMER', label: 'I want to sell a device', sub: 'Customer account' },
+    { value: 'EMPLOYEE', label: 'I work here',             sub: 'Needs approval' }
+  ].forEach(function (opt) {
+    var choice = QM.el('button', 'choice' + (opt.value === accountType ? ' selected' : ''));
+    choice.type = 'button';
+    choice.appendChild(QM.el('div', null, opt.label));
+    choice.appendChild(QM.el('div', 'sub', opt.sub));
+    choice.onclick = function () {
+      accountType = opt.value;
+      typeWrap.querySelectorAll('.choice').forEach(function (c) {
+        c.classList.remove('selected');
+      });
+      choice.classList.add('selected');
+      staffNote.classList.toggle('hidden', accountType !== 'EMPLOYEE');
+    };
+    typeWrap.appendChild(choice);
+  });
+  host.appendChild(QM.field('Account type', typeWrap));
+
+  var staffNote = QM.el('div', 'notice warn hidden');
+  staffNote.appendChild(QM.el('strong', null, 'Employee accounts are approved by hand'));
+  staffNote.appendChild(document.createTextNode(
+    'Your request is created with no permissions. An administrator decides your ' +
+    'role and which shop you work at before you can sign in.'));
+  host.appendChild(staffNote);
+
+  var submit = QM.el('button', 'btn block', 'Send code');
+  host.appendChild(submit);
+
+  var back = QM.el('div', 'center mt small');
+  var backLink = QM.el('a', null, 'I already have an account');
+  backLink.href = '#';
+  backLink.onclick = function (e) { e.preventDefault(); buildAuthScreen(); };
+  back.appendChild(backLink);
+  host.appendChild(back);
+
+  submit.onclick = function () {
+    var data = {
+      fullName:    name.value.trim(),
+      phone:       phone.value.trim(),
+      email:       email.value.trim(),
+      accountType: accountType
+    };
+
+    if (data.fullName.length < 3) { showMessage(msg, 'Enter your full name.', 'danger'); return; }
+    if (!data.phone) { showMessage(msg, 'Enter your mobile number.', 'danger'); return; }
+
+    submit.disabled = true;
+    submit.textContent = 'Sending…';
+
+    QM.call('auth.register', data).then(function (res) {
+      submit.disabled = false;
+      submit.textContent = 'Send code';
+
+      if (!res.ok) {
+        if (res.needsLogin) {
+          showMessage(msg, 'That number already has an account. Sign in instead.', 'warn');
+          setTimeout(function () { buildAuthScreen(); }, 1200);
+          return;
+        }
+        showMessage(msg, res.message, 'danger');
+        return;
+      }
+
+      renderCodeStep(host, data.phone, res, 'register', data);
+    });
+  };
+
+  name.focus();
+}
+
+/* ====================================================================
+ * PENDING APPROVAL
+ * ================================================================== */
+
+function renderPendingScreen(host, message) {
+  QM.clear(host);
+
+  var notice = QM.el('div', 'notice ok');
+  notice.appendChild(QM.el('strong', null, 'Request submitted'));
+  notice.appendChild(document.createTextNode(message ||
+    'Your access request is waiting for administrator approval.'));
+  host.appendChild(notice);
+
+  host.appendChild(QM.el('p', 'soft',
+    'You will be able to sign in with your mobile number once somebody has ' +
+    'approved you and set your role.'));
+
+  var back = QM.el('button', 'btn secondary block', 'Back to sign in');
+  back.onclick = function () { buildAuthScreen(); };
+  host.appendChild(back);
+}
+
+/* ====================================================================
+ * HELPERS
+ * ================================================================== */
+
+function showMessage(host, text, kind) {
+  QM.clear(host);
+  var n = QM.el('div', 'notice ' + (kind || ''), text);
+  host.appendChild(n);
+}
+</script>
