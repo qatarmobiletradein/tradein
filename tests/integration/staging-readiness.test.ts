@@ -63,7 +63,7 @@ describe.skipIf(!HAS_DB)('staging readiness', () => {
 
   it('migration ledger: every migration recorded with a checksum; a re-run applies nothing; an edited file is refused', async () => {
     const rows = (await t.deps.pool.query(`select version, checksum from app.schema_migrations order by version`)).rows;
-    expect(rows.length).toBe(10);
+    expect(rows.length).toBe(11);
     const pool = createPool({ connectionString: t.deps.config.DATABASE_URL, max: 1, ssl: 'disable' });
     try {
       const again = await migrate(pool, resolve('supabase/migrations'), () => undefined);
@@ -97,6 +97,27 @@ describe.skipIf(!HAS_DB)('staging readiness', () => {
       where c.relnamespace = 'public'::regnamespace and c.relkind = 'S'
         and (has_sequence_privilege('anon', c.oid, 'usage,select,update') or has_sequence_privilege('authenticated', c.oid, 'usage,select,update'))`)).rows;
     expect(r).toEqual([]);
+  });
+
+  it('API runtime role qm_api (1100): reads/writes app data, cannot change the schema, has no login of its own', async () => {
+    const role = (await t.deps.pool.query(`select rolcanlogin, rolbypassrls, rolsuper, rolcreaterole, rolcreatedb, rolinherit
+      from pg_roles where rolname = 'qm_api'`)).rows[0];
+    expect(role).toEqual({ rolcanlogin: false, rolbypassrls: true, rolsuper: false, rolcreaterole: false, rolcreatedb: false, rolinherit: false });
+    const p = (await t.deps.pool.query(`select
+        has_table_privilege('qm_api', 'public.trade_ins', 'select,insert,update,delete') as dml,
+        has_table_privilege('qm_api', 'public.trade_ins', 'truncate') as trunc,
+        has_table_privilege('qm_api', 'app.schema_migrations', 'select,insert') as ledger,
+        has_schema_privilege('qm_api', 'public', 'create') as ddl_public,
+        has_function_privilege('qm_api', 'app.next_counter(text, bigint)', 'execute') as fn,
+        has_table_privilege('qm_api', 'auth.users', 'select') as auth_read,
+        has_table_privilege('qm_api', 'auth.users', 'update') as auth_write,
+        exists (select 1 from pg_class where relowner = 'qm_api'::regrole) as owns_anything`)).rows[0];
+    expect(p).toEqual({ dml: true, trunc: false, ledger: true, ddl_public: false, fn: true, auth_read: true, auth_write: false, owns_anything: false });
+    // A table added later by the owner is usable by the API without another grant.
+    await t.deps.pool.query('create table public.zz_role_probe (id int primary key)');
+    const f = (await t.deps.pool.query(`select has_table_privilege('qm_api', 'public.zz_role_probe', 'insert') as ok`)).rows[0];
+    await t.deps.pool.query('drop table public.zz_role_probe');
+    expect(f.ok).toBe(true);
   });
 });
 

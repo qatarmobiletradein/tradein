@@ -41,10 +41,19 @@ export async function migrate(pool: pg.Pool, dir: string, log: (m: string) => vo
   try {
     // One migrator at a time, across processes.
     await client.query('select pg_advisory_lock(hashtextextended($1, 0))', ['qm.migrate']);
-    await client.query('create schema if not exists app');
-    await client.query(`create table if not exists app.schema_migrations (
-      version text primary key, name text not null, checksum text not null,
-      applied_at timestamptz not null default now())`);
+    // Create the ledger only when it is missing: `create ... if not exists` still
+    // needs CREATE rights, which the API's runtime role (qm_api, 1100) does not
+    // have. With an up-to-date database that role can run this as a check
+    // (checksums verified, nothing applied); a pending migration then fails on
+    // its first DDL statement, so a deploy whose code is ahead of the database
+    // stops instead of starting.
+    const ledger = await client.query<{ ok: boolean }>(`select to_regclass('app.schema_migrations') is not null as ok`);
+    if (!ledger.rows[0]?.ok) {
+      await client.query('create schema if not exists app');
+      await client.query(`create table if not exists app.schema_migrations (
+        version text primary key, name text not null, checksum text not null,
+        applied_at timestamptz not null default now())`);
+    }
     const done = new Map<string, string>(
       (await client.query<{ version: string; checksum: string }>('select version, checksum from app.schema_migrations'))
         .rows.map((r) => [r.version, r.checksum]),
