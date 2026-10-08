@@ -97,10 +97,10 @@ export async function deliverOtp(
     }>(
       `select
          (select max(created_at) from public.otp_send_log where phone = $1 and outcome in ('SENT','FAILED')) as last_at,
-         (select count(*) from public.otp_send_log where phone = $1 and outcome in ('SENT','FAILED') and created_at > now() - interval '1 hour')::int as phone_hour,
-         (select count(*) from public.otp_send_log where phone = $1 and outcome in ('SENT','FAILED') and created_at > now() - interval '24 hours')::int as phone_day,
-         (select count(*) from public.otp_send_log where purpose = $2 and outcome in ('SENT','FAILED') and created_at > now() - interval '1 hour')::int as purpose_hour,
-         (select count(*) from public.otp_send_log where purpose = $2 and outcome in ('SENT','FAILED') and created_at > now() - interval '24 hours')::int as purpose_day`,
+         (select count(*) from public.otp_send_log where phone = $1 and outcome = 'SENT' and created_at > now() - interval '1 hour')::int as phone_hour,
+         (select count(*) from public.otp_send_log where phone = $1 and outcome = 'SENT' and created_at > now() - interval '24 hours')::int as phone_day,
+         (select count(*) from public.otp_send_log where purpose = $2 and outcome = 'SENT' and created_at > now() - interval '1 hour')::int as purpose_hour,
+         (select count(*) from public.otp_send_log where purpose = $2 and outcome = 'SENT' and created_at > now() - interval '24 hours')::int as purpose_day`,
       [phone, purpose])).rows[0]!;
 
     if (stats.last_at) {
@@ -111,8 +111,12 @@ export async function deliverOtp(
     }
     const gHour = purpose === 'REGISTER' ? o.regGlobalHour : o.globalHour;
     const gDay = purpose === 'REGISTER' ? o.regGlobalDay : o.globalDay;
+    // Ceilings count codes that were actually SENT: a send the provider refused (e.g. wrong credentials)
+    // reached nobody and must not lock the person out. The 60 s cooldown above still applies to every try.
+    // A listed test number (OTP_TEST_NUMBERS, non-production) has no hourly/daily ceiling.
     let limited = '';
-    if (stats.phone_hour >= o.perPhoneHour) limited = 'phone-hour';
+    if (showInstead) limited = '';
+    else if (stats.phone_hour >= o.perPhoneHour) limited = 'phone-hour';
     else if (stats.phone_day >= o.perPhoneDay) limited = 'phone-day';
     else if (stats.purpose_hour >= gHour) limited = 'global-hour';
     else if (stats.purpose_day >= gDay) limited = 'global-day';

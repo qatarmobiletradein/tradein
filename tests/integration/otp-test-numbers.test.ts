@@ -45,6 +45,29 @@ describe.skipIf(!HAS_DB)('OTP_TEST_NUMBERS', () => {
     expect(t.sms.lastCodeFor('+97455000402')).toMatch(/^\d{6}$/);
   });
 
+  it('failed sends (nothing delivered) do not count toward the hourly limit; a test number has no hourly limit', async () => {
+    // seven provider failures in the last hour, all older than the 60 s cooldown
+    for (let i = 0; i < 7; i++) {
+      await t.deps.pool.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, reason, created_at)
+        values ('+97455000403', 'REGISTER', 'SMS', 'FAILED', 'provider 401/20003', now() - interval '10 minutes')`);
+      await t.deps.pool.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, created_at)
+        values ('+97455000401', 'LOGIN', 'TEST', 'SENT', now() - interval '10 minutes')`);
+    }
+    const r = await post('/v1/auth/register', { phone: '55000403', fullName: 'After Failures' });
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    // (the 60 s cooldown from the first test is moved into the past; the hourly count is not)
+    await t.deps.pool.query(`update public.otp_send_log set created_at = now() - interval '5 minutes' where phone = '+97455000401' and created_at > now() - interval '2 minutes'`);
+    const st = await post('/v1/auth/start', { phone: '55000401' });
+    expect(st.body).toMatchObject({ ok: true, testMode: true });
+    // a real number with 7 SENT codes in the hour is still limited
+    for (let i = 0; i < 7; i++) {
+      await t.deps.pool.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, created_at)
+        values ('+97455000404', 'REGISTER', 'SMS', 'SENT', now() - interval '10 minutes')`);
+    }
+    const lim = await post('/v1/auth/register', { phone: '55000404', fullName: 'Many Codes' });
+    expect(lim.status).toBe(429);
+  });
+
   it('production refuses the setting', () => {
     let msg = '';
     try {
