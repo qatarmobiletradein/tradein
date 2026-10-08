@@ -1,0 +1,96 @@
+# Staging verification report
+
+- **api**: https://qm-api-staging.up.railway.app
+- **environment**: staging
+- **startedAt**: 2026-10-08T03:33:10.329Z
+- **signedInProfiles**: CUS-00001, CUS-00002, USR-00001, USR-00002, USR-00003, USR-00004, USR-00005, USR-00006, USR-00007, USR-00008, USR-00009
+- **supabaseDirectChecks**: enabled
+- **databaseChecks**: not configured (SKIPPED)
+
+**PASS 81 · FAIL 0 · SKIPPED 2**
+
+| Status | ID | Check | Detail |
+|---|---|---|---|
+| PASS | P-01 | GET /health answers without secrets |  |
+| PASS | P-02 | GET /ready confirms the database (no internals) | environment=staging, sms=not configured |
+| PASS | P-03 | idempotency keys are required in this environment |  |
+| PASS | P-07 | staff sign in with email and password (owner decision) |  |
+| PASS | P-04 | secure headers present; no X-Powered-By |  |
+| PASS | P-05 | CORS does not echo an unknown origin |  |
+| PASS | P-06 | unknown route → generic 404 JSON; malformed body → sentence, no stack |  |
+| PASS | A-ME-USR-00001 | platform owner: token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00002 | finance (QM admin): token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00003 | technician: token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00004 | partner-wide admin (VND-001): token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00005 | branch manager (BR-0001): token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00006 | branch staff (BR-0002): token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00007 | QM operations admin: token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00008 | branch staff (BR-0001): token accepted, role/scope from the database |  |
+| PASS | A-ME-USR-00009 | second partner admin (VND-002): token accepted, role/scope from the database |  |
+| PASS | A-ME-CUS-00001 | customer: token accepted, role/scope from the database |  |
+| PASS | A-ME-CUS-00002 | second customer: token accepted, role/scope from the database |  |
+| PASS | A-01 | token claims match the configured issuer/audience (decoded, not trusted) | alg=ES256 iss=https://ytniownkhjolgfplegsv.supabase.co/auth/v1 aud="authenticated" |
+| PASS | A-02 | no token → 401 |  |
+| PASS | A-03 | garbage token → 401 |  |
+| PASS | A-04 | tampered signature → 401 |  |
+| PASS | A-05 | tampered claims (role escalated) → 401 |  |
+| PASS | A-06 | alg "none" token → 401 |  |
+| SKIPPED | A-07 | expired token → 401 | set QM_EXPIRED_TOKEN to a token whose exp has passed (e.g. one saved from an earlier run) |
+| PASS | A-08 | the publishable/anon key is not accepted as a user token |  |
+| PASS | A-09 | sign-in endpoints are rate limited and never return a code |  |
+| PASS | A-10 | a staff number cannot get an SMS code (told to use staff sign-in) |  |
+| PASS | A-11 | wrong password and unknown address get the same answer |  |
+| PASS | A-12 | "set or reset password" gives the same reply for an unknown address and sends nothing |  |
+| PASS | A-13 | repeated wrong passwords pause sign-in for that address (429) |  |
+| PASS | A-14 | a Supabase password session carries amr=password and the email claim (what the API relies on) | amr=password |
+| PASS | I-01 | missing Idempotency-Key on trade-in creation (customer.submitTradeIn) → 428, nothing done |  |
+| PASS | I-02 | missing Idempotency-Key on offer acceptance (customer.acceptOffer) → 428, nothing done |  |
+| PASS | I-03 | missing Idempotency-Key on device received (tech.receiveDevice) → 428, nothing done |  |
+| PASS | I-04 | missing Idempotency-Key on voucher issue (vendor.issueVoucher) → 428, nothing done |  |
+| PASS | I-05 | missing Idempotency-Key on voucher cancel (vendor.voidVoucher) → 428, nothing done |  |
+| PASS | I-06 | missing Idempotency-Key on voucher reissue (vendor.voidVoucher) → 428, nothing done |  |
+| PASS | I-07 | missing Idempotency-Key on collection (create note) (admin.createBatch) → 428, nothing done |  |
+| PASS | I-08 | missing Idempotency-Key on collection (mark collected) (admin.updateBatch) → 428, nothing done |  |
+| PASS | I-09 | missing Idempotency-Key on settlement creation (admin.createSettlement) → 428, nothing done |  |
+| PASS | I-10 | missing Idempotency-Key on settlement approval (admin.advanceSettlement) → 428, nothing done |  |
+| PASS | I-11 | read-only endpoints do not need a key |  |
+| PASS | I-12 | a malformed key is refused before anything runs |  |
+| PASS | F-01 | customer creates a trade-in (state, scope, audit, replay) | TI-DEMO-000001; audit: not checked (no database) |
+| PASS | F-02 | inspection + offer by the technician (financial values) | value 2000, fee 100, total 2100 QAR |
+| PASS | F-03 | customer accepts (replay safe; other customer refused) | audit: not checked (no database) |
+| PASS | F-04 | technician confirms the device is received | audit: not checked (no database) |
+| PASS | F-05 | branch issues the voucher (other branch refused; duplicate prevented) | voucher DEMO-20261008-0001 |
+| PASS | F-06 | Qatar Mobile collects the device (note + mark collected) | BAT-00001; audit: not checked (no database) |
+| PASS | F-07 | finance creates and submits the settlement (totals add up) | STL-00001: 1 line(s), 2100 QAR |
+| PASS | F-08 | settlement approval: QM admin refused, platform owner approves, finance pays | approved by USR-00001, paid |
+| PASS | N-01 | branch user → another branch's trade-in: denied |  |
+| PASS | N-02 | branch user cannot reach another branch by changing the branch id |  |
+| PASS | N-03 | partner user → another partner's trade-in: denied |  |
+| PASS | N-04 | lower role modifies SUPER_ADMIN: denied (and nothing changes) |  |
+| PASS | N-05 | duplicate IMEI: second open trade-in refused |  |
+| PASS | N-06 | same key + same device + different payload → 409 (nothing created) |  |
+| PASS | N-07 | duplicate collection: a device already on an open note is not claimed again |  |
+| PASS | N-08 | duplicate settlement: a settled device is not claimed again | first 200, second 422 (There is nothing collected and unsettled in that period.) |
+| PASS | N-09 | invalid state transitions are refused |  |
+| PASS | N-10 | unauthorised finance actions are refused |  |
+| PASS | N-11 | customer cannot act as staff |  |
+| PASS | C-01 | same IMEI × 5 at once → exactly one trade-in |  |
+| PASS | C-02 | same voucher issue × 5 at once → exactly one live voucher |  |
+| PASS | C-03 | same collection × 3 at once → each device on one note only |  |
+| PASS | C-04 | same settlement × 3 at once → each device in one settlement only | 1 created, 2 device(s) claimed once each |
+| PASS | C-05 | same idempotency key × 5 at once → one effect, same answer |  |
+| PASS | C-06 | void + reissue: one live voucher, chain linked (replay safe) |  |
+| PASS | R-01 | anon: no trade-ins, customers, users, vouchers, settlements, audit, internal tables |  |
+| PASS | R-02 | anon: public catalogue readable; partner fee rate is not |  |
+| PASS | R-03 | anon and signed-in users cannot write anything directly |  |
+| PASS | R-04 | customer sees only their own trade-ins and profile | 13 own row(s) |
+| PASS | R-05 | branch staff sees only their branch; never the IMEI |  |
+| PASS | R-06 | partner-wide admin sees only their partner |  |
+| PASS | R-07 | finance access matches business permissions |  |
+| PASS | R-08 | QM admin and SUPER_ADMIN see across partners (read) |  |
+| PASS | R-09 | internal functions are not callable (counter RPC) |  |
+| PASS | S-01 | technician uploads an evidence photo; a disguised SVG is refused |  |
+| PASS | S-02 | private photo: short-lived signed URL works; scope enforced |  |
+| PASS | S-03 | private bucket is not public; not listable or readable directly |  |
+| PASS | S-04 | public catalogue image is served publicly; uploads only via the API |  |
+| SKIPPED | D-* | read-only database consistency checks | set STAGING_DATABASE_URL |

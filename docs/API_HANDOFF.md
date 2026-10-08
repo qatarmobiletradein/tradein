@@ -2,13 +2,13 @@
 
 For management and integration teams. Technical reference: `docs/openapi.json` (OpenAPI 3.1, generated from the code, validated by the test suite) and `docs/API.md`.
 
-> **Status (2026-10-08):** staging-ready, **not deployed**. No staging or production URL exists yet. Nothing here has run on Supabase Cloud or Railway.
+> **Status (2026-10-08):** **deployed to staging and verified on the real cloud** (Railway Singapore → Supabase Singapore). Results: `docs/cloud/REAL_STAGING_RESULTS.md`. Not yet in production; customer SMS and the staff reset email are not configured yet (see `docs/cloud/PRE_PRODUCTION_BLOCKERS.md`).
 
 ## At a glance
 | | |
 |---|---|
-| Staging API URL | `https://<STAGING-API-HOST>` *(assigned at deployment)* |
-| Production API URL | `https://<PRODUCTION-API-HOST>` *(next phase)* |
+| Staging API URL | **`https://qm-api-staging.up.railway.app`** — `/health`, `/ready` |
+| Production API URL | `https://api.qatarmobile.qa` *(planned; not connected)* |
 | API version | `4.1.0-staging`, path prefix `/v1` |
 | Format | JSON over HTTPS; every response carries `X-Request-Id` |
 | Authentication | Supabase Auth → Bearer access token (JWT). **Customers**: SMS code to their mobile. **Staff**: work email + password. |
