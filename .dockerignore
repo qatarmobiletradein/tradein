@@ -3,7 +3,6 @@
 **/dist
 tests
 docs
-apps/web
 staging-reports
 migration-reports
 .git
