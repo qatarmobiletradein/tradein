@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 12) process.exitCode = 1;
+  if (results.length !== 13) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -126,6 +126,17 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.getByRole('button', { name: 'Sign in' }).click({ timeout: 1500 }).catch(() => undefined);
       await p.locator('.cx').first().waitFor({ timeout: 15_000 });
       results.push('PASS password-mode customer: SMS code sign-in unchanged');
+      // The trade-in flow: one progress indicator (the phase rail), line icons, no colour emoji.
+      await p.locator('[data-tab="c-new"]').first().click();
+      await p.locator('.cx-rail').first().waitFor({ timeout: 10_000 });
+      await p.waitForTimeout(500);
+      const ev = (fn: string) => (p as unknown as { evaluate(f: string): Promise<unknown> }).evaluate(fn);
+      const barShown = await ev(`getComputedStyle(document.querySelector('.cx-progress .bar')).display !== 'none'`);
+      const emoji = await ev(`/[\u{1F50D}\u{1F514}\u{1F4F1}\u{1F512}]/u.test(document.body.innerText)`);
+      const glyph = await ev(`/[\u2302\uFF0B\u2630\u263A\u263B]/.test([...document.querySelectorAll('.cx-tabs .icon')].map((e) => e.textContent).join('')) && getComputedStyle(document.querySelector('.cx-tabs .icon')).fontSize !== '0px'`);
+      await p.screenshot({ path: 'tests/e2e/artifacts/customer-flow.png', fullPage: false });
+      if (barShown || emoji || glyph) throw new Error(`flow look: bar=${barShown} emoji=${emoji} glyph=${glyph}`);
+      results.push('PASS customer flow: one progress indicator, line icons, no emoji');
       await ctx.close();
     }
     // A staff number on the phone screen: told to use staff sign-in, no code sent.

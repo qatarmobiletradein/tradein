@@ -12,3 +12,10 @@
   width: auto; height: auto; min-width: 0; line-height: 1.2;
   padding: .4rem 1.2rem; text-align: center; color: inherit;
 }
+
+/* Customer trade-in flow: ONE progress indicator. Where the five-phase rail is shown (400 px and
+   wider), the thin bar under it said the same thing twice; it stays only on the narrowest phones,
+   where the rail is hidden and the bar is the only indicator. */
+@media (min-width: 400px) {
+  .cx-progress .bar { display: none; }
+}
