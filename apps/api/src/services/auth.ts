@@ -32,13 +32,32 @@ import { mfaPendingReply } from './mfa.js';
 
 const INVALID_PHONE = 'Enter a valid Qatar mobile number.';
 
-/** The hook's refusal reaches us only as a GoTrue error; say something true and generic. */
-function sendFailureMessage(e: GatewayError): AppError {
+/**
+ * The hook's refusal reaches us only as a GoTrue error; say something true and generic.
+ * retryAfterS: the hook counted this attempt, so the per-number wait (cooldown) now runs — the
+ * screen counts it down on the Send code button instead of letting the person press into a refusal.
+ */
+function sendFailureMessage(e: GatewayError, waitS: number): AppError {
   if (e.status === 429 || /rate|limit|too_many/i.test(e.code)) {
-    return new AppError('RATE_LIMITED', 'Too many code requests. Please try again later.');
+    // The wait between requests is checked before Supabase is asked (waitBeforeSend), so a refusal here is
+    // the hourly / daily ceiling: no exact time to promise, but the button still pauses.
+    return new AppError('RATE_LIMITED', 'Too many code requests. Please try again later.', { retryAfterS: waitS });
   }
-  if (e.status === 422) return new AppError('UNAVAILABLE', 'We could not send your code right now. Please try again shortly.', { unavailable: true });
-  return new AppError('UNAVAILABLE', 'Sign-in by text message is temporarily unavailable. Please try again later.', { unavailable: true });
+  if (e.status === 422) return new AppError('UNAVAILABLE', 'We could not send your code right now. Please try again shortly.', { unavailable: true, retryAfterS: waitS });
+  return new AppError('UNAVAILABLE', 'Sign-in by text message is temporarily unavailable. Please try again later.', { unavailable: true, retryAfterS: waitS });
+}
+
+/**
+ * The per-number wait between code requests (OTP_RESEND_COOLDOWN_S), checked BEFORE Supabase is asked,
+ * so the reply can say exactly how long is left. The Send SMS hook applies the same rule again.
+ */
+async function waitBeforeSend(deps: Deps, phone: string): Promise<void> {
+  const r = await deps.pool.query<{ waited: number | null }>(
+    `select extract(epoch from now() - max(created_at))::float as waited from public.otp_send_log
+      where phone = $1 and outcome in ('SENT','FAILED')`, [phone]);
+  const waited = r.rows[0]?.waited;
+  const left = waited === null || waited === undefined ? 0 : Math.ceil(deps.config.otp.cooldownS - waited);
+  if (left > 0) throw new AppError('RATE_LIMITED', `Please wait ${left} seconds before asking for a new code.`, { retryAfterS: left });
 }
 
 /** Is this address already a staff sign-in address (case-insensitive)? */
@@ -76,13 +95,14 @@ export async function authStart(deps: Deps, meta: RequestMeta, p: { phone?: stri
   }
   // STAFF_SIGN_IN=both: the code must reach the profile's own Auth user (the one its email/password and
   // authenticator app belong to), so that user gets the profile's number before Supabase sends a code.
+  await waitBeforeSend(deps, phone);
   let authUserId = who.auth_user_id;
   if (who.kind === 'STAFF' && deps.config.STAFF_SIGN_IN === 'both' && authUserId) {
     authUserId = await staffNumberOnAuthUser(deps, meta, who.id, authUserId, phone);
   }
   // A profile imported from Sheets has no Supabase user yet: let Auth create it on first sign-in.
   const sent = await deps.authGateway.sendOtp(phone, !authUserId, meta.ip);
-  if (!sent.ok) throw sendFailureMessage(sent);
+  if (!sent.ok) throw sendFailureMessage(sent, deps.config.otp.cooldownS);
   return { ok: true, cooldownSeconds: deps.config.otp.cooldownS, ...testCodeReply(phone) };
 }
 
@@ -220,8 +240,9 @@ export async function authRegister(deps: Deps, meta: RequestMeta, p: {
   }
 
   if (!trim(p.code)) {
+    await waitBeforeSend(deps, phone);
     const sent = await deps.authGateway.sendOtp(phone, true, meta.ip);
-    if (!sent.ok) throw sendFailureMessage(sent);
+    if (!sent.ok) throw sendFailureMessage(sent, deps.config.otp.cooldownS);
     return { ok: true, cooldownSeconds: deps.config.otp.cooldownS, ...testCodeReply(phone) };
   }
 

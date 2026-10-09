@@ -117,6 +117,9 @@ describe.skipIf(!HAS_DB)('authentication and OTP delivery', () => {
     expect(first.statusCode).toBe(200);
     const second = await t.app.inject({ method: 'POST', url: '/v1/auth/start', payload: { phone: '55000153' } });
     expect(second.statusCode).toBe(429);
+    // The exact wait, so the screen can count it down on the button.
+    expect(second.json().message).toMatch(/^Please wait (29|30) seconds before asking for a new code\.$/);
+    expect([29, 30]).toContain(second.json().retryAfterS);
     // Age the log to pass the cooldown, then exhaust the hourly ceiling (3 in this test config).
     for (let i = 0; i < 3; i++) {
       await t.deps.pool.query(`update public.otp_send_log set created_at = created_at - interval '40 seconds' where phone = '+97455000153'`);
@@ -126,6 +129,7 @@ describe.skipIf(!HAS_DB)('authentication and OTP delivery', () => {
     const limited = await t.app.inject({ method: 'POST', url: '/v1/auth/start', payload: { phone: '55000153' } });
     expect(limited.statusCode).toBe(429);
     expect(limited.json().message).toBe('Too many code requests. Please try again later.');
+    expect(limited.json().retryAfterS).toBe(30);
     expect((await t.deps.pool.query(`select count(*)::int as n from public.otp_send_log where phone = '+97455000153' and outcome = 'SENT'`)).rows[0].n).toBe(3);
   });
 

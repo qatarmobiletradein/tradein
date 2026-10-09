@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 13) process.exitCode = 1;
+  if (results.length !== 14) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -264,6 +264,25 @@ async function runBothMode(browser: PwBrowser): Promise<void> {
       await p.getByRole('button', { name: 'Verify and sign in' }).click();
       await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
       results.push('PASS both-mode SUPER_ADMIN: SMS code → authenticator app set-up → admin portal');
+      await ctx.close();
+    }
+    // A second code request inside the wait: the exact seconds, and the button counts down, disabled.
+    {
+      const ctx = await browser.newContext(); const p = await ctx.newPage(); watch(p, 'both-countdown');
+      await p.goto(webOrigin);
+      await p.locator('input[type=tel]').first().fill('30000010');
+      await p.getByRole('button', { name: 'Send code' }).click();
+      await p.locator('input.code-input').waitFor({ timeout: 10_000 });
+      await p.locator('text=Use a different number').click();
+      await p.locator('input[type=tel]').first().fill('30000010');
+      await p.getByRole('button', { name: 'Send code' }).click();
+      await p.locator('text=/Please wait \\d+ seconds/').first().waitFor({ timeout: 10_000 });
+      await p.waitForTimeout(1200);
+      const state = await (p as unknown as { evaluate(f: string): Promise<{ text: string; disabled: boolean }> }).evaluate(
+        `(() => { const b = [...document.querySelectorAll('#root .auth-card button')].find((x) => /^Send code/.test(x.textContent)); return { text: b.textContent, disabled: b.disabled }; })()`);
+      await p.screenshot({ path: 'tests/e2e/artifacts/both-countdown.png', fullPage: false });
+      if (!/^Send code \(\d+s\)$/.test(state.text) || !state.disabled) throw new Error(`countdown button: ${JSON.stringify(state)}`);
+      results.push('PASS sign-in: a code request inside the wait shows the seconds and a disabled countdown button');
       await ctx.close();
     }
     // "mailto:" pasted into the work email is dropped.

@@ -71,6 +71,40 @@
   // The 3.1 screens draw their fields on the fly: decorate whatever sign-in card appears.
   new MutationObserver(function () { decoratePhones(); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
+  /* -------------------------------- "Send code": count the wait down */
+  // When a code request is refused or could not be sent, the server says how long the number must wait
+  // (retryAfterS). The button shows the seconds and stays disabled until then, instead of letting the
+  // person press into another refusal. (After a successful send the 3.1 code screen has its own timer.)
+  function countDown(seconds) {
+    var btn = null;
+    var all = document.querySelectorAll('#root .auth-card button');
+    for (var i = 0; i < all.length; i++) if (/^Send code/.test(all[i].textContent)) { btn = all[i]; break; }
+    if (!btn || !(seconds > 0)) return;
+    if (btn._qmTimer) clearInterval(btn._qmTimer);
+    var left = Math.min(Math.ceil(seconds), 600);
+    btn.disabled = true;
+    btn.textContent = 'Send code (' + left + 's)';
+    btn._qmTimer = setInterval(function () {
+      left--;
+      if (!btn.isConnected) { clearInterval(btn._qmTimer); return; }
+      if (left <= 0) { clearInterval(btn._qmTimer); btn._qmTimer = null; btn.disabled = false; btn.textContent = 'Send code'; return; }
+      btn.textContent = 'Send code (' + left + 's)';
+    }, 1000);
+  }
+  if (window.QM && typeof QM.call === 'function') {
+    var sendCall = QM.call;
+    QM.call = function (action, params) {
+      var p = sendCall.apply(this, arguments);
+      var isSend = action === 'auth.start' || (action === 'auth.register' && !(params && params.code));
+      if (!isSend) return p;
+      return p.then(function (res) {
+        // after the 3.1 handler has re-enabled the button and shown the message
+        if (res && !res.ok && res.retryAfterS) setTimeout(function () { countDown(res.retryAfterS); }, 0);
+        return res;
+      });
+    };
+  }
+
   if (cfg.staffSignIn !== 'password' && cfg.staffSignIn !== 'both') return;
   if (typeof window.buildAuthScreen !== 'function') return;
   var staffByPhoneToo = cfg.staffSignIn === 'both';
