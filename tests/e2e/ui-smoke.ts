@@ -32,7 +32,7 @@ const require = createRequire(import.meta.url);
 interface PwLocator { first(): PwLocator; last(): PwLocator; nth(i: number): PwLocator; fill(v: string): Promise<void>; click(o?: { timeout?: number }): Promise<void>; waitFor(o?: { timeout?: number }): Promise<void> }
 interface PwPage {
   on(ev: 'pageerror', fn: (e: Error) => void): void; on(ev: 'console', fn: (m: { type(): string; text(): string }) => void): void;
-  goto(url: string): Promise<unknown>; locator(sel: string): PwLocator; getByRole(role: string, o: { name: string }): PwLocator;
+  goto(url: string): Promise<unknown>; locator(sel: string, o?: never): PwLocator; getByRole(role: string, o: { name: string }): PwLocator;
   waitForTimeout(ms: number): Promise<void>; screenshot(o: { path: string; fullPage?: boolean }): Promise<unknown>;
 }
 interface PwBrowser { newContext(): Promise<{ newPage(): Promise<PwPage>; close(): Promise<void> }>; close(): Promise<void> }
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 14) process.exitCode = 1;
+  if (results.length !== 15) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -113,6 +113,9 @@ async function runPhoneMode(browser: PwBrowser): Promise<void> {
 async function runPasswordMode(browser: PwBrowser): Promise<void> {
   const { t, web, webOrigin } = await serve('password');
   await t.deps.pool.query(`update public.app_users set email = lower(id) || '@staff.example.test'`);
+  // A second partner with its own branch: the customer must not see it under the first partner.
+  await t.deps.pool.query(`insert into public.vendors (id, name, code, status) values ('VND-090', 'Other Partner (test)', 'OTHR', 'ACTIVE')`);
+  await t.deps.pool.query(`insert into public.branches (id, vendor_id, name, active, display_order) values ('BR-0090', 'VND-090', 'Other Branch A', true, 1)`);
   const PW = 'Ui-Smoke-Demo-2026';
   try {
     // Customer: unchanged SMS code.
@@ -137,6 +140,19 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.screenshot({ path: 'tests/e2e/artifacts/customer-flow.png', fullPage: false });
       if (barShown || emoji || glyph) throw new Error(`flow look: bar=${barShown} emoji=${emoji} glyph=${glyph}`);
       results.push('PASS customer flow: one progress indicator, line icons, no emoji');
+      // Partner first, then ONLY that partner's branches, then the catalogue.
+      await p.locator('text=Where will you bring your device?').waitFor({ timeout: 10_000 });
+      const partners = await ev(`[...document.querySelectorAll('#flow .cx-choice .label')].map((e) => e.textContent)`) as string[];
+      if (!partners.includes('Demo Electronics (fictional)') || !partners.includes('Other Partner (test)')) throw new Error(`partners: ${partners}`);
+      await p.locator('#flow .cx-choice', { hasText: 'Demo Electronics (fictional)' } as never).first().click();
+      await p.locator('text=Which Demo Electronics (fictional) branch?').waitFor({ timeout: 10_000 });
+      await p.locator('#flow .cx-choice').first().waitFor({ timeout: 10_000 });
+      const branches = (await ev(`[...document.querySelectorAll('#flow .cx-choice .label')].map((e) => e.textContent)`) as string[]).sort();
+      await p.screenshot({ path: 'tests/e2e/artifacts/customer-branch-step.png', fullPage: false });
+      if (JSON.stringify(branches) !== JSON.stringify(['Demo Mall Branch (fictional)', 'Demo Souq Branch (fictional)'])) throw new Error(`branches: ${branches}`);
+      await p.locator('#flow .cx-choice', { hasText: 'Demo Mall Branch (fictional)' } as never).first().click();
+      await p.locator('text=What brand is your device?').waitFor({ timeout: 10_000 });
+      results.push('PASS customer flow: partner → only that partner\'s branches → catalogue');
       await ctx.close();
     }
     // A staff number on the phone screen: told to use staff sign-in, no code sent.

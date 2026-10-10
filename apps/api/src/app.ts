@@ -16,7 +16,7 @@ import { REGISTRY } from './registry.js';
 import { runAction } from './runner.js';
 import { authRoutes } from './routes/auth.js';
 import { hookRoutes } from './routes/hooks.js';
-import { publicDispatch, publicRoutes } from './routes/public.js';
+import { PUBLIC_ACTIONS, publicDispatch, publicRoutes } from './routes/public.js';
 import { restRoutes } from './routes/rest.js';
 
 export function requestMeta(req: FastifyRequest): RequestMeta {
@@ -108,8 +108,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     const action = req.params.action;
     // Sign-in actions are served ONLY by /v1/auth/* (stricter rate limit, smaller body limit).
     // Here they fall through to the registry and look like any unknown action.
-    if (action === 'public.vendorContext' || action === 'public.catalogTree' || action === 'customer.questions') {
-      try { return reply.send(await publicDispatch(deps, action)); } catch (err) {
+    if (PUBLIC_ACTIONS.includes(action)) {
+      const b = (req.body && typeof req.body === 'object') ? req.body as Record<string, unknown> : {};
+      const pp = (b.params && typeof b.params === 'object') ? b.params as Record<string, unknown> : b;
+      try { return reply.send(await publicDispatch(deps, action, pp)); } catch (err) {
         const { errorResult } = await import('./runner.js');
         const r = errorResult(err, deps, requestMeta(req), action);
         return reply.status(r.status).send(r.body);

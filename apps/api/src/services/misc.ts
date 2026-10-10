@@ -13,6 +13,7 @@ import type { Queryable } from '../../../../packages/database/src/db.js';
 import type { Ctx } from '../context.js';
 import { loadGradeLadder, loadInspectionRules } from '../lib/rules.js';
 import { clampLimit } from './sql.js';
+import { fail } from '../../../../packages/shared/src/errors.js';
 import { Lookups, adminTradeInView, publicBranchView, publicVendorView, type TradeInRow } from './views.js';
 import { tradeInTimeline } from './tradeins.js';
 
@@ -176,6 +177,22 @@ export async function adminTradeIn(ctx: Ctx, p: { tradeInId: string }) {
 }
 
 /** apiPublicVendorContext_: partners with at least one active branch; never fee terms. */
+/**
+ * public.vendorBranches: the customer chooses the partner FIRST, then a branch of that partner.
+ * The branch list is filtered here on the server (only that partner's active branches); the
+ * trade-in itself is still checked again on creation (assertBranchBelongsTo + the database link).
+ */
+export async function publicVendorBranches(db: Queryable, p: { vendorId?: unknown }) {
+  const vendorId = typeof p.vendorId === 'string' ? p.vendorId.trim() : '';
+  if (!/^VND-\d{3,}$/.test(vendorId)) throw fail('Choose a shop.');
+  const v = (await db.query<{ id: string; name: string; code: string; logo_url: string | null }>(
+    `select id, name, code, logo_url from public.vendors where id = $1 and status = 'ACTIVE'`, [vendorId])).rows[0];
+  if (!v) throw fail('That shop is not accepting trade-ins right now.');
+  const branches = (await db.query<{ id: string; vendor_id: string; name: string; address: string | null; location: string | null; contact_phone: string | null }>(
+    'select id, vendor_id, name, address, location, contact_phone from public.branches where vendor_id = $1 and active order by display_order, name', [vendorId])).rows;
+  return { ok: true, vendor: publicVendorView(v), branches: branches.map(publicBranchView) };
+}
+
 export async function publicVendorContext(db: Queryable) {
   const vendors = (await db.query<{ id: string; name: string; code: string; logo_url: string | null }>(
     `select id, name, code, logo_url from public.vendors where status = 'ACTIVE' order by name`)).rows;
