@@ -31,6 +31,13 @@ try {
     if (/^[a-z0-9-]+\.webp$/.test(name)) catalog.set(`/catalog/${name}`, readFileSync(join(catalogDir, name)));
   }
 } catch { /* no catalogue images in this build */ }
+// Download templates (apps/web/templates/*.xlsx), e.g. the Bulk import reference template.
+const templates = new Map();
+try {
+  for (const name of readdirSync(join(here, 'templates'))) {
+    if (/^[a-z0-9-]+\.xlsx$/.test(name)) templates.set(`/templates/${name}`, { name, body: readFileSync(join(here, 'templates', name)) });
+  }
+} catch { /* none in this build */ }
 const page = readFileSync(join(here, '..', '..', 'dist', 'web', 'index.html'), 'utf8');
 const html = Buffer.from(page.includes('</head>') ? page.replace('</head>', `${ICON_LINKS}</head>`) : page);
 const gz = gzipSync(html, { level: 9 });
@@ -73,6 +80,12 @@ const server = createServer((req, res) => {
   if (image) {
     res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=604800', 'Content-Length': String(image.length), ...common });
     res.end(req.method === 'HEAD' ? undefined : image); return;
+  }
+  const tpl = templates.get(path);
+  if (tpl) {
+    res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${tpl.name}"`, 'Cache-Control': 'no-cache', 'Content-Length': String(tpl.body.length), ...common });
+    res.end(req.method === 'HEAD' ? undefined : tpl.body); return;
   }
   if (path !== '/' && path !== '/index.html' && /\.[a-z0-9]+$/i.test(path)) { res.writeHead(404, { 'Content-Type': 'text/plain', ...common }); res.end('Not found'); return; }
   const useGz = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));

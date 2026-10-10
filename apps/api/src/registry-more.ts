@@ -9,6 +9,7 @@ import { ADMIN_ONLY, ANY_STAFF, ROLES, VENDOR_ANY, VENDOR_MGMT } from '../../../
 import { empty, flag, id, limit, money, optId, optText, text, ymd } from '../../../packages/validation/src/index.js';
 import type { ActionDef } from './runner.js';
 import * as catalog from './services/catalog.js';
+import * as catalogFile from './services/catalog-import-file.js';
 import * as insp from './services/inspections.js';
 import * as misc from './services/misc.js';
 import * as people from './services/people.js';
@@ -106,6 +107,8 @@ export const EXTRA_ACTIONS: Record<string, ActionDef> = {
   },
   'admin.previewImport': { roles: ADMIN_ONLY, schema: loose({ rows: importRows }), readOnly: true, run: (ctx, p) => catalog.previewImport(ctx, p) },
   'admin.applyImport': { roles: ADMIN_ONLY, schema: loose({ rows: importRows }), run: (ctx, p) => catalog.applyImport(ctx, p) },
+  // Excel template upload (base64 .xlsx, at most 2 MB): parsed and previewed; writes nothing.
+  'admin.previewImportFile': { roles: ADMIN_ONLY, schema: loose({ file: z.string().max(3_000_000), fileName: optText(200) }), readOnly: true, run: (ctx, p) => catalogFile.previewImportFile(ctx, p) },
 
   /* ---- people ---------------------------------------------------------- */
   'admin.customers': { roles: ADMIN_ONLY, schema: loose({ status: optText(20), search: optText(100), limit }), readOnly: true, run: (ctx, p) => people.listCustomers(ctx, p) },

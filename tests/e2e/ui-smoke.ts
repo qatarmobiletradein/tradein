@@ -29,7 +29,8 @@ import { totp } from '../helpers/totp.js';
 const require = createRequire(import.meta.url);
 // The browser ships with the environment (PLAYWRIGHT_BROWSERS_PATH); the library is resolved from the global install.
 // Playwright is not a project dependency, so only the few calls used here are typed.
-interface PwLocator { first(): PwLocator; last(): PwLocator; nth(i: number): PwLocator; fill(v: string): Promise<void>; click(o?: { timeout?: number }): Promise<void>; waitFor(o?: { timeout?: number }): Promise<void> }
+interface PwLocator { first(): PwLocator; last(): PwLocator; nth(i: number): PwLocator; fill(v: string): Promise<void>; click(o?: { timeout?: number }): Promise<void>; waitFor(o?: { timeout?: number }): Promise<void>;
+  setInputFiles(f: { name: string; mimeType: string; buffer: Buffer }): Promise<void>; getAttribute(n: string): Promise<string | null>; innerText(): Promise<string> }
 interface PwPage {
   on(ev: 'pageerror', fn: (e: Error) => void): void; on(ev: 'console', fn: (m: { type(): string; text(): string }) => void): void;
   goto(url: string): Promise<unknown>; locator(sel: string, o?: never): PwLocator; getByRole(role: string, o: { name: string }): PwLocator;
@@ -188,6 +189,24 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       await p.waitForTimeout(1000);
       await p.screenshot({ path: 'tests/e2e/artifacts/password-finance-admin.png', fullPage: false });
       results.push('PASS password-mode finance admin: first password via e-mailed code → admin portal');
+      // Bulk import: the reference template is on the page; an uploaded .xlsx is previewed (nothing written).
+      await p.locator('[data-page="a-import"]').first().click();
+      await p.locator('[data-qm="template-link"]').waitFor({ timeout: 10_000 });
+      const href = await p.locator('[data-qm="template-link"]').getAttribute('href');
+      if (href !== '/templates/qm-catalogue-import-template.xlsx') throw new Error(`template link: ${href}`);
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Products');
+      ws.addRow(['Brand*', 'Category*', 'Model*', 'Release year', 'Storage options*', 'Colour options', 'Base prices (QAR)']);
+      ws.addRow(['Nova', 'Smartphones', 'Nova One', 2025, '128GB, 256GB', 'Black, White', '900, 1100']);
+      await p.locator('[data-qm="import-file"]').setInputFiles({ name: 'nova.xlsx', buffer: Buffer.from(await wb.xlsx.writeBuffer()),
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      await p.locator('[data-qm="import-preview"]').click();
+      await p.locator('[data-qm="import-summary"]').waitFor({ timeout: 10_000 });
+      const summary = await p.locator('[data-qm="import-summary"]').innerText();
+      await p.screenshot({ path: 'tests/e2e/artifacts/admin-bulk-import.png', fullPage: true });
+      if (!/1 new model/.test(summary) || !/2 new storage/.test(summary)) throw new Error(`import summary: ${summary}`);
+      if ((await t.deps.pool.query(`select 1 from public.products where model = 'Nova One'`)).rowCount) throw new Error('preview wrote a product');
+      results.push('PASS admin bulk import: template link on the page, .xlsx upload → preview with exact counts, nothing written');
       await ctx.close();
     }
     // Branch manager: password set through the API, then email + password in the browser; a wrong password first.

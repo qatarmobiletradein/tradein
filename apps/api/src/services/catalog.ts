@@ -214,7 +214,7 @@ export async function uploadMedia(ctx: Ctx, p: { kind?: string; objectId?: strin
 
 /* --------------------------------------------------------------- import */
 
-export interface ImportRow { brand: string; category: string; model: string; storage: string; color: string; basePrice: number | null }
+export interface ImportRow { brand: string; category: string; model: string; storage: string; color: string; basePrice: number | null; releaseYear: number | null }
 
 /** previewCatalogImport_: validate and describe; writes nothing. */
 export async function previewImport(ctx: Ctx, p: { rows?: Record<string, unknown>[] }) {
@@ -238,7 +238,10 @@ export async function previewImport(ctx: Ctx, p: { rows?: Record<string, unknown
     const prod = b ? (await ctx.db.query('select 1 from public.products where brand_id = $1 and lower(btrim(model)) = lower($2)', [b.id, model])).rowCount : 0;
     if (!prod) newProducts.add(`${brand} ${model}`);
     variantCount++;
-    valid.push({ brand, category: trim(r.Category ?? r.category), model, storage, color: trim(r.Colour ?? r.Color ?? r.color), basePrice: price });
+    const rawYear = trim(r.Year ?? r.year ?? r.releaseYear);
+    const year = rawYear ? Number(rawYear) : null;
+    if (year !== null && !(Number.isInteger(year) && year >= 2000 && year <= 2100)) { problems.push(`Line ${line}: "${rawYear}" is not a release year.`); continue; }
+    valid.push({ brand, category: trim(r.Category ?? r.category), model, storage, color: trim(r.Colour ?? r.Color ?? r.color), basePrice: price, releaseYear: year });
   }
   return { ok: true, willImport: valid.length, newBrands: [...newBrands], newProducts: [...newProducts], variantCount, problems, rows: valid };
 }
@@ -246,7 +249,7 @@ export async function previewImport(ctx: Ctx, p: { rows?: Record<string, unknown
 /** applyCatalogImport_: write what the preview described; unpriced rows are counted, not hidden. */
 export async function applyImport(ctx: Ctx, p: { rows?: Record<string, unknown>[] }) {
   // Re-validate on the server: the rows come back from the browser.
-  const preview = await previewImport(ctx, { rows: (p.rows ?? []).map((r) => ({ ...r, Brand: r.brand ?? r.Brand, Model: r.model ?? r.Model, Storage: r.storage ?? r.Storage, BasePrice: r.basePrice ?? r.BasePrice, Category: r.category ?? r.Category, Colour: r.color ?? r.Colour })) });
+  const preview = await previewImport(ctx, { rows: (p.rows ?? []).map((r) => ({ ...r, Brand: r.brand ?? r.Brand, Model: r.model ?? r.Model, Storage: r.storage ?? r.Storage, BasePrice: r.basePrice ?? r.BasePrice, Category: r.category ?? r.Category, Colour: r.color ?? r.Colour, Year: r.releaseYear ?? r.Year ?? null })) });
   if (preview.problems.length) throw fail(`The import has ${preview.problems.length} problem(s). Preview it again and fix them first.`);
   const made = { brands: 0, categories: 0, products: 0, variants: 0, colors: 0, prices: 0, unpriced: 0 };
   for (const r of preview.rows) {
@@ -260,7 +263,7 @@ export async function applyImport(ctx: Ctx, p: { rows?: Record<string, unknown>[
     }
     let product = (await ctx.db.query<{ id: string }>('select id from public.products where brand_id = $1 and lower(btrim(model)) = lower($2)', [brand.id, r.model])).rows[0];
     if (!product) {
-      product = { id: (await saveProduct(ctx, { brandId: brand.id, categoryId: categoryId ?? undefined, model: r.model, keywords: `${r.brand} ${r.model}`, notes: 'Imported.' })).productId };
+      product = { id: (await saveProduct(ctx, { brandId: brand.id, categoryId: categoryId ?? undefined, model: r.model, keywords: `${r.brand} ${r.model}`, notes: 'Imported.', releaseYear: r.releaseYear ?? undefined })).productId };
       made.products++;
     }
     let variant = (await ctx.db.query<{ id: string }>('select id from public.product_variants where product_id = $1 and lower(storage) = lower($2)', [product.id, r.storage])).rows[0];
