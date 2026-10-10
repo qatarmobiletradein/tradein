@@ -10,7 +10,8 @@
  */
 import type { Queryable } from '../../../../packages/database/src/db.js';
 import {
-  CUSTOMER_STATUS_TEXT, CUSTOMER_TIMELINE, CUSTOMER_TIMELINE_STEP, CURRENCY, DEFAULT_ESTIMATE_NOTE, type TradeInStatus,
+  CUSTOMER_STATUS_TEXT, CUSTOMER_TIMELINE, CUSTOMER_TIMELINE_STEP, CURRENCY, DEFAULT_ESTIMATE_NOTE, FINANCE_STATUS_LABEL,
+  OFFER_RELEASED_STATUSES, type TradeInStatus,
 } from '../../../../packages/domain/src/constants.js';
 import { centsToNumber, toCentsOrNull } from '../../../../packages/shared/src/money.js';
 import { formatPhone, maskImei, safeHttpsUrl, statusLabel } from '../../../../packages/shared/src/text.js';
@@ -34,6 +35,9 @@ export interface TradeInRow {
   inspection_id: string | null; voucher_id: string | null; collection_batch_id: string | null; settlement_id: string | null;
   technician: string | null; accepted_at: Date | null; declined_at: Date | null; decline_reason: string | null;
   notes: string | null; operation_id: string | null; created_at: Date; updated_at: Date;
+  // Owner approval and partner payment (migration 20261010000200).
+  owner_approved_by?: string | null; owner_approved_at?: Date | null; owner_decision_note?: string | null;
+  payment_sent_at?: Date | null; vendor_confirmed_by?: string | null; vendor_confirmed_at?: Date | null; closed_at?: Date | null;
 }
 
 /** Money column → number for a reply (0 when absent), exactly as 3.1 replied Number(x) || 0. */
@@ -133,7 +137,8 @@ export async function customerTradeInView(db: Queryable, L: Lookups, t: TradeInR
   if (b) { view.branch = b.name; view.branchAddress = b.address ?? ''; view.branchPhone = formatPhone(b.contact_phone); }
   const v = await L.vendor(t.vendor_id);
   if (v) view.vendor = v.name;
-  if (m(t.final_customer_value) || t.grade_code) {
+  // The final figure is shown only once the owner released it (never while it waits for approval).
+  if ((m(t.final_customer_value) || t.grade_code) && OFFER_RELEASED_STATUSES.includes(t.status)) {
     view.grade = t.grade_code ?? '';
     view.gradeName = await L.gradeName(t.grade_code);
     view.finalValue = m(t.final_customer_value);
@@ -161,6 +166,9 @@ export async function vendorTradeInView(L: Lookups, t: TradeInRow) {
     customerValue: m(t.final_customer_value), commission: m(t.commission_value), settlement: m(t.total_settlement),
     currency: t.currency?.trim() || CURRENCY, deviceReceived: t.device_received, voucherId: t.voucher_id ?? '',
     branchId: t.branch_id, createdDate: fmtDate(t.created_at), acceptedDate: fmtDate(t.accepted_at),
+    ownerApproved: !!t.owner_approved_at, paymentStatus: FINANCE_STATUS_LABEL[t.status] ?? '',
+    paymentId: t.settlement_id ?? '', paymentDate: fmtDateTime(t.payment_sent_at ?? null),
+    vendorConfirmedDate: fmtDateTime(t.vendor_confirmed_at ?? null),
   };
 }
 
@@ -196,6 +204,9 @@ export async function adminTradeInView(L: Lookups, t: TradeInRow) {
   }
   v.collectedDate = fmtDateTime(t.collected_at);
   v.collectedBy = t.collected_by ?? '';
+  v.ownerApprovedBy = t.owner_approved_by ?? '';
+  v.ownerApprovedDate = fmtDateTime(t.owner_approved_at ?? null);
+  v.ownerDecisionNote = t.owner_decision_note ?? '';
   return v;
 }
 
@@ -204,6 +215,8 @@ export async function technicianQueueView(L: Lookups, t: TradeInRow) {
   const v = await adminTradeInView(L, t);
   delete v.imeiFull;
   delete v.imei;
+  // No partner-payment details for the technician (owner decision 2026-10-10).
+  for (const k of ['paymentStatus', 'paymentId', 'paymentDate', 'vendorConfirmedDate', 'settlementId']) delete v[k];
   return v;
 }
 

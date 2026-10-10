@@ -38,12 +38,24 @@ export async function submit(t: TestApp, customer: string, opts: { branchId?: st
   return { tradeInId: String(body.tradeInId), imei, body };
 }
 
-export async function inspectAndOffer(t: TestApp, tech: string, tradeInId: string, imei: string, opts: { battery?: number; answers?: Record<string, boolean> } = {}) {
+/**
+ * Inspect, price and (unless approve: false) have the owner approve, so the offer reaches the customer
+ * (owner decision 2026-10-10: tech.submitOffer -> AWAITING_OWNER_APPROVAL -> admin.approveTradeIn -> FINAL_OFFER_READY).
+ */
+export async function inspectAndOffer(t: TestApp, tech: string, tradeInId: string, imei: string,
+  opts: { battery?: number; answers?: Record<string, boolean>; approve?: boolean } = {}) {
   await ok(t.call('tech.openInspection', tech, { tradeInId }));
   const chk = await ok(t.call('tech.checkImei', tech, { tradeInId, scannedImei: imei }));
   if (chk.match !== true) throw new Error('IMEI check did not match');
   await ok(t.call('tech.saveInspection', tech, { tradeInId, answers: opts.answers ?? ALL_GOOD_TECH_ANSWERS, batteryHealth: opts.battery ?? 95 }));
-  return ok(t.call('tech.submitOffer', tech, { tradeInId }, idemKey()));
+  const offer = await ok(t.call('tech.submitOffer', tech, { tradeInId }, idemKey()));
+  if (opts.approve !== false) await approve(t, tradeInId);
+  return offer;
+}
+
+/** The owner approves an evaluated trade-in (USR-00001, SUPER_ADMIN). */
+export async function approve(t: TestApp, tradeInId: string, owner?: string) {
+  return ok(t.call('admin.approveTradeIn', owner ?? await t.tokenFor('USR-00001'), { tradeInId, decision: 'APPROVE' }, idemKey()));
 }
 
 export async function toReadyForCollection(t: TestApp, a: Actors, opts: { branchId?: string; issuer?: string } = {}) {
@@ -58,3 +70,21 @@ export async function toReadyForCollection(t: TestApp, a: Actors, opts: { branch
 export async function tradeIn(t: TestApp, id: string) {
   return (await t.deps.pool.query('select * from public.trade_ins where id = $1', [id])).rows[0];
 }
+
+/**
+ * Make a voucher-created trade-in look like one from before the owner-approval step (2026-10-10), so the
+ * older batch path (collection -> COLLECTED -> settlement batch) still applies to it. Test data only.
+ */
+export async function markLegacy(t: TestApp, tradeInId: string) {
+  await t.deps.pool.query('update public.trade_ins set owner_approved_at = null, owner_approved_by = null where id = $1', [tradeInId]);
+}
+
+/** A seeded ACCOUNTANT (finance only), created on first use. */
+export async function accountant(t: TestApp, id = 'USR-00070', phone = '+97430000070') {
+  await t.deps.pool.query(`insert into public.app_users (id, full_name, phone, email, role, status)
+    values ($1, 'Test Accountant', $2, 'accounts@example.test', 'ACCOUNTANT', 'ACTIVE') on conflict (id) do nothing`, [id, phone]);
+  return t.tokenFor(id);
+}
+
+/** A tiny but real PDF (magic bytes %PDF-) as a data URL, for receipt uploads. */
+export const RECEIPT_PDF = `data:application/pdf;base64,${Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n').toString('base64')}`;

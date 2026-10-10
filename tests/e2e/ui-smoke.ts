@@ -22,7 +22,7 @@ import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import { setup } from '../helpers/global-setup.js';
 import { createTestApp } from '../helpers/app.js';
-import { actors, submit } from '../helpers/flow.js';
+import { RECEIPT_PDF, accountant, actors, inspectAndOffer, submit, toReadyForCollection } from '../helpers/flow.js';
 import { settleBackgroundWork } from '../../apps/api/src/services/staff-auth.js';
 import { totp } from '../helpers/totp.js';
 
@@ -75,13 +75,14 @@ async function main(): Promise<void> {
     await runPhoneMode(browser);
     await runPasswordMode(browser);
     await runBothMode(browser);
+    await runWorkflowMode(browser);
     await runImeiMode(browser);
   } finally {
     await browser.close();
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 28) process.exitCode = 1;
+  if (results.length !== 32) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -354,6 +355,87 @@ async function runBothMode(browser: PwBrowser): Promise<void> {
 }
 
 main().catch((e) => { console.error(`UI smoke failed: ${(e as Error).message}`); process.exit(1); });
+
+/**
+ * Owner approval and partner payment through the browser (2026-10-10): the owner/admin approves from
+ * "Pending owner approval"; the accountant records a payment with a receipt in the Finance portal; the
+ * partner admin confirms the funds; the technician's "Completed" page renders.
+ */
+async function runWorkflowMode(browser: PwBrowser): Promise<void> {
+  const { t, web, webOrigin } = await serve('phone');
+  const a = await actors(t);
+  await accountant(t, 'USR-00070', '+97430000070');
+  const pending = await submit(t, a.customer);
+  await inspectAndOffer(t, a.tech, pending.tradeInId, pending.imei, { approve: false });
+  const due = await toReadyForCollection(t, a);
+  const status = async (id: string) => (await t.deps.pool.query('select status from public.trade_ins where id = $1', [id])).rows[0].status as string;
+  const open = async (localPhone: string, e164: string, label: string) => {
+    const ctx = await browser.newContext();
+    const p = await ctx.newPage();
+    watch(p, label);
+    await p.goto(webOrigin);
+    await p.locator('input[type=tel]').first().fill(localPhone);
+    await p.getByRole('button', { name: 'Send code' }).click();
+    await p.locator('input.code-input').waitFor({ timeout: 10_000 });
+    await p.locator('input.code-input').fill(t.sms.lastCodeFor(e164)!);
+    await p.getByRole('button', { name: 'Sign in' }).click({ timeout: 1500 }).catch(() => undefined);
+    await p.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
+    return { p, ctx };
+  };
+  const until = async (fn: () => Promise<boolean>, what: string) => {
+    for (let i = 0; i < 40; i++) { if (await fn()) return; await new Promise((r) => setTimeout(r, 250)); }
+    throw new Error(`timed out: ${what}`);
+  };
+  try {
+    // Owner/admin approves.
+    let s = await open('30000002', '+97430000002', 'workflow-admin');
+    await s.p.locator('[data-page="a-approvals"]').click();
+    await s.p.locator('[data-qm="approval-queue"]').waitFor({ timeout: 10_000 });
+    await s.p.screenshot({ path: 'tests/e2e/artifacts/workflow-approval-queue.png' });
+    await s.p.locator('[data-qm="approval-queue"] button:has-text("Approve")').first().click();
+    await s.p.locator('.modal button:has-text("Approve")').last().click();
+    await until(async () => (await status(pending.tradeInId)) === 'FINAL_OFFER_READY', 'owner approval');
+    await s.p.screenshot({ path: 'tests/e2e/artifacts/workflow-approval.png' });
+    results.push('PASS workflow owner-approval: the admin approved from "Pending owner approval"; the offer is released');
+    await s.ctx.close();
+
+    // Accountant pays with a receipt.
+    s = await open('30000070', '+97430000070', 'workflow-accountant');
+    await s.p.locator('[data-qm="finance-pending"]').waitFor({ timeout: 10_000 });
+    await s.p.screenshot({ path: 'tests/e2e/artifacts/workflow-finance-queue.png' });
+    await s.p.locator('[data-qm="record-payment"]').first().click();
+    await s.p.locator('[data-qm="payment-reference"]').fill('UI-TRF-001');
+    await s.p.screenshot({ path: 'tests/e2e/artifacts/workflow-payment-modal.png' });
+    await s.p.locator('[data-qm="receipt-file"]').setInputFiles({ name: 'receipt.pdf', mimeType: 'application/pdf', buffer: Buffer.from(RECEIPT_PDF.split(',')[1]!, 'base64') });
+    await s.p.locator('.modal button:has-text("Mark as paid")').last().click();
+    await until(async () => (await status(due.tradeInId)) === 'PAYMENT_SENT', 'accountant payment');
+    await s.p.screenshot({ path: 'tests/e2e/artifacts/workflow-accountant.png' });
+    results.push('PASS workflow accountant: Finance portal rendered; payment recorded with a receipt (PAYMENT_SENT)');
+    await s.ctx.close();
+
+    // Partner admin confirms.
+    s = await open('30000004', '+97430000004', 'workflow-vendor');
+    await s.p.locator('[data-page="v-finance"]').click();
+    await s.p.locator('[data-qm="confirm-funds"]').first().click();
+    await s.p.locator('.modal button:has-text("Confirm funds received")').last().click();
+    await until(async () => (await status(due.tradeInId)) === 'CLOSED', 'vendor confirmation');
+    await s.p.screenshot({ path: 'tests/e2e/artifacts/workflow-vendor.png' });
+    results.push('PASS workflow vendor: "Confirm funds received" closed the trade-in (CLOSED)');
+    await s.ctx.close();
+
+    // Technician: completed, no actions.
+    s = await open('30000003', '+97430000003', 'workflow-technician');
+    await s.p.locator('[data-page="t-done"]').click();
+    await s.p.locator('main.content .card').first().waitFor({ timeout: 10_000 });
+    const text = await s.p.locator('main.content').first().innerText();
+    if (!text.includes(due.tradeInId)) throw new Error('technician Completed page does not list the trade-in');
+    results.push('PASS workflow technician: "Completed" lists the voucher-created trade-in with no action');
+    await s.ctx.close();
+  } finally {
+    await t.close();
+    web.close();
+  }
+}
 
 /**
  * "Enter IMEI Manually" / "Scan IMEI" in a real browser (2026-10-10). The camera is replaced by a canvas

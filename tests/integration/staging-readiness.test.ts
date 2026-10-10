@@ -33,6 +33,11 @@ const PROTECTED: [string, string, Record<string, unknown>][] = [
   ['admin.updateBatch', 'finance', { batchId: 'BAT-00001', action: 'COLLECT' }],
   ['admin.createSettlement', 'finance', { vendorId: 'VND-001', from: '2026-01-01', to: '2030-12-31' }],
   ['admin.advanceSettlement', 'sa', { settlementId: 'STL-00001', toStatus: 'APPROVED' }],
+  // Owner approval and partner payment (2026-10-10).
+  ['admin.approveTradeIn', 'sa', { tradeInId: 'TI-DEMO-000001', decision: 'APPROVE' }],
+  ['finance.recordPayment', 'sa', { vendorId: 'VND-001', tradeInIds: ['TI-DEMO-000001'], paymentReference: 'X', receipt: 'x' }],
+  ['finance.uploadReceipt', 'sa', { paymentId: 'STL-00001', receipt: 'x' }],
+  ['vendor.confirmFunds', 'partnerAdmin', { paymentId: 'STL-00001' }],
 ];
 
 describe.skipIf(!HAS_DB)('staging readiness', () => {
@@ -63,7 +68,7 @@ describe.skipIf(!HAS_DB)('staging readiness', () => {
 
   it('migration ledger: every migration recorded with a checksum; a re-run applies nothing; an edited file is refused', async () => {
     const rows = (await t.deps.pool.query(`select version, checksum from app.schema_migrations order by version`)).rows;
-    expect(rows.length).toBe(14);
+    expect(rows.length).toBe(15);
     const pool = createPool({ connectionString: t.deps.config.DATABASE_URL, max: 1, ssl: 'disable' });
     try {
       const again = await migrate(pool, resolve('supabase/migrations'), () => undefined);

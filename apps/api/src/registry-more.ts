@@ -5,7 +5,7 @@
  * Same names, same role lists, same idempotency targets as 06_RBAC.gs.
  */
 import { z } from 'zod';
-import { ADMIN_ONLY, ANY_STAFF, ROLES, VENDOR_ANY, VENDOR_MGMT } from '../../../packages/domain/src/constants.js';
+import { ADMIN_ONLY, ANY_STAFF, FINANCE_PAYERS, FINANCE_READERS, OWNER_APPROVERS, ROLES, VENDOR_ANY, VENDOR_FINANCE, VENDOR_MGMT } from '../../../packages/domain/src/constants.js';
 import { empty, flag, id, limit, money, optId, optText, text, ymd } from '../../../packages/validation/src/index.js';
 import type { ActionDef } from './runner.js';
 import * as catalog from './services/catalog.js';
@@ -15,6 +15,7 @@ import * as misc from './services/misc.js';
 import * as people from './services/people.js';
 import * as pricing from './services/pricing.js';
 import * as reports from './services/reports.js';
+import * as workflow from './services/workflow.js';
 import { APP_VERSION, ROLES as R } from '../../../packages/domain/src/constants.js';
 
 const loose = (shape: z.ZodRawShape) => z.object(shape);
@@ -29,7 +30,36 @@ const staffSchema = loose({
 const importRows = z.array(z.record(z.string().max(40), z.union([z.string().max(300), z.number(), z.null()]))).max(5000);
 const dataUrl = z.string().max(4_000_000);
 
+const receiptData = z.string().max(7_500_000); // a 5 MB file as base64 / data URL
+
 export const EXTRA_ACTIONS: Record<string, ActionDef> = {
+  /* ---- owner approval and partner payment (owner decision 2026-10-10) ---- */
+  'admin.approvalQueue': { roles: OWNER_APPROVERS, schema: empty, readOnly: true, run: (ctx) => workflow.approvalQueue(ctx) },
+  'admin.approveTradeIn': {
+    roles: OWNER_APPROVERS, schema: loose({ tradeInId: id, decision: optText(20), reason: optText(500) }), idem: ['tradeInId', 'decision'],
+    run: (ctx, p) => workflow.decideTradeIn(ctx, p),
+  },
+  'finance.queue': { roles: FINANCE_READERS, schema: loose({ vendorId: optId, limit }), readOnly: true, run: (ctx, p) => workflow.financeQueue(ctx, p) },
+  'finance.recordPayment': {
+    roles: FINANCE_PAYERS,
+    schema: loose({
+      vendorId: id, tradeInIds: z.array(z.string().trim().min(1).max(40)).min(1).max(200), paymentReference: text(120),
+      paidAt: optText(40), receipt: receiptData, receiptFileName: optText(200), notes: optText(1000),
+    }),
+    idem: ['vendorId', 'paymentReference'], run: (ctx, p) => workflow.recordPayment(ctx, p),
+  },
+  'finance.uploadReceipt': {
+    roles: FINANCE_PAYERS, schema: loose({ paymentId: id, receipt: receiptData, receiptFileName: optText(200) }), idem: ['paymentId'],
+    run: (ctx, p) => workflow.uploadReceipt(ctx, p),
+  },
+  'finance.viewReceipt': { roles: FINANCE_READERS, schema: loose({ paymentId: id, receiptId: id }), readOnly: true, run: (ctx, p) => workflow.viewReceipt(ctx, p) },
+  'vendor.finance': { roles: VENDOR_FINANCE, schema: loose({ limit }), readOnly: true, run: (ctx, p) => workflow.vendorFinance(ctx, p) },
+  'vendor.confirmFunds': {
+    roles: VENDOR_FINANCE, schema: loose({ paymentId: optId, tradeInId: optId }), idem: ['paymentId', 'tradeInId'],
+    run: (ctx, p) => workflow.confirmFunds(ctx, p),
+  },
+  'vendor.viewReceipt': { roles: VENDOR_FINANCE, schema: loose({ paymentId: id, receiptId: id }), readOnly: true, run: (ctx, p) => workflow.viewReceipt(ctx, p) },
+
   /* ---- customer / staff self ------------------------------------------- */
   'customer.updateProfile': { roles: [ROLES.CUSTOMER], schema: loose({ fullName: optText(120), email: optText(200) }), run: (ctx, p) => people.updateOwnProfile(ctx, p) },
   'search.global': { roles: ANY_STAFF, schema: loose({ query: optText(100) }), readOnly: true, run: (ctx, p) => misc.globalSearch(ctx, p) },

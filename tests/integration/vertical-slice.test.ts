@@ -1,13 +1,14 @@
 /**
  * MILESTONE: the full vertical slice end-to-end through the HTTP API,
  * on a real PostgreSQL database: Auth (verified JWT) → Trade-In →
- * Inspection → Offer → Device Received → Voucher → Collection → Settlement.
+ * Inspection → Offer → Owner approval → Device Received → Voucher → Collection → Accountant payment
+ * → Partner confirmation → Closed.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { businessDate } from '../../packages/shared/src/time.js';
 import { HAS_DB } from '../helpers/db.js';
 import { createTestApp, idemKey, type TestApp } from '../helpers/app.js';
-import { actors, inspectAndOffer, ok, submit, tradeIn, type Actors } from '../helpers/flow.js';
+import { RECEIPT_PDF, accountant, actors, inspectAndOffer, ok, submit, tradeIn, type Actors } from '../helpers/flow.js';
 
 describe.skipIf(!HAS_DB)('vertical slice (end to end)', () => {
   let t: TestApp; let a: Actors;
@@ -62,33 +63,35 @@ describe.skipIf(!HAS_DB)('vertical slice (end to end)', () => {
     expect(vrow.commission_value).toBe('100.00');
     expect(vrow.total_settlement).toBe('2100.00');
 
-    // 7. Qatar Mobile collects.
+    // Owner decision 2026-10-10: from the voucher on, the customer's side is complete.
+    const done = (await ok(t.call('customer.tradeIn', a.customer, { tradeInId: s.tradeInId }))).tradeIn as Record<string, unknown>;
+    expect(done.statusLabel).toBe('Completed');
+
+    // 7. Qatar Mobile collects the device: a logistics record only; the status follows the payment.
     const batch = await ok(t.call('admin.createBatch', a.finance, { vendorId: 'VND-001', branchId: 'BR-0001' }, idemKey()));
     expect(batch.deviceCount).toBe(1);
     const marked = await ok(t.call('admin.updateBatch', a.finance, { batchId: batch.batchId, action: 'COLLECT' }, idemKey()));
     expect(marked.collected).toBe(1);
-    expect(marked.status).toBe('COLLECTED');
-    expect((await tradeIn(t, s.tradeInId)).status).toBe('COLLECTED');
+    row = await tradeIn(t, s.tradeInId);
+    expect(row.status).toBe('READY_FOR_COLLECTION');
+    expect(row.collected_at).not.toBeNull();
 
-    // 8. Settlement: finance prepares and submits, owner approves, finance pays.
-    const today = businessDate(new Date());
-    const st = await ok(t.call('admin.createSettlement', a.finance, { vendorId: 'VND-001', from: today, to: today }, idemKey()));
-    expect(st.tradeInCount).toBe(1);
-    expect(st.total).toBe(2100);
-    const sid = String(st.settlementId);
-    await ok(t.call('admin.advanceSettlement', a.finance, { settlementId: sid, toStatus: 'SUBMITTED' }, idemKey()));
-    const denied = await t.call('admin.advanceSettlement', a.finance, { settlementId: sid, toStatus: 'APPROVED' }, idemKey());
-    expect(denied.status).toBe(403);                       // QM_ADMIN cannot approve
-    await ok(t.call('admin.advanceSettlement', a.sa, { settlementId: sid, toStatus: 'APPROVED' }, idemKey()));
-    const noRef = await t.call('admin.advanceSettlement', a.finance, { settlementId: sid, toStatus: 'PAID' }, idemKey());
-    expect(noRef.body.message).toBe('Record the payment reference.');
-    await ok(t.call('admin.advanceSettlement', a.finance, { settlementId: sid, toStatus: 'PAID', paymentReference: 'TEST-REF-001' }, idemKey()));
+    // 8. The accountant pays the partner (with the receipt); the partner confirms; the trade-in closes.
+    const acct = await accountant(t);
+    const paid = await ok(t.call('finance.recordPayment', acct, {
+      vendorId: 'VND-001', tradeInIds: [s.tradeInId], paymentReference: 'TEST-REF-001', receipt: RECEIPT_PDF, receiptFileName: 'r.pdf',
+    }, idemKey()));
+    expect(paid.total).toBe(2100);
+    const sid = String(paid.paymentId);
+    expect((await tradeIn(t, s.tradeInId)).status).toBe('PAYMENT_SENT');
+    await ok(t.call('vendor.confirmFunds', a.partnerAdmin, { paymentId: sid }, idemKey()));
 
     row = await tradeIn(t, s.tradeInId);
     expect(row.status).toBe('CLOSED');
     expect(row.settlement_id).toBe(sid);
     const srow = (await t.deps.pool.query('select * from public.settlements where id = $1', [sid])).rows[0];
-    expect(srow.status).toBe('PAID');
+    expect(srow.status).toBe('CLOSED');
+    expect(srow.kind).toBe('VENDOR_PAYMENT');
     expect(srow.settlement_total).toBe('2100.00');
     expect(srow.customer_value_total).toBe('2000.00');
     expect(srow.commission_total).toBe('100.00');
@@ -99,7 +102,8 @@ describe.skipIf(!HAS_DB)('vertical slice (end to end)', () => {
 
     // Every step left an audit row in the same transaction.
     const actions = (await t.deps.pool.query<{ action: string }>('select action from public.audit_logs where object_id = $1 order by id', [s.tradeInId])).rows.map((r) => r.action);
-    for (const expected of ['TRADEIN_CREATED', 'INSPECTION_STARTED', 'FINAL_OFFER_SUBMITTED', 'CUSTOMER_ACCEPTED', 'DEVICE_RECEIVED', 'VOUCHER_ISSUED', 'DEVICE_COLLECTED', 'SETTLEMENT_PAID', 'TRADEIN_CLOSED']) {
+    for (const expected of ['TRADEIN_CREATED', 'INSPECTION_STARTED', 'FINAL_OFFER_SUBMITTED', 'OWNER_APPROVAL_REQUESTED', 'OWNER_APPROVED',
+      'CUSTOMER_ACCEPTED', 'DEVICE_RECEIVED', 'VOUCHER_ISSUED', 'DEVICE_COLLECTED', 'VENDOR_PAYMENT_SENT', 'VENDOR_FUNDS_CONFIRMED', 'TRADEIN_CLOSED']) {
       expect(actions).toContain(expected);
     }
     // No secret ever reaches the audit trail.

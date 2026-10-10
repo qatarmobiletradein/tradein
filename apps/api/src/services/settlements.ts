@@ -139,6 +139,11 @@ export async function advanceSettlement(ctx: Ctx, settlementId: string, toStatus
   requirePlatform(ctx);
   const s = (await ctx.db.query<SettlementRow>('select * from public.settlements where id = $1 for update', [settlementId])).rows[0];
   if (!s) throw fail('That settlement does not exist.');
+  // A partner payment recorded by the accountant is closed only by the partner's confirmation.
+  if ((s as SettlementRow & { kind?: string }).kind === 'VENDOR_PAYMENT') {
+    deny(ctx, 'settlement.vendorPayment', s.id);
+    throw fail('This is a partner payment recorded by the accountant. It closes when the partner confirms the money arrived.');
+  }
   const from = s.status;
   const to = trim(toStatus).toUpperCase() as SettlementStatus;
 
@@ -180,6 +185,7 @@ export async function cancelSettlement(ctx: Ctx, settlementId: string, reason: s
   requirePlatform(ctx);
   const s = (await ctx.db.query<SettlementRow>('select * from public.settlements where id = $1 for update', [settlementId])).rows[0];
   if (!s) throw fail('That settlement does not exist.');
+  if ((s as SettlementRow & { kind?: string }).kind === 'VENDOR_PAYMENT') throw fail('A partner payment cannot be cancelled here.');
   if (s.status !== 'DRAFT') throw fail('Only a draft settlement can be cancelled.');
   if (isBlank(reason)) throw fail('Say why this settlement is being cancelled.');
   const released = await ctx.db.query('update public.trade_ins set settlement_id = null where settlement_id = $1', [s.id]);

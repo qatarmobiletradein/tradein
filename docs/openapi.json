@@ -1229,6 +1229,82 @@
         }
       }
     },
+    "/v1/actions/admin.approvalQueue": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "admin_approvalQueue",
+        "summary": "admin.approvalQueue (read)",
+        "description": "Roles: SUPER_ADMIN, QM_ADMIN. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "SUPER_ADMIN",
+          "QM_ADMIN"
+        ],
+        "x-idempotent": false,
+        "x-read-only": true,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/actions/admin.approveStaff": {
       "post": {
         "tags": [
@@ -1310,6 +1386,106 @@
                         "maxLength": 20
                       }
                     },
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/actions/admin.approveTradeIn": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "admin_approveTradeIn",
+        "summary": "admin.approveTradeIn",
+        "description": "Roles: SUPER_ADMIN, QM_ADMIN. Idempotent: send an Idempotency-Key (required in staging/production; missing → 428). Key scope: tradeInId, decision. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "SUPER_ADMIN",
+          "QM_ADMIN"
+        ],
+        "x-idempotent": true,
+        "x-read-only": false,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "tradeInId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "decision": {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "tradeInId"
+                    ],
                     "additionalProperties": false
                   }
                 }
@@ -7601,6 +7777,416 @@
         }
       }
     },
+    "/v1/actions/finance.queue": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "operationId": "finance_queue",
+        "summary": "finance.queue (read)",
+        "description": "Roles: ACCOUNTANT, SUPER_ADMIN, QM_ADMIN. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "ACCOUNTANT",
+          "SUPER_ADMIN",
+          "QM_ADMIN"
+        ],
+        "x-idempotent": false,
+        "x-read-only": true,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "vendorId": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "limit": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/actions/finance.recordPayment": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "operationId": "finance_recordPayment",
+        "summary": "finance.recordPayment",
+        "description": "Roles: ACCOUNTANT, SUPER_ADMIN. Idempotent: send an Idempotency-Key (required in staging/production; missing → 428). Key scope: vendorId, paymentReference. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "ACCOUNTANT",
+          "SUPER_ADMIN"
+        ],
+        "x-idempotent": true,
+        "x-read-only": false,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "vendorId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "tradeInIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "minItems": 1,
+                        "maxItems": 200
+                      },
+                      "paymentReference": {
+                        "type": "string",
+                        "maxLength": 120
+                      },
+                      "paidAt": {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      "receipt": {
+                        "type": "string",
+                        "maxLength": 7500000
+                      },
+                      "receiptFileName": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "vendorId",
+                      "tradeInIds",
+                      "paymentReference",
+                      "receipt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/actions/finance.uploadReceipt": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "operationId": "finance_uploadReceipt",
+        "summary": "finance.uploadReceipt",
+        "description": "Roles: ACCOUNTANT, SUPER_ADMIN. Idempotent: send an Idempotency-Key (required in staging/production; missing → 428). Key scope: paymentId. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "ACCOUNTANT",
+          "SUPER_ADMIN"
+        ],
+        "x-idempotent": true,
+        "x-read-only": false,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "paymentId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "receipt": {
+                        "type": "string",
+                        "maxLength": 7500000
+                      },
+                      "receiptFileName": {
+                        "type": "string",
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "paymentId",
+                      "receipt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/actions/finance.viewReceipt": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "operationId": "finance_viewReceipt",
+        "summary": "finance.viewReceipt (read)",
+        "description": "Roles: ACCOUNTANT, SUPER_ADMIN, QM_ADMIN. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "ACCOUNTANT",
+          "SUPER_ADMIN",
+          "QM_ADMIN"
+        ],
+        "x-idempotent": false,
+        "x-read-only": true,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "paymentId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "receiptId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      }
+                    },
+                    "required": [
+                      "paymentId",
+                      "receiptId"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/actions/me.context": {
       "post": {
         "tags": [
@@ -9291,6 +9877,97 @@
         }
       }
     },
+    "/v1/actions/vendor.confirmFunds": {
+      "post": {
+        "tags": [
+          "vendor"
+        ],
+        "operationId": "vendor_confirmFunds",
+        "summary": "vendor.confirmFunds",
+        "description": "Roles: VENDOR_ADMIN. Idempotent: send an Idempotency-Key (required in staging/production; missing → 428). Key scope: paymentId, tradeInId. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "VENDOR_ADMIN"
+        ],
+        "x-idempotent": true,
+        "x-read-only": false,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "paymentId": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "tradeInId": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/actions/vendor.dashboard": {
       "post": {
         "tags": [
@@ -9323,6 +10000,92 @@
                     "type": "object",
                     "properties": {},
                     "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/actions/vendor.finance": {
+      "post": {
+        "tags": [
+          "vendor"
+        ],
+        "operationId": "vendor_finance",
+        "summary": "vendor.finance (read)",
+        "description": "Roles: VENDOR_ADMIN. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "VENDOR_ADMIN"
+        ],
+        "x-idempotent": false,
+        "x-read-only": true,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "limit": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 }
               }
@@ -10401,6 +11164,96 @@
                     },
                     "required": [
                       "tradeInId"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (a replay of an idempotent request adds \"replayed\": true)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/actions/vendor.viewReceipt": {
+      "post": {
+        "tags": [
+          "vendor"
+        ],
+        "operationId": "vendor_viewReceipt",
+        "summary": "vendor.viewReceipt (read)",
+        "description": "Roles: VENDOR_ADMIN. Partner, branch and ownership scope are enforced inside the action; an out-of-scope object answers 404.",
+        "x-roles": [
+          "VENDOR_ADMIN"
+        ],
+        "x-idempotent": false,
+        "x-read-only": true,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "params"
+                ],
+                "properties": {
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "paymentId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "receiptId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      }
+                    },
+                    "required": [
+                      "paymentId",
+                      "receiptId"
                     ],
                     "additionalProperties": false
                   }

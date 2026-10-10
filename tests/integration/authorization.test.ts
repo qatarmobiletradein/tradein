@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { HAS_DB } from '../helpers/db.js';
 import { createTestApp, idemKey, signToken, type TestApp } from '../helpers/app.js';
-import { actors, inspectAndOffer, ok, submit, toReadyForCollection, tradeIn, type Actors } from '../helpers/flow.js';
+import { actors, inspectAndOffer, ok, submit, markLegacy, toReadyForCollection, tradeIn, type Actors } from '../helpers/flow.js';
 
 describe.skipIf(!HAS_DB)('authorization and isolation', () => {
   let t: TestApp; let a: Actors; let otherPartnerStaff: string; let otherCustomer: string;
@@ -95,6 +95,7 @@ describe.skipIf(!HAS_DB)('authorization and isolation', () => {
 
   it('unauthorised finance actions: QM_ADMIN cannot approve; partner and technician cannot settle', async () => {
     const r = await toReadyForCollection(t, a);
+    await markLegacy(t, r.tradeInId); // batch settlements apply to pre-approval trade-ins only
     const batch = await ok(t.call('admin.createBatch', a.finance, { vendorId: 'VND-001' }, idemKey()));
     await ok(t.call('admin.updateBatch', a.finance, { batchId: batch.batchId }, idemKey()));
     const today = new Date().toISOString().slice(0, 10);

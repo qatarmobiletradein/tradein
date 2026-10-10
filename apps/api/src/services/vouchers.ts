@@ -51,6 +51,14 @@ export async function issueVoucher(ctx: Ctx, p: { tradeInId: string; notes?: str
   const live = (await ctx.db.query<VoucherRow>(`select * from public.vouchers where trade_in_id = $1 and status = 'ISSUED'`, [t.id])).rows[0];
   if (live) throw fail(`A voucher has already been issued for this trade-in: ${live.voucher_number}.`);
 
+  // Owner decision 2026-10-10: no voucher before the owner/admin approved the evaluation (the database re-checks).
+  if (!t.owner_approved_at) {
+    ctx.denials.push({
+      what: t.id, detail: '', action: ACTIONS.VOUCHER_BLOCKED, objectType: 'TRADEIN', vendorId: t.vendor_id, branchId: t.branch_id,
+      details: { status: t.status, reason: 'A voucher was requested before the owner approved the trade-in.' },
+    });
+    throw fail('This trade-in has not been approved by Qatar Mobile yet. A voucher can be issued after the approval.');
+  }
   const stateAllows = t.status === STATUS.DEVICE_RECEIVED || t.status === STATUS.AWAITING_VOUCHER;
   if (!stateAllows || !t.device_received) {
     ctx.denials.push({
@@ -80,6 +88,7 @@ export async function issueVoucher(ctx: Ctx, p: { tradeInId: string; notes?: str
   });
   await transition(ctx, issued, 'READY_FOR_COLLECTION', {}, ACTIONS.VOUCHER_ISSUED, { stage: 'ready for collection' });
   await emit.voucherIssued(ctx.db, t.id, t.customer_id, number, value);
+  await emit.paymentDue(ctx.db, t.id, t.vendor_id, number, toCentsOrNull(t.total_settlement) ?? value);
   const v = (await ctx.db.query<VoucherRow>('select * from public.vouchers where id = $1', [id])).rows[0]!;
   return issuedReply(v, t);
 }

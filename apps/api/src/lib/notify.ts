@@ -99,6 +99,35 @@ export const emit = {
       title: `Settlement ${settlementId} paid`, message: `${money(total)} has been paid.`,
       entityType: 'SETTLEMENT', entityId: settlementId });
   },
+  /* ---- owner approval and partner payment (owner decision 2026-10-10) ---- */
+  async ownerApprovalNeeded(db: Queryable, tradeInId: string, device: string, value: Cents) {
+    await notify(db, { audienceType: 'PLATFORM', kind: NOTIFY.OWNER_APPROVAL_NEEDED, title: `Approval needed: ${tradeInId}`,
+      message: `${device} evaluated at ${money(value)}. Approve it before the customer sees the offer.`,
+      entityType: 'TRADEIN', entityId: tradeInId });
+  },
+  async ownerApproved(db: Queryable, tradeInId: string, vendorId: string, branchId: string, value: Cents) {
+    await notify(db, { audienceType: 'VENDOR', audienceId: vendorId, branchId, kind: NOTIFY.OWNER_APPROVED,
+      title: 'Trade-in approved by Qatar Mobile',
+      message: `${tradeInId} — ${money(value)}. The customer can now accept; the voucher follows the handover.`,
+      entityType: 'TRADEIN', entityId: tradeInId });
+  },
+  async paymentDue(db: Queryable, tradeInId: string, vendorId: string, voucherNumber: string, payable: Cents) {
+    await notify(db, { audienceType: 'PLATFORM', kind: NOTIFY.FINANCE_PAYMENT_DUE, title: `Payment due: ${tradeInId}`,
+      message: `${await vendorName(db, vendorId)} issued voucher ${voucherNumber}. Payable to the partner: ${money(payable)}.`,
+      entityType: 'TRADEIN', entityId: tradeInId });
+  },
+  async vendorPaymentSent(db: Queryable, paymentId: string, vendorId: string, count: number, total: Cents, reference: string) {
+    await notify(db, { audienceType: 'VENDOR', audienceId: vendorId, kind: NOTIFY.FINANCE_PAYMENT_SENT,
+      title: `Payment ${paymentId} sent`,
+      message: `${money(total)} for ${count} trade-in(s), reference ${reference}. Confirm once the money is in your account.`,
+      entityType: 'SETTLEMENT', entityId: paymentId });
+  },
+  async vendorPaymentConfirmed(db: Queryable, paymentId: string, vendorId: string, count: number, total: Cents) {
+    await notify(db, { audienceType: 'PLATFORM', kind: NOTIFY.FINANCE_PAYMENT_CONFIRMED,
+      title: `Payment ${paymentId} confirmed — closed`,
+      message: `${await vendorName(db, vendorId)} confirmed ${money(total)} received; ${count} trade-in(s) closed.`,
+      entityType: 'SETTLEMENT', entityId: paymentId });
+  },
   async staffPending(db: Queryable, userId: string, name: string, vendorId: string) {
     await notify(db, { audienceType: vendorId ? 'VENDOR' : 'PLATFORM', audienceId: vendorId || '', kind: NOTIFY.STAFF_PENDING,
       title: 'Access request waiting',
@@ -116,8 +145,14 @@ export function visibleNotificationsWhere(p: Principal, start = 1): { sql: strin
   if (p.principalType === 'CUSTOMER') {
     return { sql: `(n.audience_type = 'CUSTOMER' and n.audience_id = ${$(0)})`, params: [p.principalId] };
   }
-  const technicianOnly = p.isPlatform && !isPlatformAdmin(p);
-  const platformMaySee = technicianOnly ? `n.entity_type = 'TRADEIN'` : 'true';
+  // The accountant sees finance rows only; a technician sees trade-in rows, never finance or approvals.
+  const accountant = p.role === 'ACCOUNTANT';
+  const technicianOnly = p.isPlatform && !isPlatformAdmin(p) && !accountant;
+  const platformMaySee = accountant
+    ? `(n.audience_type = 'PLATFORM' and n.kind like 'FINANCE\\_%')`
+    : technicianOnly
+      ? `(n.entity_type = 'TRADEIN' and n.kind not like 'FINANCE\\_%' and n.kind <> 'OWNER_APPROVAL_NEEDED')`
+      : 'true';
   if (p.isPlatform) {
     return {
       sql: `((n.audience_type = 'USER' and n.audience_id = ${$(0)})

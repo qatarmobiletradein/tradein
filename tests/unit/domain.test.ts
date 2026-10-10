@@ -152,7 +152,15 @@ describe('workflow', () => {
     expect(canTransition('COLLECTED', 'CLOSED')).toBe(false);
     expect(canTransition('DEVICE_RECEIVED', 'CANCELLED')).toBe(false);
     expect(canTransition('FINAL_OFFER_READY', 'CUSTOMER_ACCEPTED')).toBe(true);
-    expect(Object.values(TRADEIN_FLOW).flat().length).toBe(28);
+    // 28 edges of 3.1, minus INSPECTION_COMPLETED -> FINAL_OFFER_READY, plus 7 for owner approval and partner payment.
+    expect(Object.values(TRADEIN_FLOW).flat().length).toBe(34);
+    expect(canTransition('INSPECTION_COMPLETED', 'FINAL_OFFER_READY')).toBe(false);
+    expect(canTransition('INSPECTION_COMPLETED', 'AWAITING_OWNER_APPROVAL')).toBe(true);
+    expect(canTransition('AWAITING_OWNER_APPROVAL', 'FINAL_OFFER_READY')).toBe(true);
+    expect(canTransition('READY_FOR_COLLECTION', 'CLOSED')).toBe(false);
+    expect(canTransition('READY_FOR_COLLECTION', 'VENDOR_CONFIRMED')).toBe(false);
+    expect(canTransition('PAYMENT_SENT', 'CLOSED')).toBe(false);
+    expect(canTransition('VENDOR_CONFIRMED', 'CLOSED')).toBe(true);
     expect(inCustody('RETURN_PENDING')).toBe(true);
   });
   it('settlement flow', () => {

@@ -26,7 +26,7 @@ import { emit } from '../lib/notify.js';
 import { loadGradeLadder, loadInspectionRules, partnerFee, quote } from '../lib/rules.js';
 import { objectName, validateImage } from '../lib/storage.js';
 import { updateById } from './sql.js';
-import { Lookups, m, type TradeInRow } from './views.js';
+import { Lookups, deviceLabel, m, type TradeInRow } from './views.js';
 import { transition } from './tradeins.js';
 
 interface InspectionRow {
@@ -247,7 +247,7 @@ export async function submitFinalOffer(ctx: Ctx, tradeInId: string, d: { manualA
   // Already scoped by the caller (completeInspection → loadTradeInScoped); lock and read fresh.
   const t = (await ctx.db.query<TradeInRow>('select * from public.trade_ins where id = $1 for update', [tradeInId])).rows[0];
   if (!t) throw fail('Trade-in not found.');
-  if (!canTransition(t.status, 'FINAL_OFFER_READY')) throw fail('This trade-in is not ready for a final offer.');
+  if (!canTransition(t.status, 'AWAITING_OWNER_APPROVAL')) throw fail('This trade-in is not ready for a final offer.');
   const i = await inspectionOf(ctx, t, true);
   if (!i) throw fail('The inspection has not been completed.');
   if (TRADEIN_CONFIG.REQUIRE_IMEI_MATCH && !i.imei_match) throw fail('The IMEI on the device has not been confirmed to match.');
@@ -282,7 +282,9 @@ export async function submitFinalOffer(ctx: Ctx, tradeInId: string, d: { manualA
   const fee = await partnerFee(ctx.db, t.vendor_id, finalCents, t.product_id, now());
   const v = variance(toCentsOrNull(t.estimated_value) ?? 0, finalCents);
 
-  await transition(ctx, t, 'FINAL_OFFER_READY', {
+  // Owner decision 2026-10-10: the priced evaluation goes to the owner/admin first; the customer
+  // sees the offer only after admin.approveTradeIn (AWAITING_OWNER_APPROVAL -> FINAL_OFFER_READY).
+  await transition(ctx, t, 'AWAITING_OWNER_APPROVAL', {
     condition_score: computed.score, grade_code: grade.code,
     grade_percentage_snapshot: fraction4ToDecimal(priced.q.gradePercentageBp),
     base_price_snapshot: centsToDecimal(priced.q.basePriceCents), price_effective_date: priced.q.priceEffectiveDate,
@@ -297,9 +299,13 @@ export async function submitFinalOffer(ctx: Ctx, tradeInId: string, d: { manualA
     grade: grade.code, basePrice: centsToNumber(priced.q.basePriceCents), gradeValue: centsToNumber(priced.q.valueCents),
     adjustment: centsToNumber(adjustment), finalValue: centsToNumber(finalCents), estimatedValue: m(t.estimated_value),
     estimatedGrade: t.estimated_grade ?? '', variance: centsToNumber(v.amount), commission: centsToNumber(fee.commissionCents),
-    note: 'These figures are now frozen on the trade-in.',
+    note: 'These figures are now frozen on the trade-in. Waiting for the owner\'s approval.',
   });
-  await emit.offerReady(ctx.db, t.id, t.customer_id, finalCents);
+  await audit(ctx, ACTIONS.OWNER_APPROVAL_REQUESTED, 'TRADEIN', t.id, {
+    oldValue: 'INSPECTION_COMPLETED', newValue: 'AWAITING_OWNER_APPROVAL', vendorId: t.vendor_id, branchId: t.branch_id,
+    details: { finalValue: centsToNumber(finalCents), grade: grade.code },
+  });
+  await emit.ownerApprovalNeeded(ctx.db, t.id, deviceLabel(t), finalCents);
   if (adjustment !== 0) {
     await audit(ctx, ACTIONS.MANUAL_OVERRIDE, 'TRADEIN', t.id, {
       oldValue: centsToNumber(priced.q.valueCents), newValue: centsToNumber(finalCents), vendorId: t.vendor_id, branchId: t.branch_id,
@@ -308,7 +314,8 @@ export async function submitFinalOffer(ctx: Ctx, tradeInId: string, d: { manualA
   }
   return {
     ok: true, tradeInId: t.id, grade: grade.code, gradeName: grade.name, finalValue: centsToNumber(finalCents), currency: CURRENCY,
-    message: `Final offer of ${formatMoney(finalCents)} ${CURRENCY} sent to the customer.`,
+    status: 'AWAITING_OWNER_APPROVAL',
+    message: `Final offer of ${formatMoney(finalCents)} ${CURRENCY} sent to the owner for approval. The customer sees it once it is approved.`,
   };
 }
 

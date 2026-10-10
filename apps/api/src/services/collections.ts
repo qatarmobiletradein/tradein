@@ -88,7 +88,9 @@ export async function createBatch(ctx: Ctx, d: { vendorId?: string; branchId?: s
 
   const params: unknown[] = [vendorId];
   let sql = `select t.* from public.trade_ins t
-              where t.vendor_id = $1 and t.status = 'READY_FOR_COLLECTION'
+              where t.vendor_id = $1 and t.voucher_id is not null and t.collected_at is null
+                and (t.status = 'READY_FOR_COLLECTION'
+                     or (t.owner_approved_at is not null and t.status in ('PAYMENT_SENT','VENDOR_CONFIRMED','CLOSED')))
                 and not exists (select 1 from public.collection_items i join public.collections c on c.id = i.batch_id
                                  where i.trade_in_id = t.id and i.item_status = 'PENDING' and c.status = any($2::text[]))`;
   params.push(COLLECTION_OPEN_STATUSES);
@@ -159,6 +161,18 @@ export async function markCollected(ctx: Ctx, batchId: string, d: { items?: { tr
       unresolved.push(`${line.trade_in_id} (record missing)`); notCollected++; continue;
     }
     if (decision.status === 'COLLECTED') {
+      // Owner decision 2026-10-10: for an owner-approved trade-in the collection is a logistics record only;
+      // its status follows the partner payment, so the date and the person are written and the status is kept.
+      if (t.owner_approved_at && t.voucher_id && ['READY_FOR_COLLECTION', 'PAYMENT_SENT', 'VENDOR_CONFIRMED', 'CLOSED'].includes(t.status)) {
+        await updateById(ctx.db, 'trade_ins', t.id, { collected_at: now(), collected_by: `${ctx.p.name} (${ctx.p.principalId})` });
+        await audit(ctx, ACTIONS.DEVICE_COLLECTED, 'TRADEIN', t.id, {
+          oldValue: t.status, newValue: t.status, vendorId: t.vendor_id, branchId: t.branch_id,
+          details: { batchId: batch.id, note: 'Logistics only: the payment status is unchanged.' },
+        });
+        await markItem(ctx, line.id, 'COLLECTED', '');
+        collected++;
+        continue;
+      }
       if (!canTransition(t.status, STATUS.COLLECTED)) {
         await markItem(ctx, line.id, 'EXCEPTION', `The trade-in is at "${statusLabel(t.status)}" and cannot be collected.`);
         await updateById(ctx.db, 'trade_ins', t.id, { collection_batch_id: null });
@@ -304,7 +318,9 @@ export async function pendingCollectionSummary(ctx: Ctx) {
     `select t.branch_id, t.vendor_id, count(*)::int as n, coalesce(sum(t.total_settlement),0)::text as value,
             min(coalesce(v.issued_at, t.device_received_at, t.created_at)) as oldest
        from public.trade_ins t left join public.vouchers v on v.id = t.voucher_id
-      where t.status = 'READY_FOR_COLLECTION'
+      where t.voucher_id is not null and t.collected_at is null
+        and (t.status = 'READY_FOR_COLLECTION'
+             or (t.owner_approved_at is not null and t.status in ('PAYMENT_SENT','VENDOR_CONFIRMED','CLOSED')))
         and not exists (select 1 from public.collection_items i join public.collections c on c.id = i.batch_id
                          where i.trade_in_id = t.id and i.item_status = 'PENDING' and c.status = any($1::text[]))
         ${where.length ? `and ${where.join(' and ')}` : ''}

@@ -7,7 +7,7 @@
  * its audit row in the same transaction.
  */
 import {
-  ACTIONS, ADMIN_ONLY, CORRECTABLE_STATUSES, CURRENCY, IMEI_FREE_STATUSES, ROLE_LABELS, STATUS, TRADEIN_CONFIG,
+  ACTIONS, ADMIN_ONLY, CORRECTABLE_STATUSES, CURRENCY, IMEI_FREE_STATUSES, ROLE_LABELS, STATUS, TRADEIN_CONFIG, VOUCHER_DONE_STATUSES,
   type TradeInStatus,
 } from '../../../../packages/domain/src/constants.js';
 import { canTransition, inCustody } from '../../../../packages/domain/src/workflow.js';
@@ -408,7 +408,7 @@ const TECH_COLUMNS = '*';
 export async function technicianQueues(ctx: Ctx) {
   const r = await ctx.db.query<TradeInRow>(
     `select ${TECH_COLUMNS} from public.trade_ins
-      where status in ('PENDING_TECHNICIAN','INSPECTION_IN_PROGRESS','INSPECTION_COMPLETED','FINAL_OFFER_READY','CUSTOMER_ACCEPTED','RETURN_PENDING')
+      where status in ('PENDING_TECHNICIAN','INSPECTION_IN_PROGRESS','INSPECTION_COMPLETED','AWAITING_OWNER_APPROVAL','FINAL_OFFER_READY','CUSTOMER_ACCEPTED','RETURN_PENDING')
       order by created_at desc limit 2000`);
   const L = new Lookups(ctx.db);
   const pick = async (s: string[]) => {
@@ -420,10 +420,22 @@ export async function technicianQueues(ctx: Ctx) {
     ok: true,
     waiting: await pick(['PENDING_TECHNICIAN']),
     inProgress: await pick(['INSPECTION_IN_PROGRESS', 'INSPECTION_COMPLETED']),
+    awaitingOwner: await pick(['AWAITING_OWNER_APPROVAL']),
     awaitingCustomer: await pick(['FINAL_OFFER_READY']),
     readyToReceive: await pick(['CUSTOMER_ACCEPTED']),
     returns: await pick(['RETURN_PENDING']),
+    // From the voucher on, the technician's part is done: shown as completed, with no actions.
+    completed: await completedForTechnician(ctx, L),
   };
+}
+
+async function completedForTechnician(ctx: Ctx, L: Lookups) {
+  const rows = (await ctx.db.query<TradeInRow>(
+    `select * from public.trade_ins where voucher_id is not null and status = any($1::text[]) order by updated_at desc limit 50`,
+    [VOUCHER_DONE_STATUSES])).rows;
+  const out = [];
+  for (const t of rows) out.push({ ...(await technicianQueueView(L, t)), statusLabel: 'Completed', completed: true, actions: [] });
+  return out;
 }
 
 /** vendorQueue_: scope from the principal, never from the request. */
@@ -449,6 +461,10 @@ export async function vendorQueue(ctx: Ctx, f: { status?: string; branchId?: str
   return {
     ok: true, total: rows.length,
     awaitingVoucher: rows.filter((t) => t.status === 'DEVICE_RECEIVED' || t.status === 'AWAITING_VOUCHER').length,
+    // Finance after the voucher (owner decision 2026-10-10).
+    awaitingPayment: rows.filter((t) => t.status === 'READY_FOR_COLLECTION' && !t.settlement_id).length,
+    confirmPayment: rows.filter((t) => t.status === 'PAYMENT_SENT').length,
+    paymentCompleted: rows.filter((t) => t.status === 'CLOSED' && !!t.vendor_confirmed_at).length,
     tradeIns: shown,
   };
 }
@@ -499,6 +515,7 @@ const TIMELINE_ACTIONS = [
   ACTIONS.DEVICE_RECEIVED, ACTIONS.DEVICE_RETURN_START, ACTIONS.DEVICE_RETURNED, ACTIONS.VOUCHER_ISSUED, ACTIONS.VOUCHER_VOIDED,
   ACTIONS.VOUCHER_REISSUED, ACTIONS.COLLECTION_CREATED, ACTIONS.DEVICE_COLLECTED, ACTIONS.DEVICE_NOT_COLLECTED,
   ACTIONS.SETTLEMENT_CREATED, ACTIONS.SETTLEMENT_APPROVED, ACTIONS.SETTLEMENT_PAID, ACTIONS.TRADEIN_CLOSED, 'STATUS_CHANGED',
+  ACTIONS.OWNER_APPROVED, ACTIONS.OWNER_SENT_BACK, ACTIONS.OWNER_REJECTED, ACTIONS.VENDOR_PAYMENT_SENT, ACTIONS.VENDOR_FUNDS_CONFIRMED,
 ];
 const TIMELINE_LABEL: Record<string, string> = {
   [ACTIONS.TRADEIN_CREATED]: 'Trade-in created', [ACTIONS.QUESTIONNAIRE_SAVED]: 'Customer described the device',
@@ -513,6 +530,9 @@ const TIMELINE_LABEL: Record<string, string> = {
   [ACTIONS.DEVICE_NOT_COLLECTED]: 'Device not collected', [ACTIONS.SETTLEMENT_CREATED]: 'Settlement created',
   [ACTIONS.SETTLEMENT_APPROVED]: 'Settlement approved', [ACTIONS.SETTLEMENT_PAID]: 'Settlement paid',
   [ACTIONS.TRADEIN_CLOSED]: 'Trade-in closed', STATUS_CHANGED: 'Status changed',
+  [ACTIONS.OWNER_APPROVED]: 'Approved by the owner', [ACTIONS.OWNER_SENT_BACK]: 'Sent back by the owner',
+  [ACTIONS.OWNER_REJECTED]: 'Rejected by the owner', [ACTIONS.VENDOR_PAYMENT_SENT]: 'Partner paid by the accountant',
+  [ACTIONS.VENDOR_FUNDS_CONFIRMED]: 'Partner confirmed the payment',
 };
 
 function timelineNote(d: Record<string, unknown> | null): string {

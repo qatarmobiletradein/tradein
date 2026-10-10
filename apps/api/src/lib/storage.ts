@@ -18,11 +18,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import { AppError } from '../../../../packages/shared/src/errors.js';
 import { isLegacyJwtKey } from './gotrue.js';
 
-export type Bucket = 'catalog-media' | 'inspection-photos';
+export type Bucket = 'catalog-media' | 'inspection-photos' | 'payment-receipts';
+/** Private buckets: read only through short-lived signed URLs issued after a scope check. */
+export type PrivateBucket = 'inspection-photos' | 'payment-receipts';
 
 export interface StorageClient {
   upload(bucket: Bucket, path: string, bytes: Buffer, contentType: string): Promise<void>;
-  signedUrl(bucket: 'inspection-photos', path: string, ttlSeconds: number): Promise<string>;
+  signedUrl(bucket: PrivateBucket, path: string, ttlSeconds: number): Promise<string>;
   publicUrl(bucket: 'catalog-media', path: string): string;
   remove(bucket: Bucket, path: string): Promise<void>;
 }
@@ -80,6 +82,38 @@ export function validateImage(input: unknown, maxBytes: number): ValidatedImage 
 
 export const objectName = (prefix: string, ext: string): string => `${prefix}/${randomUUID()}.${ext}`;
 
+const RECEIPT_EXT: Record<string, string> = {
+  'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+};
+
+/**
+ * A payment receipt: a PDF or a photo/screenshot of the transfer, validated by its BYTES.
+ * GIF/BMP are not accepted (no bank issues those); SVG/HTML never.
+ */
+export function validateReceipt(input: unknown, maxBytes: number): ValidatedImage {
+  const s = typeof input === 'string' ? input.trim() : '';
+  if (!s) throw new AppError('VALIDATION', 'Attach the payment receipt (PDF or image).');
+  let declared = '';
+  let b64 = s;
+  const m = /^data:([a-z0-9.+/-]+);base64,(.*)$/is.exec(s);
+  if (m) { declared = m[1]!.toLowerCase(); b64 = m[2]!; }
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(b64)) throw new AppError('VALIDATION', 'That file could not be read.');
+  if (Math.floor((b64.replace(/\s/g, '').length * 3) / 4) > maxBytes + 4) {
+    throw new AppError('VALIDATION', `That file is larger than ${Math.round(maxBytes / 1048576)} MB.`);
+  }
+  const bytes = Buffer.from(b64, 'base64');
+  if (!bytes.length) throw new AppError('VALIDATION', 'That file is empty.');
+  if (bytes.length > maxBytes) throw new AppError('VALIDATION', `That file is larger than ${Math.round(maxBytes / 1048576)} MB.`);
+  const isPdf = bytes.length > 5 && bytes.subarray(0, 5).toString('ascii') === '%PDF-';
+  const mime = isPdf ? 'application/pdf' : sniffImageMime(bytes);
+  if (!mime || !RECEIPT_EXT[mime]) throw new AppError('VALIDATION', 'A receipt must be a PDF, PNG, JPEG, WebP or HEIC file.');
+  const norm = declared === 'image/jpg' ? 'image/jpeg' : declared;
+  if (norm && norm !== 'application/octet-stream' && norm !== mime && !(norm.startsWith('image/hei') && mime.startsWith('image/hei'))) {
+    throw new AppError('VALIDATION', 'The file type does not match its contents.');
+  }
+  return { bytes, mime, ext: RECEIPT_EXT[mime]!, sha256: createHash('sha256').update(bytes).digest('hex'), size: bytes.length };
+}
+
 export class SupabaseStorage implements StorageClient {
   private readonly url: string;
   constructor(url: string, private readonly serviceKey: string, private readonly fetchImpl: typeof fetch = fetch) {
@@ -105,7 +139,7 @@ export class SupabaseStorage implements StorageClient {
     if (res.status < 200 || res.status >= 300) throw new AppError('UNAVAILABLE', 'The file could not be stored. Please try again.');
   }
 
-  async signedUrl(bucket: 'inspection-photos', path: string, ttlSeconds: number): Promise<string> {
+  async signedUrl(bucket: PrivateBucket, path: string, ttlSeconds: number): Promise<string> {
     const res = await this.fetchImpl(`${this.url}/storage/v1/object/sign/${bucket}/${this.enc(path)}`, {
       method: 'POST', headers: this.headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ expiresIn: ttlSeconds }), redirect: 'manual', signal: AbortSignal.timeout(10_000),
@@ -136,7 +170,7 @@ export class MemoryStorage implements StorageClient {
     if (this.objects.has(k)) throw new AppError('CONFLICT', 'That file already exists.');
     this.objects.set(k, { bytes, contentType });
   }
-  async signedUrl(bucket: 'inspection-photos', path: string, ttl: number): Promise<string> {
+  async signedUrl(bucket: PrivateBucket, path: string, ttl: number): Promise<string> {
     return `memory://${bucket}/${path}?expires=${Math.floor(Date.now() / 1000) + ttl}&token=test`;
   }
   publicUrl(bucket: 'catalog-media', path: string): string { return `memory://${bucket}/${path}`; }

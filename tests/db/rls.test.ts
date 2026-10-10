@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { HAS_DB } from '../helpers/db.js';
 import { createTestApp, type TestApp } from '../helpers/app.js';
-import { actors, submit, toReadyForCollection, type Actors } from '../helpers/flow.js';
+import { actors, submit, markLegacy, toReadyForCollection, type Actors } from '../helpers/flow.js';
 
 async function as<T>(pool: pg.Pool, role: 'anon' | 'authenticated', sub: string | null, fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
   const c = await pool.connect();
@@ -103,7 +103,10 @@ describe.skipIf(!HAS_DB)('row level security', () => {
   });
 
   it('finance tables mirror the API: branch staff see no settlements, partners see no collection notes, no partner terms', async () => {
-    // Put a settlement and a collection note in place for the Mall branch.
+    // Put a settlement and a collection note in place for the Mall branch (batch settlements apply to
+    // trade-ins from before the owner-approval step, so the waiting ones are marked as such).
+    await t.deps.pool.query(`update public.trade_ins set owner_approved_at = null, owner_approved_by = null
+      where vendor_id = 'VND-001' and branch_id = 'BR-0001' and status = 'READY_FOR_COLLECTION'`);
     const batch = await t.call('admin.createBatch', a.finance, { vendorId: 'VND-001', branchId: 'BR-0001' }, 'rls-batch-key-000001');
     await t.call('admin.updateBatch', a.finance, { batchId: batch.body.batchId, action: 'COLLECT' }, 'rls-collect-key-00001');
     const st = await t.call('admin.createSettlement', a.finance, { vendorId: 'VND-001', from: '2026-01-01', to: '2030-12-31' }, 'rls-settle-key-000001');

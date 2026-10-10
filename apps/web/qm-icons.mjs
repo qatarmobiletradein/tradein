@@ -50,8 +50,18 @@ export const NAV_ICONS = {
   // partner (vendor)
   'v-vouchers': 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4zM14 5v2M14 11v2M14 17v2',
 };
+// Owner approval and partner payment (2026-10-10).
+Object.assign(NAV_ICONS, {
+  'a-approvals': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6',
+  'f-pending': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  'f-paid': 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  'f-completed': 'M20 6 9 17l-5-5',
+  't-owner': 'M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6zM12 8v4M12 16h.01',
+  't-done': 'M20 6 9 17l-5-5',
+});
 // Same meaning, same icon.
 Object.assign(NAV_ICONS, {
+  'a-finance': NAV_ICONS['a-settlements'], 'v-finance': NAV_ICONS['a-settlements'],
   'v-home': NAV_ICONS['a-home'], 'v-queue': NAV_ICONS['a-tradeins'], 'v-branches': NAV_ICONS['a-branches'],
   'v-staff': NAV_ICONS['a-staff'], 'v-settlements': NAV_ICONS['a-settlements'], 'v-reports': NAV_ICONS['a-reports'],
 });

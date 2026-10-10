@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTransaction } from '../../packages/database/src/db.js';
 import { HAS_DB } from '../helpers/db.js';
 import { GOOD_ANSWERS, createTestApp, idemKey, makeImei, type TestApp } from '../helpers/app.js';
-import { actors, inspectAndOffer, ok, submit, toReadyForCollection, tradeIn, type Actors } from '../helpers/flow.js';
+import { actors, inspectAndOffer, ok, submit, markLegacy, toReadyForCollection, tradeIn, type Actors } from '../helpers/flow.js';
 
 describe.skipIf(!HAS_DB)('transactions, concurrency and idempotency', () => {
   let t: TestApp; let a: Actors; let customer2: string;
@@ -142,7 +142,7 @@ describe.skipIf(!HAS_DB)('transactions, concurrency and idempotency', () => {
   });
 
   it('duplicate settlement: concurrent creation for the same period claims each device once', async () => {
-    await toReadyForCollection(t, a);
+    await markLegacy(t, (await toReadyForCollection(t, a)).tradeInId); // batch path: pre-approval trade-ins only
     const b = await ok(t.call('admin.createBatch', a.finance, { vendorId: 'VND-001', branchId: 'BR-0001' }, idemKey()));
     await ok(t.call('admin.updateBatch', a.finance, { batchId: b.batchId }, idemKey()));
     const res = await Promise.all([1, 2, 3].map(() => t.call('admin.createSettlement', a.finance, { vendorId: 'VND-001', from: '2026-01-01', to: '2030-12-31' }, idemKey())));

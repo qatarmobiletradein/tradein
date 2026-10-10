@@ -37,20 +37,23 @@ export const ROLES = {
   VENDOR_ADMIN: 'VENDOR_ADMIN',
   VENDOR_MANAGER: 'VENDOR_MANAGER',
   VENDOR_STAFF: 'VENDOR_STAFF',
+  /** Finance only: pays partners for voucher-created trade-ins (owner decision 2026-10-10). */
+  ACCOUNTANT: 'ACCOUNTANT',
   CUSTOMER: 'CUSTOMER',
 } as const;
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 export type StaffRole = Exclude<Role, 'CUSTOMER'>;
 
-export const PLATFORM_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN];
+export const PLATFORM_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN, ROLES.ACCOUNTANT];
 export const VENDOR_ROLES: readonly Role[] = [ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER, ROLES.VENDOR_STAFF];
 export const ASSIGNABLE_ROLES: readonly StaffRole[] = [
-  ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN,
+  ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN, ROLES.ACCOUNTANT,
   ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER, ROLES.VENDOR_STAFF,
 ];
 
-/** Role groups used by the 3.1 action registry (06_RBAC.gs). */
-export const ANY_STAFF: readonly Role[] = ASSIGNABLE_ROLES;
+/** Role groups used by the 3.1 action registry (06_RBAC.gs). The accountant is in none of them. */
+export const ANY_STAFF: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN,
+  ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER, ROLES.VENDOR_STAFF];
 export const ADMIN_ONLY: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN];
 export const VENDOR_MGMT: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER];
 export const VENDOR_ANY: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.VENDOR_ADMIN,
@@ -59,11 +62,21 @@ export const TECH_ANY: readonly Role[] = [ROLES.TECHNICIAN, ROLES.QM_ADMIN, ROLE
 export const STAFF_MANAGER_ROLES: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN,
   ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER];
 
+/** The owner's approval of an evaluated trade-in (before the customer sees the offer). */
+export const OWNER_APPROVERS: readonly Role[] = [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN];
+/** Paying a partner and uploading the receipt. */
+export const FINANCE_PAYERS: readonly Role[] = [ROLES.ACCOUNTANT, ROLES.SUPER_ADMIN];
+/** Reading the finance queues (oversight for the admins). */
+export const FINANCE_READERS: readonly Role[] = [ROLES.ACCOUNTANT, ROLES.SUPER_ADMIN, ROLES.QM_ADMIN];
+/** Confirming that a payment arrived: partner-level only. */
+export const VENDOR_FINANCE: readonly Role[] = [ROLES.VENDOR_ADMIN];
+
 /** WHO MAY GRANT WHAT (00_Config.gs ROLE_GRANTS). */
 export const ROLE_GRANTS: Record<Role, readonly StaffRole[]> = {
-  SUPER_ADMIN: [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN,
+  SUPER_ADMIN: [ROLES.SUPER_ADMIN, ROLES.QM_ADMIN, ROLES.TECHNICIAN, ROLES.ACCOUNTANT,
     ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER, ROLES.VENDOR_STAFF],
   QM_ADMIN: [ROLES.QM_ADMIN, ROLES.TECHNICIAN, ROLES.VENDOR_ADMIN, ROLES.VENDOR_MANAGER, ROLES.VENDOR_STAFF],
+  ACCOUNTANT: [],
   VENDOR_ADMIN: [ROLES.VENDOR_MANAGER, ROLES.VENDOR_STAFF],
   VENDOR_MANAGER: [ROLES.VENDOR_STAFF],
   VENDOR_STAFF: [],
@@ -78,12 +91,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   VENDOR_ADMIN: 'Vendor admin',
   VENDOR_MANAGER: 'Vendor manager',
   VENDOR_STAFF: 'Vendor staff',
+  ACCOUNTANT: 'Accountant',
   CUSTOMER: 'Customer',
 };
 
 export const ROLE_HOME: Record<Role, string> = {
   SUPER_ADMIN: 'admin', QM_ADMIN: 'admin', TECHNICIAN: 'technician',
-  VENDOR_ADMIN: 'vendor', VENDOR_MANAGER: 'vendor', VENDOR_STAFF: 'vendor', CUSTOMER: 'customer',
+  VENDOR_ADMIN: 'vendor', VENDOR_MANAGER: 'vendor', VENDOR_STAFF: 'vendor', ACCOUNTANT: 'finance', CUSTOMER: 'customer',
 };
 
 export const USER_STATUS = {
@@ -98,15 +112,23 @@ export const STATUS = {
   PENDING_TECHNICIAN: 'PENDING_TECHNICIAN',
   INSPECTION_IN_PROGRESS: 'INSPECTION_IN_PROGRESS',
   INSPECTION_COMPLETED: 'INSPECTION_COMPLETED',
+  /** Evaluated and priced; waiting for the owner/admin ("EVALUATED -> AWAITING_OWNER_APPROVAL"). */
+  AWAITING_OWNER_APPROVAL: 'AWAITING_OWNER_APPROVAL',
+  /** Reached only through the owner's approval ("OWNER_APPROVED"): the offer is released to the customer. */
   FINAL_OFFER_READY: 'FINAL_OFFER_READY',
   CUSTOMER_ACCEPTED: 'CUSTOMER_ACCEPTED',
   CUSTOMER_DECLINED: 'CUSTOMER_DECLINED',
   DEVICE_RECEIVED: 'DEVICE_RECEIVED',
   AWAITING_VOUCHER: 'AWAITING_VOUCHER',
   VOUCHER_ISSUED: 'VOUCHER_ISSUED',
+  /** The voucher exists ("VOUCHER_CREATED"): customer and technician side complete; awaiting the vendor payment. */
   READY_FOR_COLLECTION: 'READY_FOR_COLLECTION',
   COLLECTED: 'COLLECTED',
   SETTLED: 'SETTLED',
+  /** The accountant paid the partner and uploaded the receipt. */
+  PAYMENT_SENT: 'PAYMENT_SENT',
+  /** The partner confirmed the money arrived (moves straight on to CLOSED). */
+  VENDOR_CONFIRMED: 'VENDOR_CONFIRMED',
   CLOSED: 'CLOSED',
   RETURN_PENDING: 'RETURN_PENDING',
   DEVICE_RETURNED: 'DEVICE_RETURNED',
@@ -119,16 +141,19 @@ export const TRADEIN_FLOW: Record<TradeInStatus, readonly TradeInStatus[]> = {
   DRAFT: ['PENDING_TECHNICIAN', 'CANCELLED'],
   PENDING_TECHNICIAN: ['INSPECTION_IN_PROGRESS', 'CANCELLED'],
   INSPECTION_IN_PROGRESS: ['INSPECTION_COMPLETED', 'CANCELLED'],
-  INSPECTION_COMPLETED: ['FINAL_OFFER_READY', 'INSPECTION_IN_PROGRESS', 'CANCELLED'],
+  INSPECTION_COMPLETED: ['AWAITING_OWNER_APPROVAL', 'INSPECTION_IN_PROGRESS', 'CANCELLED'],
+  AWAITING_OWNER_APPROVAL: ['FINAL_OFFER_READY', 'INSPECTION_IN_PROGRESS', 'CANCELLED'],
   FINAL_OFFER_READY: ['CUSTOMER_ACCEPTED', 'CUSTOMER_DECLINED', 'INSPECTION_IN_PROGRESS'],
   CUSTOMER_ACCEPTED: ['DEVICE_RECEIVED', 'CANCELLED'],
   CUSTOMER_DECLINED: ['CLOSED'],
   DEVICE_RECEIVED: ['AWAITING_VOUCHER', 'VOUCHER_ISSUED', 'RETURN_PENDING'],
   AWAITING_VOUCHER: ['VOUCHER_ISSUED', 'RETURN_PENDING'],
   VOUCHER_ISSUED: ['READY_FOR_COLLECTION', 'AWAITING_VOUCHER'],
-  READY_FOR_COLLECTION: ['COLLECTED', 'AWAITING_VOUCHER'],
+  READY_FOR_COLLECTION: ['PAYMENT_SENT', 'COLLECTED', 'AWAITING_VOUCHER'],
   COLLECTED: ['SETTLED'],
   SETTLED: ['CLOSED'],
+  PAYMENT_SENT: ['VENDOR_CONFIRMED'],
+  VENDOR_CONFIRMED: ['CLOSED'],
   RETURN_PENDING: ['DEVICE_RETURNED'],
   DEVICE_RETURNED: ['CANCELLED'],
   CLOSED: [],
@@ -140,15 +165,18 @@ export const CUSTOMER_STATUS_TEXT: Record<TradeInStatus, { label: string; detail
   PENDING_TECHNICIAN: { label: 'Waiting for inspection', detail: 'Bring your device to the shop. Our technician will check it.' },
   INSPECTION_IN_PROGRESS: { label: 'Your device is being inspected', detail: 'A technician is checking your device now.' },
   INSPECTION_COMPLETED: { label: 'Inspection finished', detail: 'We are preparing your final offer.' },
+  AWAITING_OWNER_APPROVAL: { label: 'Inspection finished', detail: 'We are confirming your final offer. You will be told as soon as it is ready.' },
   FINAL_OFFER_READY: { label: 'Your final offer is ready', detail: 'Review it and accept or decline.' },
   CUSTOMER_ACCEPTED: { label: 'Offer accepted', detail: 'Hand your device over at the shop to receive your voucher.' },
   CUSTOMER_DECLINED: { label: 'Offer declined', detail: 'Your device stays with you.' },
   DEVICE_RECEIVED: { label: 'Device received', detail: 'We have your device. Your voucher is being prepared.' },
   AWAITING_VOUCHER: { label: 'Preparing your trade-in voucher', detail: 'Your voucher is being written at the shop.' },
-  VOUCHER_ISSUED: { label: 'Trade-in approved', detail: 'Your voucher has been issued.' },
-  READY_FOR_COLLECTION: { label: 'Trade-in approved', detail: 'Your voucher has been issued and your trade-in is complete.' },
+  VOUCHER_ISSUED: { label: 'Completed', detail: 'Your voucher has been issued and your trade-in is complete.' },
+  READY_FOR_COLLECTION: { label: 'Completed', detail: 'Your voucher has been issued and your trade-in is complete.' },
   COLLECTED: { label: 'Completed', detail: 'Everything is done.' },
   SETTLED: { label: 'Completed', detail: 'Everything is done.' },
+  PAYMENT_SENT: { label: 'Completed', detail: 'Your voucher has been issued and your trade-in is complete.' },
+  VENDOR_CONFIRMED: { label: 'Completed', detail: 'Your voucher has been issued and your trade-in is complete.' },
   CLOSED: { label: 'Completed', detail: 'Everything is done.' },
   RETURN_PENDING: { label: 'Device being returned', detail: 'Collect your device from the shop.' },
   DEVICE_RETURNED: { label: 'Device returned', detail: 'You have your device back.' },
@@ -167,28 +195,46 @@ export const CUSTOMER_TIMELINE = [
 ] as const;
 
 export const CUSTOMER_TIMELINE_STEP: Record<TradeInStatus, number> = {
-  DRAFT: 0, PENDING_TECHNICIAN: 2, INSPECTION_IN_PROGRESS: 2, INSPECTION_COMPLETED: 3,
+  DRAFT: 0, PENDING_TECHNICIAN: 2, INSPECTION_IN_PROGRESS: 2, INSPECTION_COMPLETED: 3, AWAITING_OWNER_APPROVAL: 3,
   FINAL_OFFER_READY: 3, CUSTOMER_ACCEPTED: 5, DEVICE_RECEIVED: 6, AWAITING_VOUCHER: 6,
-  VOUCHER_ISSUED: 7, READY_FOR_COLLECTION: 7, COLLECTED: 8, SETTLED: 8, CLOSED: 8,
+  // From the voucher on, the customer's side is complete (owner decision 2026-10-10).
+  VOUCHER_ISSUED: 8, READY_FOR_COLLECTION: 8, COLLECTED: 8, SETTLED: 8, PAYMENT_SENT: 8, VENDOR_CONFIRMED: 8, CLOSED: 8,
   CUSTOMER_DECLINED: -1, RETURN_PENDING: -1, DEVICE_RETURNED: -1, CANCELLED: -1,
 };
 
 export const CUSTODY_STATUSES: readonly TradeInStatus[] = [
   'DEVICE_RECEIVED', 'AWAITING_VOUCHER', 'VOUCHER_ISSUED', 'READY_FOR_COLLECTION',
-  'COLLECTED', 'SETTLED', 'CLOSED', 'RETURN_PENDING',
+  'COLLECTED', 'SETTLED', 'PAYMENT_SENT', 'VENDOR_CONFIRMED', 'CLOSED', 'RETURN_PENDING',
 ];
 
 export const BILLABLE_STATUSES: readonly TradeInStatus[] = [
   'CUSTOMER_ACCEPTED', 'DEVICE_RECEIVED', 'AWAITING_VOUCHER', 'VOUCHER_ISSUED',
-  'READY_FOR_COLLECTION', 'COLLECTED', 'SETTLED', 'CLOSED',
+  'READY_FOR_COLLECTION', 'COLLECTED', 'SETTLED', 'PAYMENT_SENT', 'VENDOR_CONFIRMED', 'CLOSED',
 ];
+
+/** The customer may see the final figure only once the owner released it (or later). */
+export const OFFER_RELEASED_STATUSES: readonly TradeInStatus[] = [
+  'FINAL_OFFER_READY', 'CUSTOMER_ACCEPTED', 'CUSTOMER_DECLINED', 'DEVICE_RECEIVED', 'AWAITING_VOUCHER', 'VOUCHER_ISSUED',
+  'READY_FOR_COLLECTION', 'COLLECTED', 'SETTLED', 'PAYMENT_SENT', 'VENDOR_CONFIRMED', 'CLOSED', 'RETURN_PENDING', 'DEVICE_RETURNED',
+];
+
+/** After the voucher: the customer and the technician are done; only the partner payment remains. */
+export const VOUCHER_DONE_STATUSES: readonly TradeInStatus[] = [
+  'READY_FOR_COLLECTION', 'COLLECTED', 'SETTLED', 'PAYMENT_SENT', 'VENDOR_CONFIRMED', 'CLOSED',
+];
+
+/** Finance labels the partner and the accountant see. */
+export const FINANCE_STATUS_LABEL: Partial<Record<TradeInStatus, string>> = {
+  READY_FOR_COLLECTION: 'Awaiting payment', PAYMENT_SENT: 'Paid — confirm receipt',
+  VENDOR_CONFIRMED: 'Payment confirmed', CLOSED: 'Completed',
+};
 
 /** Statuses after which a device no longer blocks another trade-in of the same IMEI. */
 export const IMEI_FREE_STATUSES: readonly TradeInStatus[] = ['CANCELLED', 'CLOSED', 'CUSTOMER_DECLINED'];
 
 /** Money may still be corrected (14_TradeIns.gs CORRECTABLE_STATUSES). */
 export const CORRECTABLE_STATUSES: readonly TradeInStatus[] = [
-  'INSPECTION_COMPLETED', 'FINAL_OFFER_READY', 'CUSTOMER_ACCEPTED', 'DEVICE_RECEIVED', 'AWAITING_VOUCHER',
+  'INSPECTION_COMPLETED', 'AWAITING_OWNER_APPROVAL', 'FINAL_OFFER_READY', 'CUSTOMER_ACCEPTED', 'DEVICE_RECEIVED', 'AWAITING_VOUCHER',
 ];
 
 export const SETTLEABLE_STATUSES: readonly TradeInStatus[] = ['COLLECTED'];
@@ -396,6 +442,8 @@ export const DEFAULT_ESTIMATE_NOTE =
 export const MEDIA = {
   MAX_IMAGE_BYTES: 2 * 1024 * 1024,
   MAX_PHOTO_BYTES: 4 * 1024 * 1024,
+  MAX_RECEIPT_BYTES: 5 * 1024 * 1024,
+  RECEIPT_BUCKET: 'payment-receipts',
   PUBLIC_BUCKET: 'catalog-media',
   PRIVATE_BUCKET: 'inspection-photos',
 } as const;
@@ -442,6 +490,10 @@ export const ACTIONS = {
   SETTLEMENT_APPROVED: 'SETTLEMENT_APPROVED', SETTLEMENT_PAID: 'SETTLEMENT_PAID', SETTLEMENT_CLOSED: 'SETTLEMENT_CLOSED',
   SETTLEMENT_CANCELLED: 'SETTLEMENT_CANCELLED', SETTLEMENT_REOPENED: 'SETTLEMENT_RETURNED_TO_DRAFT',
   TRADEIN_CLOSED: 'TRADEIN_CLOSED',
+  OWNER_APPROVAL_REQUESTED: 'OWNER_APPROVAL_REQUESTED', OWNER_APPROVED: 'OWNER_APPROVED',
+  OWNER_SENT_BACK: 'OWNER_SENT_BACK', OWNER_REJECTED: 'OWNER_REJECTED',
+  VENDOR_PAYMENT_SENT: 'VENDOR_PAYMENT_SENT', PAYMENT_RECEIPT_UPLOADED: 'PAYMENT_RECEIPT_UPLOADED',
+  VENDOR_FUNDS_CONFIRMED: 'VENDOR_FUNDS_CONFIRMED',
   ESTIMATE_GIVEN: 'CUSTOMER_ESTIMATE_GIVEN', QUESTIONNAIRE_SAVED: 'CUSTOMER_QUESTIONNAIRE_SAVED',
   GRADE_OVERRIDDEN: 'GRADE_OVERRIDDEN_BY_ADMIN',
   SETTINGS_CHANGED: 'SETTINGS_CHANGED',
@@ -455,6 +507,10 @@ export const NOTIFY = {
   TRADEIN_NEW: 'TRADEIN_NEW', INSPECTION_DONE: 'INSPECTION_DONE', OFFER_READY: 'OFFER_READY',
   VOUCHER_READY: 'VOUCHER_READY', COLLECTION_READY: 'COLLECTION_READY', COLLECTION_EXCEPTION: 'COLLECTION_EXCEPTION',
   SETTLEMENT_CREATED: 'SETTLEMENT_CREATED', SETTLEMENT_PAID: 'SETTLEMENT_PAID', STAFF_PENDING: 'STAFF_PENDING',
+  OWNER_APPROVAL_NEEDED: 'OWNER_APPROVAL_NEEDED', OWNER_APPROVED: 'OWNER_APPROVED',
+  // FINANCE_* rows are the ones the accountant sees.
+  FINANCE_PAYMENT_DUE: 'FINANCE_PAYMENT_DUE', FINANCE_PAYMENT_SENT: 'FINANCE_PAYMENT_SENT',
+  FINANCE_PAYMENT_CONFIRMED: 'FINANCE_PAYMENT_CONFIRMED',
 } as const;
 
 /* ---------------------------------------------------------- OTP limits */

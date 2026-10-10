@@ -30,6 +30,12 @@ import { normalizePhone, toCsv } from '../../packages/shared/src/text.js';
 import { businessDateCompact } from '../../packages/shared/src/time.js';
 import { COUNTER_SOURCES, EXCLUDED_SHEETS, SHEETS, type Raw, type SheetSpec } from './mapping.js';
 
+/**
+ * Historical rows predate the owner-approval step (2026-10-10): this transaction-local flag lets the
+ * database accept a historical voucher without an owner approval. Only this tool sets it.
+ */
+const LEGACY_IMPORT = "select set_config('qm.legacy_import', 'on', true)";
+
 export type Mode = 'DRY_RUN' | 'VALIDATE' | 'APPLY';
 
 export interface RowError { sheet: string; rowNumber: number; legacyId: string; error: string }
@@ -167,7 +173,7 @@ export async function runImport(pool: pg.Pool, dir: string, mode: Mode, opts: { 
   if (mode === 'VALIDATE') {
     const c = await pool.connect();
     try {
-      await c.query('begin');
+      await c.query('begin'); await c.query(LEGACY_IMPORT);
       for (const spec of SHEETS) {
         const list = rows.get(spec.sheet) ?? [];
         await processRows(c, spec, list, 0, list.length, resOf(spec.sheet), errors, dupKeys);
@@ -218,7 +224,7 @@ export async function runImport(pool: pg.Pool, dir: string, mode: Mode, opts: { 
     const c = await pool.connect();
     const before = errors.length;
     try {
-      await c.query('begin');
+      await c.query('begin'); await c.query(LEGACY_IMPORT);
       for (const spec of SHEETS.filter((s) => s.transactional)) {
         const list = rows.get(spec.sheet) ?? [];
         await processRows(c, spec, list, 0, list.length, resOf(spec.sheet), errors, dupKeys);
@@ -252,7 +258,7 @@ export async function runImport(pool: pg.Pool, dir: string, mode: Mode, opts: { 
       const c = await pool.connect();
       const before = errors.length;
       try {
-        await c.query('begin');
+        await c.query('begin'); await c.query(LEGACY_IMPORT);
         await processRows(c, spec, list, start, end, resOf(spec.sheet), errors, dupKeys);
         await recordErrors(c, errors.slice(before));
         await setCheckpoint(c, spec.sheet, end);

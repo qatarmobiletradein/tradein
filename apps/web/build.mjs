@@ -47,7 +47,9 @@ const PARTIALS = ['BrandAssets', 'Styles', 'StylesCustomer', 'Client', 'Frame', 
 const PAGE_ALLOWLIST = ['app', 'a-home', 'a-tradeins', 'a-collections', 'a-settlements', 'a-reports', 'a-audit', 'a-vendors', 'a-branches', 'a-commission',
   'a-brands', 'a-categories', 'a-products', 'a-pricing', 'a-grades', 'a-inspection', 'a-import', 'a-customers', 'a-staff', 'a-settings',
   'c-home', 'c-new', 'c-orders', 'c-detail', 'c-profile', 't-queue', 't-offers', 't-receive', 't-returns',
-  'v-home', 'v-queue', 'v-vouchers', 'v-branches', 'v-staff', 'v-settlements', 'v-reports'];
+  'v-home', 'v-queue', 'v-vouchers', 'v-branches', 'v-staff', 'v-settlements', 'v-reports',
+  // owner approval and partner payment (qm-workflow.js)
+  'a-approvals', 'a-finance', 'f-pending', 'f-paid', 'f-completed', 'v-finance', 't-owner', 't-done'];
 
 const bootStatic = {
   platform: 'Qatar Mobile', currency: 'QAR', countryCode: '+974', baseUrl: '',
@@ -81,7 +83,7 @@ if (mode === 'railway') {
 for (const p of PARTIALS) html = html.replace(`<?!= partials.${p} ?>`, () => readFileSync(join(legacy, `${p}.html`), 'utf8'));
 html = html.replace('QM.boot(<?!= boot ?>);', 'QM.boot(window.__QM_BOOT__);');
 // Visual fixes over the unchanged 3.1 styles, last in the page so they apply.
-html = html.replace('</body>', () => `<style>\n${readFileSync(join(here, 'qm-overrides.css'), 'utf8')}\n${navIconCss()}\n</style>\n<script>\n${readFileSync(join(here, 'qm-ui.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-flow.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-import.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-commission.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-imei.js'), 'utf8')}\n</script>\n</body>`);
+html = html.replace('</body>', () => `<style>\n${readFileSync(join(here, 'qm-overrides.css'), 'utf8')}\n${navIconCss()}\n</style>\n<script>\n${readFileSync(join(here, 'qm-ui.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-flow.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-import.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-commission.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-workflow.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-imei.js'), 'utf8')}\n</script>\n</body>`);
 html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n  <title>Qatar Mobile Trade-In</title>');
 if (/<\?!?=/.test(html)) { console.error('Unresolved template tag left in the output.'); process.exit(4); }
 
