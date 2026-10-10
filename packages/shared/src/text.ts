@@ -53,6 +53,18 @@ export function maskPhone(p: unknown): string {
 }
 
 /** 15 digits and a valid Luhn check digit (isValidImei_). */
+/**
+ * An IMEI as typed or scanned: digits, optionally grouped with spaces or dashes ("35 123456 789012 3").
+ * Anything else (letters, other symbols) is malformed and returns null rather than being stripped away.
+ * The result is digits only; length and check digit are isValidImei's job.
+ */
+export function normalizeImei(raw: unknown): string | null {
+  const s = str(raw).trim();
+  if (!s) return '';
+  if (!/^[0-9][0-9 \-]*$/.test(s)) return null;
+  return s.replace(/[ \-]/g, '');
+}
+
 export function isValidImei(imei: unknown): boolean {
   const s = str(imei).replace(/\D/g, '');
   if (!/^\d{15}$/.test(s)) return false;

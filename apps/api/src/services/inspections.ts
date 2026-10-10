@@ -17,7 +17,7 @@ import { AppError, CommitThenFail, fail, invalid } from '../../../../packages/sh
 import {
   centsToDecimal, centsToNumber, clampCents, formatMoney, fraction4ToDecimal, microToDecimal, toCents, toCentsOrNull, variance,
 } from '../../../../packages/shared/src/money.js';
-import { digitsOnly, formatPhone, isValidImei, maskImei, safeEquals, trim, truthy } from '../../../../packages/shared/src/text.js';
+import { digitsOnly, formatPhone, isValidImei, maskImei, normalizeImei, safeEquals, trim, truthy } from '../../../../packages/shared/src/text.js';
 import { fmtDateTime } from '../../../../packages/shared/src/time.js';
 import type { Ctx } from '../context.js';
 import { audit } from '../lib/audit.js';
@@ -130,7 +130,7 @@ export async function openInspection(ctx: Ctx, p: { tradeInId: string }) {
 /** checkImei_: returns a boolean only — never the expected value. */
 export async function checkImei(ctx: Ctx, p: { tradeInId: string; scannedImei: string }) {
   const t = await loadTradeInScoped<TradeInRow>(ctx, p.tradeInId, { lock: true });
-  const scanned = digitsOnly(p.scannedImei);
+  const scanned = normalizeImei(p.scannedImei) ?? '';
   if (!/^\d{15}$/.test(scanned)) throw fail('An IMEI is 15 digits. Dial *#06# on the device.');
   if (TRADEIN_CONFIG.REQUIRE_IMEI_LUHN && !isValidImei(scanned)) throw fail('That is not a valid IMEI. Check the digits and try again.');
   const matches = safeEquals(scanned, digitsOnly(t.imei));

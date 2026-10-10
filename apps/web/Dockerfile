@@ -20,6 +20,7 @@ COPY --chown=node:node apps/web/server.mjs ./apps/web/server.mjs
 COPY --chown=node:node apps/web/icons ./apps/web/icons
 COPY --chown=node:node apps/web/catalog ./apps/web/catalog
 COPY --chown=node:node apps/web/templates ./apps/web/templates
+COPY --chown=node:node apps/web/vendor ./apps/web/vendor
 USER node
 EXPOSE 8080
 CMD ["node", "apps/web/server.mjs"]

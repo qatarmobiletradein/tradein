@@ -81,7 +81,7 @@ if (mode === 'railway') {
 for (const p of PARTIALS) html = html.replace(`<?!= partials.${p} ?>`, () => readFileSync(join(legacy, `${p}.html`), 'utf8'));
 html = html.replace('QM.boot(<?!= boot ?>);', 'QM.boot(window.__QM_BOOT__);');
 // Visual fixes over the unchanged 3.1 styles, last in the page so they apply.
-html = html.replace('</body>', () => `<style>\n${readFileSync(join(here, 'qm-overrides.css'), 'utf8')}\n${navIconCss()}\n</style>\n<script>\n${readFileSync(join(here, 'qm-ui.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-flow.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-import.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-commission.js'), 'utf8')}\n</script>\n</body>`);
+html = html.replace('</body>', () => `<style>\n${readFileSync(join(here, 'qm-overrides.css'), 'utf8')}\n${navIconCss()}\n</style>\n<script>\n${readFileSync(join(here, 'qm-ui.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-flow.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-import.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-commission.js'), 'utf8')}\n</script>\n<script>\n${readFileSync(join(here, 'qm-imei.js'), 'utf8')}\n</script>\n</body>`);
 html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n  <title>Qatar Mobile Trade-In</title>');
 if (/<\?!?=/.test(html)) { console.error('Unresolved template tag left in the output.'); process.exit(4); }
 

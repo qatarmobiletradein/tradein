@@ -22,7 +22,7 @@ import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import { setup } from '../helpers/global-setup.js';
 import { createTestApp } from '../helpers/app.js';
-import { submit, actors } from '../helpers/flow.js';
+import { actors, submit } from '../helpers/flow.js';
 import { settleBackgroundWork } from '../../apps/api/src/services/staff-auth.js';
 import { totp } from '../helpers/totp.js';
 
@@ -33,6 +33,8 @@ interface PwLocator { first(): PwLocator; last(): PwLocator; nth(i: number): PwL
   setInputFiles(f: { name: string; mimeType: string; buffer: Buffer }): Promise<void>; getAttribute(n: string): Promise<string | null>; innerText(): Promise<string> }
 interface PwPage {
   on(ev: 'pageerror', fn: (e: Error) => void): void; on(ev: 'console', fn: (m: { type(): string; text(): string }) => void): void;
+  on(ev: 'request', fn: (r: { url(): string }) => void): void; addInitScript(script: string): Promise<void>;
+  evaluate<T = unknown>(fn: string): Promise<T>;
   goto(url: string): Promise<unknown>; locator(sel: string, o?: never): PwLocator; getByRole(role: string, o: { name: string }): PwLocator;
   waitForTimeout(ms: number): Promise<void>; screenshot(o: { path: string; fullPage?: boolean }): Promise<unknown>;
 }
@@ -52,7 +54,11 @@ async function serve(mode: 'phone' | 'password' | 'both') {
   const apiBase = `http://127.0.0.1:${(t.app.server.address() as AddressInfo).port}`;
   execFileSync('node', ['apps/web/build.mjs'], { env: { ...process.env, QM_API_BASE: apiBase, QM_TRANSPORT: 'railway', QM_ENVIRONMENT_LABEL: 'TEST', QM_STAFF_SIGN_IN: mode }, stdio: 'pipe' });
   const page = readFileSync('dist/web/index.html');
-  web.on('request', (_req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page); });
+  web.on('request', (req, res) => {
+    const m = /^\/vendor\/([a-z0-9.-]+\.min\.js)$/.exec(req.url ?? '');
+    if (m) { res.writeHead(200, { 'content-type': 'text/javascript' }); res.end(readFileSync(`apps/web/vendor/${m[1]}`)); return; }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page);
+  });
   return { t, web, webOrigin };
 }
 
@@ -69,12 +75,13 @@ async function main(): Promise<void> {
     await runPhoneMode(browser);
     await runPasswordMode(browser);
     await runBothMode(browser);
+    await runImeiMode(browser);
   } finally {
     await browser.close();
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 15) process.exitCode = 1;
+  if (results.length !== 27) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -347,3 +354,174 @@ async function runBothMode(browser: PwBrowser): Promise<void> {
 }
 
 main().catch((e) => { console.error(`UI smoke failed: ${(e as Error).message}`); process.exit(1); });
+
+/**
+ * "Enter IMEI Manually" / "Scan IMEI" in a real browser (2026-10-10). The camera is replaced by a canvas
+ * stream and, for the native path, BarcodeDetector by a stub that returns a chosen payload; the ZXing
+ * fallback decodes a real QR code drawn on that canvas (this ZXing build has no 1D writer to draw CODE_128). Every request must stay on this origin.
+ */
+const FAKE_CAMERA = `
+(() => {
+  window.__scan = { mode: 'ok', payload: '' };
+  const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
+  window.__scanCanvas = canvas;
+  const g = canvas.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 640, 360);
+  const md = navigator.mediaDevices || {};
+  Object.defineProperty(navigator, 'mediaDevices', { configurable: true, get: () => (window.__scan.mode === 'nocamera-api' ? undefined : md) });
+  md.getUserMedia = async () => {
+    const m = window.__scan.mode;
+    if (m === 'denied') throw new DOMException('denied', 'NotAllowedError');
+    if (m === 'nocam') throw new DOMException('none', 'NotFoundError');
+    return canvas.captureStream(10);
+  };
+  class FakeDetector {
+    static async getSupportedFormats() { return window.__scan.mode === 'zxing' ? [] : ['code_128', 'code_39', 'qr_code']; }
+    async detect() {
+      const m = window.__scan.mode;
+      if (m === 'broken') throw new Error('detector failed');
+      if (m === 'never') return [];
+      return [{ rawValue: window.__scan.payload, format: 'code_128' }];
+    }
+  }
+  window.BarcodeDetector = FakeDetector;
+})();`;
+
+async function runImeiMode(browser: PwBrowser): Promise<void> {
+  const { t, web, webOrigin } = await serve('phone');
+  const a = await actors(t);
+  const pending = await submit(t, a.customer);
+  const offHost: string[] = [];
+  try {
+    const ctx = await browser.newContext(); const p = await ctx.newPage(); watch(p, 'imei');
+    p.on('request', (r) => { const u = new URL(r.url()); if (!['127.0.0.1', 'localhost'].includes(u.hostname) && u.protocol !== 'data:' && u.protocol !== 'blob:') offHost.push(u.origin); });
+    await p.addInitScript(FAKE_CAMERA);
+    await p.goto(webOrigin);
+    await p.locator('input[type=tel]').first().fill('30000010');
+    await p.getByRole('button', { name: 'Send code' }).click();
+    await p.locator('input.code-input').waitFor({ timeout: 10_000 });
+    await p.locator('input.code-input').fill(t.sms.lastCodeFor('+97430000010')!);
+    await p.getByRole('button', { name: 'Sign in' }).click({ timeout: 1500 }).catch(() => undefined);
+    await p.locator('.cx').first().waitFor({ timeout: 15_000 });
+    // The customer's IMEI step of the trade-in flow, drawn by the unchanged 3.1 function.
+    await p.evaluate(`(() => { const box = document.createElement('div'); box.id = 'imei-test'; document.body.prepend(box);
+      F = freshFlow(); F.step = 1; stepDevice(box, box); })()`);
+    const S = '#imei-test ';
+    const val = () => p.evaluate<string>(`document.querySelector('${S}input.imei-input').value`);
+    const gateDisabled = () => p.evaluate<boolean>(`document.querySelector('${S}.cx-cta:not(.back)').disabled`);
+    const statusText = () => p.evaluate<string>(`document.querySelector('${S}[data-qm=imei-status]').textContent`);
+    const panelText = () => p.evaluate<string>(`(e => e.hidden ? '' : e.textContent)(document.querySelector('${S}[data-qm=imei-confirm-panel]'))`);
+    const fields = await p.evaluate<number>(`document.querySelectorAll('${S}input.imei-input').length`);
+    const labels = await p.evaluate<string>(`[...document.querySelectorAll('${S}.qm-imei-choice button')].map(b => b.textContent).join('|')`);
+    if (fields !== 1 || labels !== 'Enter IMEI Manually|Scan IMEI') throw new Error(`choices: ${fields} field(s), ${labels}`);
+    const until = async (fn: () => Promise<boolean>, what: string) => {
+      for (let i = 0; i < 60; i++) { if (await fn()) return; await new Promise((r) => setTimeout(r, 100)); }
+      throw new Error(`timed out: ${what}`);
+    };
+    await p.screenshot({ path: 'tests/e2e/artifacts/imei-choices.png' });
+
+    // Manual entry: validate, confirm, continue.
+    const input = p.locator(`${S}input.imei-input`);
+    await input.fill('49015420323751a');
+    if (!/digits only/.test(await statusText()) || !(await gateDisabled())) throw new Error('letters were not refused');
+    await input.fill('4901542032375');
+    if (!/13 of 15/.test(await statusText())) throw new Error(`short: ${await statusText()}`);
+    await input.fill('4901542032375189');
+    if (!/more/.test(await statusText())) throw new Error(`long: ${await statusText()}`);
+    await input.fill('490154203237519');
+    if (!/check digit/.test(await statusText()) || !(await gateDisabled())) throw new Error('bad check digit was not refused');
+    await input.fill('49 015420 323751 8');
+    if (!(await gateDisabled()) || !/490154203237518|49 015420 323751 8/.test(await panelText())) throw new Error('valid IMEI should wait for Confirm');
+    await p.locator(`${S}[data-qm=imei-confirm]`).click();
+    if (await gateDisabled()) throw new Error('Continue stayed disabled after Confirm');
+    await p.screenshot({ path: 'tests/e2e/artifacts/imei-manual-confirmed.png' });
+    results.push('PASS IMEI manual: letters/short/long/check digit refused; a valid IMEI is confirmed before Continue');
+
+    // Scan: payload with text around the IMEI fills the SAME field; Confirm or Edit.
+    await p.evaluate(`window.__scan.mode = 'ok'; window.__scan.payload = 'Model A1 IMEI: 356938035643809 S/N F2LXX'`);
+    await p.locator(`${S}[data-qm=imei-scan]`).click();
+    await until(async () => (await val()) === '356938035643809', 'scan fills the field');
+    if (!/Detected IMEI/.test(await panelText()) || !(await gateDisabled())) throw new Error('scanned IMEI must be shown and confirmed');
+    if (await p.evaluate<boolean>(`!!document.querySelector('[data-qm=imei-scanner]')`)) throw new Error('camera overlay still open');
+    await p.screenshot({ path: 'tests/e2e/artifacts/imei-scanned.png' });
+    await p.locator(`${S}[data-qm=imei-edit]`).click();
+    await input.fill('490154203237518');
+    await p.locator(`${S}[data-qm=imei-confirm]`).click();
+    if ((await val()) !== '490154203237518' || (await gateDisabled())) throw new Error('editing a scanned IMEI failed');
+    results.push('PASS IMEI scan: IMEI found inside the barcode text, put in the existing field, shown, confirmed or edited; camera stopped');
+
+    // Dual SIM: both are offered, nothing is picked silently.
+    await p.evaluate(`window.__scan.payload = 'IMEI1: 490154203237518\\nIMEI2: 356938035643809'`);
+    await p.locator(`${S}[data-qm=imei-scan]`).click();
+    await p.locator('[data-qm=imei-pick]').waitFor({ timeout: 5000 });
+    const offered = await p.evaluate<string>(`document.querySelector('[data-qm=imei-pick]').textContent`);
+    if (!/IMEI 1/.test(offered) || !/IMEI 2/.test(offered)) throw new Error(`dual SIM choices: ${offered}`);
+    await p.screenshot({ path: 'tests/e2e/artifacts/imei-dual-sim.png' });
+    await p.locator('[data-qm=imei-pick-2]').click();
+    await until(async () => (await val()) === '356938035643809', 'chosen IMEI 2');
+    results.push('PASS IMEI dual SIM: IMEI 1 and IMEI 2 offered; the chosen one is used');
+
+    // Refusals all come back to manual entry, with a sentence and no application error.
+    const backToManual = async (mode: string, pattern: RegExp, label: string) => {
+      await p.evaluate(`window.__scan.mode = '${mode}'`);
+      await p.locator(`${S}[data-qm=imei-scan]`).click();
+      if (mode === 'never') {
+        await p.locator('[data-qm=imei-scanner]').waitFor({ timeout: 5000 });
+        await p.screenshot({ path: 'tests/e2e/artifacts/imei-camera.png' });
+        await p.locator('[data-qm=imei-scan-cancel]').click();
+      }
+      await until(async () => pattern.test(await statusText()), label);
+      const manual = await p.evaluate<string>(`document.querySelector('${S}[data-qm=imei-manual]').getAttribute('aria-pressed')`);
+      const open = await p.evaluate<boolean>(`!!document.querySelector('[data-qm=imei-scanner]')`);
+      if (manual !== 'true' || open) throw new Error(`${label}: not back to manual entry`);
+    };
+    await backToManual('denied', /permission/i, 'permission denied');
+    results.push('PASS IMEI camera permission denied: message shown, back to manual entry');
+    await backToManual('nocam', /No camera was found/, 'no camera');
+    await backToManual('nocamera-api', /No camera is available/, 'no camera API');
+    results.push('PASS IMEI no camera (device or browser): message shown, manual entry kept');
+    await backToManual('never', /cancelled/i, 'cancel');
+    results.push('PASS IMEI cancel: the camera closes and manual entry is selected');
+    await backToManual('broken', /stopped working/, 'scanner failure');
+    results.push('PASS IMEI scanner failure: back to manual entry, no application error');
+
+    // No native detector: the self-hosted ZXing build decodes a real CODE_128 barcode from the camera.
+    await p.evaluate(`window.__scan.mode = 'zxing'`);
+    await p.evaluate(`new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/vendor/zxing-library-0.21.3.min.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); })`);
+    await p.evaluate(`(() => { const m = new ZXing.QRCodeWriter().encode('IMEI: 358240051111110', ZXing.BarcodeFormat.QR_CODE, 240, 240, new Map());
+      const g = window.__scanCanvas.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 640, 360); g.fillStyle = '#000';
+      for (let x = 0; x < m.getWidth(); x++) for (let y = 0; y < m.getHeight(); y++) if (m.get(x, y)) g.fillRect(200 + x, 60 + y, 1, 1);
+      window.__scanTimer = setInterval(() => { g.fillStyle = 'rgba(255,255,255,0.01)'; g.fillRect(0, 0, 1, 1); }, 100); })()`);
+    await p.locator(`${S}[data-qm=imei-scan]`).click();
+    await until(async () => (await val()) === '358240051111110', 'ZXing decode');
+    results.push('PASS IMEI fallback decoder: no native BarcodeDetector → the local ZXing build read the IMEI from a QR code');
+
+    if (offHost.length) throw new Error(`requests left this origin: ${[...new Set(offHost)].join(', ')}`);
+    results.push('PASS IMEI privacy: no request left the app while scanning (no frame or IMEI sent anywhere)');
+    await ctx.close();
+
+    // Technician: the same component on the inspection's identity check; "Check IMEI" waits for Confirm.
+    const tctx = await browser.newContext(); const tp = await tctx.newPage(); watch(tp, 'imei-tech');
+    await tp.goto(webOrigin);
+    await tp.locator('input[type=tel]').first().fill('30000003');
+    await tp.getByRole('button', { name: 'Send code' }).click();
+    await tp.locator('input.code-input').waitFor({ timeout: 10_000 });
+    await tp.locator('input.code-input').fill(t.sms.lastCodeFor('+97430000003')!);
+    await tp.getByRole('button', { name: 'Sign in' }).click({ timeout: 1500 }).catch(() => undefined);
+    await tp.locator(STAFF_PORTAL).first().waitFor({ timeout: 15_000 });
+    await tp.evaluate(`openInspection(${JSON.stringify(pending.tradeInId)})`);
+    await tp.locator('[data-qm=imei-manual]').waitFor({ timeout: 10_000 });
+    const checkDisabled = () => tp.evaluate<boolean>(`[...document.querySelectorAll('button')].find(b => /Check IMEI/.test(b.textContent)).disabled`);
+    if (!(await checkDisabled())) throw new Error('Check IMEI should wait for a confirmed IMEI');
+    await tp.locator('input[data-qm-imei]').fill(pending.imei);
+    await tp.locator('[data-qm=imei-confirm]').click();
+    if (await checkDisabled()) throw new Error('Check IMEI stayed disabled');
+    await tp.screenshot({ path: 'tests/e2e/artifacts/imei-technician.png' });
+    await tp.evaluate(`[...document.querySelectorAll('button')].find(b => /Check IMEI/.test(b.textContent)).click()`);
+    await until(async () => (await t.deps.pool.query('select imei_match from public.inspections where trade_in_id = $1', [pending.tradeInId])).rows[0]?.imei_match === true, 'technician IMEI match');
+    results.push('PASS IMEI technician: the two choices on the identity check; confirmed IMEI matched by the server');
+    await tctx.close();
+  } finally {
+    await t.close();
+    web.close();
+  }
+}

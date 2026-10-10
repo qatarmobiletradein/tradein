@@ -18,7 +18,7 @@ import { AppError, fail, forbidden, notFound } from '../../../../packages/shared
 import {
   centsToDecimal, centsToNumber, clampCents, formatMoney, microToDecimal, toCents, toCentsOrNull, variance, fraction4ToDecimal,
 } from '../../../../packages/shared/src/money.js';
-import { digitsOnly, isBlank, isValidImei, maskImei, sameLabel, statusLabel, trim } from '../../../../packages/shared/src/text.js';
+import { digitsOnly, isBlank, isValidImei, maskImei, normalizeImei, sameLabel, statusLabel, trim } from '../../../../packages/shared/src/text.js';
 import { fmtDateTime, parseDayEnd, parseDayStart } from '../../../../packages/shared/src/time.js';
 import type { Ctx } from '../context.js';
 import { audit } from '../lib/audit.js';
@@ -143,7 +143,9 @@ export async function createTradeIn(ctx: Ctx, d: CreateTradeInParams) {
     if (color && color.product_id !== product.id) throw fail('That colour does not belong to this model.');
   }
 
-  const imei = digitsOnly(d.imei);
+  const normalized = normalizeImei(d.imei);
+  if (normalized === null) throw fail('An IMEI is 15 digits only. Dial *#06# and check what you typed.');
+  const imei = normalized;
   if (TRADEIN_CONFIG.REQUIRE_IMEI) {
     if (!imei) throw fail('Enter the device IMEI. Dial *#06# to see it.');
     if (TRADEIN_CONFIG.REQUIRE_IMEI_LUHN && !isValidImei(imei)) {

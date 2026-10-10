@@ -31,6 +31,14 @@ try {
     if (/^[a-z0-9-]+\.webp$/.test(name)) catalog.set(`/catalog/${name}`, readFileSync(join(catalogDir, name)));
   }
 } catch { /* no catalogue images in this build */ }
+// Vendored browser libraries (apps/web/vendor/*.min.js, pinned versions, see vendor/README.md), loaded on
+// demand from this origin only — e.g. the barcode decoder for "Scan IMEI" when the browser has none built in.
+const vendor = new Map();
+try {
+  for (const name of readdirSync(join(here, 'vendor'))) {
+    if (/^[a-z0-9.-]+\.min\.js$/.test(name)) vendor.set(`/vendor/${name}`, readFileSync(join(here, 'vendor', name)));
+  }
+} catch { /* no vendored libraries in this build */ }
 // Download templates (apps/web/templates/*.xlsx), e.g. the Bulk import reference template.
 const templates = new Map();
 try {
@@ -51,7 +59,7 @@ const imgSources = ["'self'", 'data:', 'blob:', storage, ...catalogOrigins].filt
 
 const csp = [
   "default-src 'none'",
-  "script-src 'unsafe-inline'",           // the 3.1 page is one file with inline scripts
+  "script-src 'unsafe-inline' 'self'",    // the 3.1 page is one file with inline scripts; 'self' = /vendor/*.min.js
   "style-src 'unsafe-inline'",
   `img-src ${[...new Set(imgSources)].join(' ')}`,
   "font-src data:",
@@ -63,7 +71,8 @@ const common = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), payment=()',
+  // camera=(self): "Scan IMEI" reads barcodes with the device camera, on this page only.
+  'Permissions-Policy': 'camera=(self), geolocation=(), microphone=(), payment=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
 };
 
@@ -80,6 +89,11 @@ const server = createServer((req, res) => {
   if (image) {
     res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=604800', 'Content-Length': String(image.length), ...common });
     res.end(req.method === 'HEAD' ? undefined : image); return;
+  }
+  const lib = vendor.get(path);
+  if (lib) {
+    res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Length': String(lib.length), ...common });
+    res.end(req.method === 'HEAD' ? undefined : lib); return;
   }
   const tpl = templates.get(path);
   if (tpl) {
