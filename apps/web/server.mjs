@@ -9,7 +9,7 @@
  * and load images only from itself, data:/blob: and Supabase Storage.
  */
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,18 +22,31 @@ const ICON_LINKS = '<link rel="icon" href="/favicon.ico" sizes="any"><link rel="
 const icons = Object.fromEntries([
   ['/favicon.ico', 'image/x-icon'], ['/favicon.svg', 'image/svg+xml'], ['/apple-touch-icon.png', 'image/png'],
 ].map(([p, type]) => [p, { type, body: readFileSync(join(here, 'icons', p.slice(1))) }]));
+// Catalogue product images (apps/web/catalog/*.webp, official manufacturer renders normalized to one
+// frame — see catalog/SOURCES.json). Only files present at start-up are served; names are fixed slugs.
+const catalogDir = join(here, 'catalog');
+const catalog = new Map();
+try {
+  for (const name of readdirSync(catalogDir)) {
+    if (/^[a-z0-9-]+\.webp$/.test(name)) catalog.set(`/catalog/${name}`, readFileSync(join(catalogDir, name)));
+  }
+} catch { /* no catalogue images in this build */ }
 const page = readFileSync(join(here, '..', '..', 'dist', 'web', 'index.html'), 'utf8');
 const html = Buffer.from(page.includes('</head>') ? page.replace('</head>', `${ICON_LINKS}</head>`) : page);
 const gz = gzipSync(html, { level: 9 });
 const origin = (u) => { try { return new URL(u).origin; } catch { return ''; } };
 const apiOrigins = (process.env.QM_API_BASE ?? '').split(',').map(origin).filter(Boolean);
 const storage = origin(process.env.QM_STORAGE_ORIGIN ?? '');
+// Product image URLs are absolute (https://qmtradein.com/catalog/...); the page may be opened on
+// www. or the Railway domain too, so that origin is allowed for images explicitly.
+const catalogOrigins = (process.env.QM_CATALOG_ORIGIN ?? '').split(',').map(origin).filter(Boolean);
+const imgSources = ["'self'", 'data:', 'blob:', storage, ...catalogOrigins].filter(Boolean);
 
 const csp = [
   "default-src 'none'",
   "script-src 'unsafe-inline'",           // the 3.1 page is one file with inline scripts
   "style-src 'unsafe-inline'",
-  `img-src 'self' data: blob:${storage ? ` ${storage}` : ''}`,
+  `img-src ${[...new Set(imgSources)].join(' ')}`,
   "font-src data:",
   `connect-src ${apiOrigins.join(' ') || "'none'"}`,
   "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'", "object-src 'none'",
@@ -55,6 +68,11 @@ const server = createServer((req, res) => {
   if (icon) {
     res.writeHead(200, { 'Content-Type': icon.type, 'Cache-Control': 'public, max-age=86400', 'Content-Length': String(icon.body.length), ...common });
     res.end(req.method === 'HEAD' ? undefined : icon.body); return;
+  }
+  const image = catalog.get(path);
+  if (image) {
+    res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=604800', 'Content-Length': String(image.length), ...common });
+    res.end(req.method === 'HEAD' ? undefined : image); return;
   }
   if (path !== '/' && path !== '/index.html' && /\.[a-z0-9]+$/i.test(path)) { res.writeHead(404, { 'Content-Type': 'text/plain', ...common }); res.end('Not found'); return; }
   const useGz = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));

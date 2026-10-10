@@ -18,6 +18,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/dist/web ./dist/web
 COPY --chown=node:node apps/web/server.mjs ./apps/web/server.mjs
 COPY --chown=node:node apps/web/icons ./apps/web/icons
+COPY --chown=node:node apps/web/catalog ./apps/web/catalog
 USER node
 EXPOSE 8080
 CMD ["node", "apps/web/server.mjs"]

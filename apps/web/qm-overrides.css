@@ -19,3 +19,12 @@
 @media (min-width: 400px) {
   .cx-progress .bar { display: none; }
 }
+
+/* Model tiles: the product images are all one frame (1200x800, the device with the same top and
+   bottom margin), so the image fills the tile width at 3:2 and every device sits at the same
+   height and size. (3.1: a 54px-high thumbnail.) */
+.cx-tile img {
+  width: 100%; height: auto; max-width: none; max-height: none;
+  aspect-ratio: 3 / 2; object-fit: contain; display: block;
+}
+.cx-tile { justify-content: flex-start; padding-top: .6rem; }

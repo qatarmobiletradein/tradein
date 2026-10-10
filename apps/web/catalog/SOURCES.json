@@ -1,0 +1,197 @@
+{
+ "note": "Official manufacturer product images (Apple support/store, samsung.com), fetched 2026-10-10, normalized by scripts/normalize_product_images.py to 1200x800 transparent WebP with a fixed 64px top/bottom margin. Owner confirmed use (authorised reseller).",
+ "models": {
+  "iPhone 13 mini": {
+   "file": "iphone-13-mini.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/2022-iphone13-mini-colors.png"
+  },
+  "iPhone 13": {
+   "file": "iphone-13.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/2022-spring-iphone13-colors.png"
+  },
+  "iPhone 13 Pro": {
+   "file": "iphone-13-pro.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/2022-spring-iphone13-pro-colors.png"
+  },
+  "iPhone 13 Pro Max": {
+   "file": "iphone-13-pro-max.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/2022-spring-iphone13-pro-max-colors.png"
+  },
+  "iPhone 14": {
+   "file": "iphone-14.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-14-colors-spring-2023.png"
+  },
+  "iPhone 14 Plus": {
+   "file": "iphone-14-plus.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-14-plus-colors-spring-2023.png"
+  },
+  "iPhone 14 Pro": {
+   "file": "iphone-14-pro.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-14-pro-colors.png"
+  },
+  "iPhone 14 Pro Max": {
+   "file": "iphone-14-pro-max.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-14-pro-max-colors.png"
+  },
+  "iPhone 15": {
+   "file": "iphone-15.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/fall-2023-iphone-colors-iphone-15.png"
+  },
+  "iPhone 15 Plus": {
+   "file": "iphone-15-plus.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/fall-2023-iphone-colors-iphone-15-plus.png"
+  },
+  "iPhone 15 Pro": {
+   "file": "iphone-15-pro.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/fall-2023-iphone-colors-iphone-15-pro.png"
+  },
+  "iPhone 15 Pro Max": {
+   "file": "iphone-15-pro-max.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/fall-2023-iphone-colors-iphone-15-pro-max.png"
+  },
+  "iPhone 16": {
+   "file": "iphone-16.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-16-colors.png"
+  },
+  "iPhone 16 Plus": {
+   "file": "iphone-16-plus.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-16-plus-colors.png"
+  },
+  "iPhone 16 Pro": {
+   "file": "iphone-16-pro.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-16-pro-colors.png"
+  },
+  "iPhone 16 Pro Max": {
+   "file": "iphone-16-pro-max.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-16-pro-max-colors.png"
+  },
+  "iPhone 16e": {
+   "file": "iphone-16e.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-16e/iphone-16e-colors.png"
+  },
+  "iPhone 17": {
+   "file": "iphone-17.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-17-colors.png"
+  },
+  "iPhone Air": {
+   "file": "iphone-air.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-air-colors.png"
+  },
+  "iPhone 17 Pro": {
+   "file": "iphone-17-pro.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-17-pro-colors.png"
+  },
+  "iPhone 17 Pro Max": {
+   "file": "iphone-17-pro-max.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-17-pro-max-colors.png"
+  },
+  "iPhone 17e": {
+   "file": "iphone-17e.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-17e/iphone-17e-colors.png"
+  },
+  "iPhone 18 Pro": {
+   "file": "iphone-18-pro.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-18-pro-colors.png"
+  },
+  "iPhone 18 Pro Max": {
+   "file": "iphone-18-pro-max.webp",
+   "source": "https://cdsassets.apple.com/live/7WUAS350/images/iphone/iphone-18-pro-max-colors.png"
+  },
+  "iPhone Duo": {
+   "file": "iphone-duo.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-duo-finish-select-night-sky-202609"
+  },
+  "Galaxy S22": {
+   "file": "galaxy-s22.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-s901-412992-sm-s901ezkdmea-530967914"
+  },
+  "Galaxy S22+": {
+   "file": "galaxy-s22-plus.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-plus-s906-413028-sm-s906ezkdmea-530969884"
+  },
+  "Galaxy S22 Ultra": {
+   "file": "galaxy-s22-ultra.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-ultra-s908-sm-s908ezkdmea-530981954"
+  },
+  "Galaxy S23": {
+   "file": "galaxy-s23.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s911-sm-s911bzkbmea-534837995"
+  },
+  "Galaxy S23+": {
+   "file": "galaxy-s23-plus.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s916-sm-s916bzkbmea-534837843"
+  },
+  "Galaxy S23 Ultra": {
+   "file": "galaxy-s23-ultra.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s918-sm-s918bzkcmea-534838781"
+  },
+  "Galaxy S24": {
+   "file": "galaxy-s24.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-sm-s921bzkbmea-539263614"
+  },
+  "Galaxy S24+": {
+   "file": "galaxy-s24-plus.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-plus-490696-sm-s926bzkbmea-539417236"
+  },
+  "Galaxy S24 Ultra": {
+   "file": "galaxy-s24-ultra.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-s928-sm-s928bzkcmea-539263844"
+  },
+  "Galaxy S25": {
+   "file": "galaxy-s25.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s931-sm-s931bdbimea-544634363"
+  },
+  "Galaxy S25+": {
+   "file": "galaxy-s25-plus.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s936-sm-s936bdbimea-544635459"
+  },
+  "Galaxy S25 Ultra": {
+   "file": "galaxy-s25-ultra.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s938-sm-s938bzkimea-544633342"
+  },
+  "Galaxy S26": {
+   "file": "galaxy-s26.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942uzkeatt-550995384"
+  },
+  "Galaxy S26+": {
+   "file": "galaxy-s26-plus.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947uzkaatt-550994709"
+  },
+  "Galaxy S26 Ultra": {
+   "file": "galaxy-s26-ultra.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948uzkaatt-550993285"
+  },
+  "Galaxy Z Fold5": {
+   "file": "galaxy-z-fold5.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-fold5-f946-sm-f946bzkdmea-537255588"
+  },
+  "Galaxy Z Flip5": {
+   "file": "galaxy-z-flip5.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-flip5-f731-sm-f731blgamea-537225486"
+  },
+  "Galaxy Z Fold6": {
+   "file": "galaxy-z-fold6.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f956bdbdmea/gallery/ae-galaxy-z-fold6-f956-513188-sm-f956bdbdmea-543005804"
+  },
+  "Galaxy Z Flip6": {
+   "file": "galaxy-z-flip6.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f741blbamea/gallery/ae-galaxy-zflip6-f741-513265-sm-f741blbamea-543033856"
+  },
+  "Galaxy Z Fold7": {
+   "file": "galaxy-z-fold7.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-z-fold7-f966-sm-f966uzkaatt-547829733"
+  },
+  "Galaxy Z Flip7": {
+   "file": "galaxy-z-flip7.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-zflip7-f766-sm-f766uzkaatt-547891949"
+  },
+  "Galaxy Z Fold8": {
+   "file": "galaxy-z-fold8.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-z-fold8-f971-600257-sm-f971uzkaatt-553841242"
+  },
+  "Galaxy Z Flip8": {
+   "file": "galaxy-z-flip8.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-zflip8-f776-sm-f776uzkaatt-553843246"
+  }
+ }
+}
