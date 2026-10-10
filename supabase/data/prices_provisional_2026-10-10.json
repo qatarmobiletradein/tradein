@@ -1,0 +1,1402 @@
+[
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 mini",
+  "storage": "128GB",
+  "base_price": 630,
+  "launch_usd": 699,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 mini",
+  "storage": "256GB",
+  "base_price": 720,
+  "launch_usd": 799,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 mini",
+  "storage": "512GB",
+  "base_price": 900,
+  "launch_usd": 999,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13",
+  "storage": "128GB",
+  "base_price": 720,
+  "launch_usd": 799,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13",
+  "storage": "256GB",
+  "base_price": 810,
+  "launch_usd": 899,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13",
+  "storage": "512GB",
+  "base_price": 990,
+  "launch_usd": 1099,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro",
+  "storage": "128GB",
+  "base_price": 900,
+  "launch_usd": 999,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro",
+  "storage": "256GB",
+  "base_price": 990,
+  "launch_usd": 1099,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro",
+  "storage": "512GB",
+  "base_price": 1170,
+  "launch_usd": 1299,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro",
+  "storage": "1TB",
+  "base_price": 1350,
+  "launch_usd": 1499,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro Max",
+  "storage": "128GB",
+  "base_price": 990,
+  "launch_usd": 1099,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro Max",
+  "storage": "256GB",
+  "base_price": 1080,
+  "launch_usd": 1199,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro Max",
+  "storage": "512GB",
+  "base_price": 1260,
+  "launch_usd": 1399,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 13 Pro Max",
+  "storage": "1TB",
+  "base_price": 1440,
+  "launch_usd": 1599,
+  "age_years": 5.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14",
+  "storage": "128GB",
+  "base_price": 900,
+  "launch_usd": 799,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14",
+  "storage": "256GB",
+  "base_price": 1010,
+  "launch_usd": 899,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14",
+  "storage": "512GB",
+  "base_price": 1240,
+  "launch_usd": 1099,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Plus",
+  "storage": "128GB",
+  "base_price": 1030,
+  "launch_usd": 899,
+  "age_years": 4.0,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Plus",
+  "storage": "256GB",
+  "base_price": 1150,
+  "launch_usd": 999,
+  "age_years": 4.0,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Plus",
+  "storage": "512GB",
+  "base_price": 1380,
+  "launch_usd": 1199,
+  "age_years": 4.0,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro",
+  "storage": "128GB",
+  "base_price": 1120,
+  "launch_usd": 999,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro",
+  "storage": "256GB",
+  "base_price": 1240,
+  "launch_usd": 1099,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro",
+  "storage": "512GB",
+  "base_price": 1460,
+  "launch_usd": 1299,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro",
+  "storage": "1TB",
+  "base_price": 1690,
+  "launch_usd": 1499,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro Max",
+  "storage": "128GB",
+  "base_price": 1240,
+  "launch_usd": 1099,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro Max",
+  "storage": "256GB",
+  "base_price": 1350,
+  "launch_usd": 1199,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro Max",
+  "storage": "512GB",
+  "base_price": 1570,
+  "launch_usd": 1399,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 14 Pro Max",
+  "storage": "1TB",
+  "base_price": 1800,
+  "launch_usd": 1599,
+  "age_years": 4.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15",
+  "storage": "128GB",
+  "base_price": 1120,
+  "launch_usd": 799,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15",
+  "storage": "256GB",
+  "base_price": 1270,
+  "launch_usd": 899,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15",
+  "storage": "512GB",
+  "base_price": 1550,
+  "launch_usd": 1099,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Plus",
+  "storage": "128GB",
+  "base_price": 1270,
+  "launch_usd": 899,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Plus",
+  "storage": "256GB",
+  "base_price": 1410,
+  "launch_usd": 999,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Plus",
+  "storage": "512GB",
+  "base_price": 1690,
+  "launch_usd": 1199,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro",
+  "storage": "128GB",
+  "base_price": 1410,
+  "launch_usd": 999,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro",
+  "storage": "256GB",
+  "base_price": 1550,
+  "launch_usd": 1099,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro",
+  "storage": "512GB",
+  "base_price": 1830,
+  "launch_usd": 1299,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro",
+  "storage": "1TB",
+  "base_price": 2110,
+  "launch_usd": 1499,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro Max",
+  "storage": "256GB",
+  "base_price": 1690,
+  "launch_usd": 1199,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro Max",
+  "storage": "512GB",
+  "base_price": 1970,
+  "launch_usd": 1399,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 15 Pro Max",
+  "storage": "1TB",
+  "base_price": 2250,
+  "launch_usd": 1599,
+  "age_years": 3.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16",
+  "storage": "128GB",
+  "base_price": 1410,
+  "launch_usd": 799,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16",
+  "storage": "256GB",
+  "base_price": 1580,
+  "launch_usd": 899,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16",
+  "storage": "512GB",
+  "base_price": 1930,
+  "launch_usd": 1099,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Plus",
+  "storage": "128GB",
+  "base_price": 1580,
+  "launch_usd": 899,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Plus",
+  "storage": "256GB",
+  "base_price": 1760,
+  "launch_usd": 999,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Plus",
+  "storage": "512GB",
+  "base_price": 2110,
+  "launch_usd": 1199,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro",
+  "storage": "128GB",
+  "base_price": 1760,
+  "launch_usd": 999,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro",
+  "storage": "256GB",
+  "base_price": 1930,
+  "launch_usd": 1099,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro",
+  "storage": "512GB",
+  "base_price": 2280,
+  "launch_usd": 1299,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro",
+  "storage": "1TB",
+  "base_price": 2640,
+  "launch_usd": 1499,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro Max",
+  "storage": "256GB",
+  "base_price": 2110,
+  "launch_usd": 1199,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro Max",
+  "storage": "512GB",
+  "base_price": 2460,
+  "launch_usd": 1399,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16 Pro Max",
+  "storage": "1TB",
+  "base_price": 2810,
+  "launch_usd": 1599,
+  "age_years": 2.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16e",
+  "storage": "128GB",
+  "base_price": 1160,
+  "launch_usd": 599,
+  "age_years": 1.67,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16e",
+  "storage": "256GB",
+  "base_price": 1350,
+  "launch_usd": 699,
+  "age_years": 1.67,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 16e",
+  "storage": "512GB",
+  "base_price": 1740,
+  "launch_usd": 899,
+  "age_years": 1.67,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17",
+  "storage": "256GB",
+  "base_price": 1760,
+  "launch_usd": 799,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17",
+  "storage": "512GB",
+  "base_price": 2200,
+  "launch_usd": 999,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Air",
+  "storage": "256GB",
+  "base_price": 2200,
+  "launch_usd": 999,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Air",
+  "storage": "512GB",
+  "base_price": 2640,
+  "launch_usd": 1199,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Air",
+  "storage": "1TB",
+  "base_price": 3080,
+  "launch_usd": 1399,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro",
+  "storage": "256GB",
+  "base_price": 2420,
+  "launch_usd": 1099,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro",
+  "storage": "512GB",
+  "base_price": 2860,
+  "launch_usd": 1299,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro",
+  "storage": "1TB",
+  "base_price": 3300,
+  "launch_usd": 1499,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro Max",
+  "storage": "256GB",
+  "base_price": 2640,
+  "launch_usd": 1199,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro Max",
+  "storage": "512GB",
+  "base_price": 3080,
+  "launch_usd": 1399,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro Max",
+  "storage": "1TB",
+  "base_price": 3520,
+  "launch_usd": 1599,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17 Pro Max",
+  "storage": "2TB",
+  "base_price": 4400,
+  "launch_usd": 1999,
+  "age_years": 1.08,
+  "class": "apple",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17e",
+  "storage": "256GB",
+  "base_price": 1470,
+  "launch_usd": 599,
+  "age_years": 0.58,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 17e",
+  "storage": "512GB",
+  "base_price": 1960,
+  "launch_usd": 799,
+  "age_years": 0.58,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro",
+  "storage": "256GB",
+  "base_price": 3020,
+  "launch_usd": 1099,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro",
+  "storage": "512GB",
+  "base_price": 3570,
+  "launch_usd": 1299,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro",
+  "storage": "1TB",
+  "base_price": 4120,
+  "launch_usd": 1499,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro",
+  "storage": "2TB",
+  "base_price": 5220,
+  "launch_usd": 1899,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro Max",
+  "storage": "256GB",
+  "base_price": 3300,
+  "launch_usd": 1199,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro Max",
+  "storage": "512GB",
+  "base_price": 3850,
+  "launch_usd": 1399,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro Max",
+  "storage": "1TB",
+  "base_price": 4390,
+  "launch_usd": 1599,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone 18 Pro Max",
+  "storage": "2TB",
+  "base_price": 5490,
+  "launch_usd": 1999,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Duo",
+  "storage": "256GB",
+  "base_price": 5490,
+  "launch_usd": 1999,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Duo",
+  "storage": "512GB",
+  "base_price": 6040,
+  "launch_usd": 2199,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Duo",
+  "storage": "1TB",
+  "base_price": 6590,
+  "launch_usd": 2399,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Apple",
+  "model": "iPhone Duo",
+  "storage": "2TB",
+  "base_price": 7690,
+  "launch_usd": 2799,
+  "age_years": 0.08,
+  "class": "apple",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22",
+  "storage": "128GB",
+  "base_price": 500,
+  "launch_usd": 799,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22",
+  "storage": "256GB",
+  "base_price": 530,
+  "launch_usd": 849,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22+",
+  "storage": "128GB",
+  "base_price": 630,
+  "launch_usd": 999,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22+",
+  "storage": "256GB",
+  "base_price": 660,
+  "launch_usd": 1049,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22 Ultra",
+  "storage": "128GB",
+  "base_price": 750,
+  "launch_usd": 1199,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22 Ultra",
+  "storage": "256GB",
+  "base_price": 810,
+  "launch_usd": 1299,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22 Ultra",
+  "storage": "512GB",
+  "base_price": 880,
+  "launch_usd": 1399,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S22 Ultra",
+  "storage": "1TB",
+  "base_price": 1000,
+  "launch_usd": 1599,
+  "age_years": 4.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23",
+  "storage": "128GB",
+  "base_price": 670,
+  "launch_usd": 799,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23",
+  "storage": "256GB",
+  "base_price": 720,
+  "launch_usd": 859,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23+",
+  "storage": "256GB",
+  "base_price": 830,
+  "launch_usd": 999,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23+",
+  "storage": "512GB",
+  "base_price": 940,
+  "launch_usd": 1119,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23 Ultra",
+  "storage": "256GB",
+  "base_price": 1000,
+  "launch_usd": 1199,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23 Ultra",
+  "storage": "512GB",
+  "base_price": 1150,
+  "launch_usd": 1379,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S23 Ultra",
+  "storage": "1TB",
+  "base_price": 1350,
+  "launch_usd": 1619,
+  "age_years": 3.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24",
+  "storage": "128GB",
+  "base_price": 870,
+  "launch_usd": 799,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24",
+  "storage": "256GB",
+  "base_price": 930,
+  "launch_usd": 859,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24+",
+  "storage": "256GB",
+  "base_price": 1090,
+  "launch_usd": 999,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24+",
+  "storage": "512GB",
+  "base_price": 1220,
+  "launch_usd": 1119,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24 Ultra",
+  "storage": "256GB",
+  "base_price": 1410,
+  "launch_usd": 1299,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24 Ultra",
+  "storage": "512GB",
+  "base_price": 1540,
+  "launch_usd": 1419,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S24 Ultra",
+  "storage": "1TB",
+  "base_price": 1800,
+  "launch_usd": 1659,
+  "age_years": 2.75,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25",
+  "storage": "128GB",
+  "base_price": 1190,
+  "launch_usd": 799,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25",
+  "storage": "256GB",
+  "base_price": 1280,
+  "launch_usd": 859,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25",
+  "storage": "512GB",
+  "base_price": 1450,
+  "launch_usd": 979,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25+",
+  "storage": "256GB",
+  "base_price": 1480,
+  "launch_usd": 999,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25+",
+  "storage": "512GB",
+  "base_price": 1660,
+  "launch_usd": 1119,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25 Ultra",
+  "storage": "256GB",
+  "base_price": 1930,
+  "launch_usd": 1299,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25 Ultra",
+  "storage": "512GB",
+  "base_price": 2110,
+  "launch_usd": 1419,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S25 Ultra",
+  "storage": "1TB",
+  "base_price": 2470,
+  "launch_usd": 1659,
+  "age_years": 1.67,
+  "class": "samsung_s",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26",
+  "storage": "256GB",
+  "base_price": 1740,
+  "launch_usd": 859,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26",
+  "storage": "512GB",
+  "base_price": 1990,
+  "launch_usd": 979,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26+",
+  "storage": "256GB",
+  "base_price": 2030,
+  "launch_usd": 999,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26+",
+  "storage": "512GB",
+  "base_price": 2270,
+  "launch_usd": 1119,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26 Ultra",
+  "storage": "256GB",
+  "base_price": 2640,
+  "launch_usd": 1299,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26 Ultra",
+  "storage": "512GB",
+  "base_price": 2880,
+  "launch_usd": 1419,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy S26 Ultra",
+  "storage": "1TB",
+  "base_price": 3370,
+  "launch_usd": 1659,
+  "age_years": 0.58,
+  "class": "samsung_s",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold5",
+  "storage": "256GB",
+  "base_price": 1280,
+  "launch_usd": 1799,
+  "age_years": 3.17,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold5",
+  "storage": "512GB",
+  "base_price": 1360,
+  "launch_usd": 1919,
+  "age_years": 3.17,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold5",
+  "storage": "1TB",
+  "base_price": 1540,
+  "launch_usd": 2159,
+  "age_years": 3.17,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip5",
+  "storage": "256GB",
+  "base_price": 710,
+  "launch_usd": 999,
+  "age_years": 3.17,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip5",
+  "storage": "512GB",
+  "base_price": 800,
+  "launch_usd": 1119,
+  "age_years": 3.17,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold6",
+  "storage": "256GB",
+  "base_price": 1870,
+  "launch_usd": 1899,
+  "age_years": 2.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold6",
+  "storage": "512GB",
+  "base_price": 1990,
+  "launch_usd": 2019,
+  "age_years": 2.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold6",
+  "storage": "1TB",
+  "base_price": 2230,
+  "launch_usd": 2259,
+  "age_years": 2.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip6",
+  "storage": "256GB",
+  "base_price": 1080,
+  "launch_usd": 1099,
+  "age_years": 2.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip6",
+  "storage": "512GB",
+  "base_price": 1200,
+  "launch_usd": 1219,
+  "age_years": 2.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold7",
+  "storage": "256GB",
+  "base_price": 2820,
+  "launch_usd": 1999,
+  "age_years": 1.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold7",
+  "storage": "512GB",
+  "base_price": 2980,
+  "launch_usd": 2119,
+  "age_years": 1.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold7",
+  "storage": "1TB",
+  "base_price": 3410,
+  "launch_usd": 2419,
+  "age_years": 1.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip7",
+  "storage": "256GB",
+  "base_price": 1550,
+  "launch_usd": 1099,
+  "age_years": 1.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip7",
+  "storage": "512GB",
+  "base_price": 1720,
+  "launch_usd": 1219,
+  "age_years": 1.25,
+  "class": "fold",
+  "launch_price_assumed": false
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold8",
+  "storage": "256GB",
+  "base_price": 4020,
+  "launch_usd": 1999,
+  "age_years": 0.25,
+  "class": "fold",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold8",
+  "storage": "512GB",
+  "base_price": 4260,
+  "launch_usd": 2119,
+  "age_years": 0.25,
+  "class": "fold",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Fold8",
+  "storage": "1TB",
+  "base_price": 4870,
+  "launch_usd": 2419,
+  "age_years": 0.25,
+  "class": "fold",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip8",
+  "storage": "256GB",
+  "base_price": 2210,
+  "launch_usd": 1099,
+  "age_years": 0.25,
+  "class": "fold",
+  "launch_price_assumed": true
+ },
+ {
+  "brand": "Samsung",
+  "model": "Galaxy Z Flip8",
+  "storage": "512GB",
+  "base_price": 2450,
+  "launch_usd": 1219,
+  "age_years": 0.25,
+  "class": "fold",
+  "launch_price_assumed": true
+ }
+]
