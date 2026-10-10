@@ -69,7 +69,7 @@ describe.skipIf(!HAS_DB)('remaining modules', () => {
     const row = (await t.deps.pool.query('select commission_type_snapshot, commission_value, total_settlement from public.trade_ins where id = $1', [s.tradeInId])).rows[0];
     expect(row).toEqual({ commission_type_snapshot: 'FIXED', commission_value: '75.00', total_settlement: '2075.00' });
     const rules = await ok(t.call('admin.commissionRules', a.finance, { vendorId: 'VND-001' }));
-    expect((rules.rules as { label: string }[]).map((r) => r.label)).toEqual(expect.arrayContaining(['5%', '75.00 QAR']));
+    expect((rules.rules as { label: string }[]).map((r) => r.label)).toEqual(expect.arrayContaining(['5% of value', '75.00 QAR']));
   });
 
   it('bulk import: preview reports problems; apply re-validates and creates what was previewed', async () => {

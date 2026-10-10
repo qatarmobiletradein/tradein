@@ -207,6 +207,14 @@ async function runPasswordMode(browser: PwBrowser): Promise<void> {
       if (!/1 new model/.test(summary) || !/2 new storage/.test(summary)) throw new Error(`import summary: ${summary}`);
       if ((await t.deps.pool.query(`select 1 from public.products where model = 'Nova One'`)).rowCount) throw new Error('preview wrote a product');
       results.push('PASS admin bulk import: template link on the page, .xlsx upload → preview with exact counts, nothing written');
+      // Commission: the rule dialog offers "share of the invoice" and shows the Carrefour example (1500 -> 1578.95).
+      await p.locator('[data-page="a-commission"]').first().click();
+      await p.getByRole('button', { name: 'Add a rule' }).click();
+      await p.locator('[data-qm="commission-example"]').waitFor({ timeout: 10_000 });
+      const ex = await p.locator('[data-qm="commission-example"]').innerText();
+      await p.screenshot({ path: 'tests/e2e/artifacts/admin-commission-rule.png', fullPage: false });
+      if (!/1578\.95/.test(ex) || !/78\.95/.test(ex)) throw new Error(`commission example: ${ex}`);
+      results.push('PASS admin commission: share-of-invoice rule with the 1500 -> 1578.95 example');
       await ctx.close();
     }
     // Branch manager: password set through the API, then email + password in the browser; a wrong password first.

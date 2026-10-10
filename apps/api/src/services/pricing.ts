@@ -211,11 +211,12 @@ export async function saveCommissionRule(ctx: Ctx, d: { vendorId?: string; brand
   if (!vendorId) throw fail('Choose a vendor.');
   if (!(await ctx.db.query('select 1 from public.vendors where id = $1', [vendorId])).rowCount) throw fail('That vendor does not exist.');
   const type = trim(d.commissionType).toUpperCase() || COMMISSION_TYPE.PERCENTAGE;
-  if (type !== 'PERCENTAGE' && type !== 'FIXED') throw fail('Commission is either a percentage or a fixed amount.');
+  if (type !== 'PERCENTAGE' && type !== 'FIXED' && type !== 'INVOICE_PERCENTAGE') throw fail('Commission is a percentage of the value, a percentage of the invoice, or a fixed amount.');
   let value: bigint;
   try { value = toMicro(d.commissionValue); } catch { throw fail('Enter a commission of zero or more.'); }
   if (value < 0n) throw fail('Enter a commission of zero or more.');
   if (type === 'PERCENTAGE' && value > 1_000_000n) throw fail('Enter a percentage as a fraction. Five percent is 0.05.');
+  if (type === 'INVOICE_PERCENTAGE' && value >= 1_000_000n) throw fail('A share of the invoice is below 1. Five percent is 0.05.');
   const from = parseWhen(d.effectiveFrom) ?? now();
   const brandId = trim(d.brandId) || null; const categoryId = trim(d.categoryId) || null; const productId = trim(d.productId) || null;
   await ctx.db.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`qm.commission:${vendorId}:${brandId}:${categoryId}:${productId}`]);
@@ -262,7 +263,9 @@ export async function listCommissionRules(ctx: Ctx, p: { vendorId?: string; incl
     return {
       commissionRuleId: r.id, vendorId: r.vendor_id, vendorName: r.vendor_name ?? r.vendor_id, scope, brandId: r.brand_id ?? '', categoryId: r.category_id ?? '',
       productId: r.product_id ?? '', type: r.commission_type, value: val,
-      label: r.commission_type === 'FIXED' ? `${formatMoney(toCentsOrNull(r.commission_value) ?? 0)} ${CURRENCY}` : `${(val * 100).toFixed(2).replace(/\.?0+$/, '')}%`,
+      label: r.commission_type === 'FIXED' ? `${formatMoney(toCentsOrNull(r.commission_value) ?? 0)} ${CURRENCY}`
+        : r.commission_type === 'INVOICE_PERCENTAGE' ? `${(val * 100).toFixed(2).replace(/\.?0+$/, '')}% of invoice (value ÷ ${String(Math.round((1 - val) * 10000) / 10000)})`
+        : `${(val * 100).toFixed(2).replace(/\.?0+$/, '')}% of value`,
       effectiveFrom: fmtDate(r.effective_from), effectiveTo: fmtDate(r.effective_to) || 'current', supersededBy: r.superseded_by ?? '', cancelled: !r.active, notes: r.notes ?? '',
     };
   });

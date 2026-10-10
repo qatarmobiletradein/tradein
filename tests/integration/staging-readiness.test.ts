@@ -63,7 +63,7 @@ describe.skipIf(!HAS_DB)('staging readiness', () => {
 
   it('migration ledger: every migration recorded with a checksum; a re-run applies nothing; an edited file is refused', async () => {
     const rows = (await t.deps.pool.query(`select version, checksum from app.schema_migrations order by version`)).rows;
-    expect(rows.length).toBe(13);
+    expect(rows.length).toBe(14);
     const pool = createPool({ connectionString: t.deps.config.DATABASE_URL, max: 1, ssl: 'disable' });
     try {
       const again = await migrate(pool, resolve('supabase/migrations'), () => undefined);

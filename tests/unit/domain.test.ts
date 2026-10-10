@@ -134,6 +134,13 @@ describe('pricing and partner fees (10_Pricing.gs, 12_CommissionRules.gs)', () =
     expect(commissionFor(100000, null, null)).toMatchObject({ commissionCents: 5000, source: 'PLATFORM_DEFAULT' });
     expect(commissionFor(100000, rule('n', { value: '-0.1' }), null).commissionCents).toBe(0);
   });
+  it('INVOICE_PERCENTAGE (Carrefour -> QM): invoice = value / (1 - rate), fee = the difference', () => {
+    const inv = (cents: number) => commissionFor(cents, rule('i', { type: 'INVOICE_PERCENTAGE', value: '0.050000' }), null);
+    expect(inv(150000)).toMatchObject({ commissionType: 'INVOICE_PERCENTAGE', totalSettlementCents: 157895, commissionCents: 7895 }); // 1500 / .95 = 1578.947 -> 1578.95
+    expect(inv(228000)).toMatchObject({ totalSettlementCents: 240000, commissionCents: 12000 });
+    for (const v of [1, 99, 12345, 999999]) { const c = inv(v); expect(c.customerValueCents + c.commissionCents).toBe(c.totalSettlementCents); }
+    expect(commissionFor(150000, rule('i', { type: 'INVOICE_PERCENTAGE', value: '1.000000' }), null).commissionCents).toBe(0); // not a share
+  });
   it('half-cent rounding goes up, exactly (no float drift)', () => {
     expect(commissionFor(1, rule('w', { value: '0.500000' }), null).commissionCents).toBe(1);      // 0.5 cent → 1
     expect(commissionFor(33333, rule('w', { value: '0.015000' }), null).commissionCents).toBe(500); // 499.995 → 500

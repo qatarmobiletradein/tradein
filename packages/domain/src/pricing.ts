@@ -5,7 +5,7 @@
  * here (not in SQL) keeps the "most specific rule wins, ties by newest
  * start" ordering in one readable place, tested without a database.
  */
-import { COMMISSION_TYPE, DEFAULT_COMMISSION_RATE, PRICE_SOURCE } from './constants.js';
+import { COMMISSION_TYPE, DEFAULT_COMMISSION_RATE, PRICE_SOURCE, type CommissionType } from './constants.js';
 import { inEffectiveWindow } from '../../shared/src/time.js';
 import { applyRateMicro, clampCents, roundRatio, toMicro, type Cents } from '../../shared/src/money.js';
 
@@ -47,7 +47,7 @@ export interface CommissionRuleRow {
   brandId: string | null;
   categoryId: string | null;
   productId: string | null;
-  type: 'PERCENTAGE' | 'FIXED';
+  type: CommissionType;
   /** numeric(12,6) as a string from the database. */
   value: string;
   effectiveFrom: Date;
@@ -90,7 +90,7 @@ export function resolveCommissionRule(
 
 export interface CommissionResult {
   customerValueCents: Cents;
-  commissionType: 'PERCENTAGE' | 'FIXED';
+  commissionType: CommissionType;
   /** The rate as stored: a fraction for PERCENTAGE, an amount for FIXED, 6 decimals. */
   commissionRateMicro: bigint;
   commissionCents: Cents;
@@ -109,7 +109,7 @@ export function commissionFor(
   customerValueCents: Cents, rule: CommissionRuleRow | null, vendorDefaultRate: string | null,
 ): CommissionResult {
   const value = clampCents(customerValueCents);
-  let type: 'PERCENTAGE' | 'FIXED' = COMMISSION_TYPE.PERCENTAGE;
+  let type: CommissionType = COMMISSION_TYPE.PERCENTAGE;
   let rate: bigint;
   let ruleId = '';
   let source: CommissionResult['source'];
@@ -132,9 +132,15 @@ export function commissionFor(
   if (rate < 0n) rate = 0n;
 
   // FIXED: the stored value IS an amount (6 dp) → cents with Math.round semantics.
-  const commission = type === COMMISSION_TYPE.FIXED
-    ? clampCents(Number(roundRatio(rate, 10_000n)))
-    : applyRateMicro(value, rate);
+  // INVOICE_PERCENTAGE: invoice = value / (1 − rate), rounded to the cent (half up); the fee is the
+  // difference, so value + fee = invoice exactly. A rate of 1 or more cannot be a share of an invoice
+  // (the database refuses it); treated as zero here, like any unreadable rate.
+  let commission: Cents;
+  if (type === COMMISSION_TYPE.FIXED) commission = clampCents(Number(roundRatio(rate, 10_000n)));
+  else if (type === COMMISSION_TYPE.INVOICE_PERCENTAGE) {
+    if (rate >= 1_000_000n) rate = 0n;
+    commission = clampCents(Number(roundRatio(BigInt(value) * 1_000_000n, 1_000_000n - rate)) - value);
+  } else commission = applyRateMicro(value, rate);
 
   return {
     customerValueCents: value,

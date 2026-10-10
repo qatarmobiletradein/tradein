@@ -3,6 +3,7 @@
  * prices and partner-fee rules. The selection logic lives in
  * packages/domain; this file only loads rows and converts types exactly.
  */
+import type { CommissionType } from '../../../../packages/domain/src/constants.js';
 import type { Queryable } from '../../../../packages/database/src/db.js';
 import {
   commissionFor as computeCommission, gradeValue, resolveBasePrice, resolveCommissionRule,
@@ -91,7 +92,7 @@ export async function partnerFee(db: Queryable, vendorId: string, valueCents: Ce
       'select id, brand_id, category_id from public.products where id = $1', [productId]);
     if (p.rows[0]) product = { productId: p.rows[0].id, brandId: p.rows[0].brand_id, categoryId: p.rows[0].category_id };
   }
-  const rules = (await db.query<{ id: string; vendor_id: string; brand_id: string | null; category_id: string | null; product_id: string | null; commission_type: 'PERCENTAGE' | 'FIXED'; commission_value: string; effective_from: Date; effective_to: Date | null; active: boolean }>(
+  const rules = (await db.query<{ id: string; vendor_id: string; brand_id: string | null; category_id: string | null; product_id: string | null; commission_type: CommissionType; commission_value: string; effective_from: Date; effective_to: Date | null; active: boolean }>(
     `select id, vendor_id, brand_id, category_id, product_id, commission_type, commission_value, effective_from, effective_to, active
        from public.commission_rules where vendor_id = $1 and active`, [vendorId])).rows
     .map<CommissionRuleRow>((r) => ({

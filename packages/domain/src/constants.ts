@@ -230,7 +230,14 @@ export const SETTLEMENT_FLOW: Record<SettlementStatus, readonly SettlementStatus
 export const SETTLEMENT_LOCKED: readonly SettlementStatus[] = ['APPROVED', 'PAID', 'CLOSED'];
 export const SETTLEMENT_IMMUTABLE: readonly SettlementStatus[] = ['PAID', 'CLOSED'];
 
-export const COMMISSION_TYPE = { PERCENTAGE: 'PERCENTAGE', FIXED: 'FIXED' } as const;
+/**
+ * PERCENTAGE          fee = value x rate              (1500 at 5% -> 75, invoice 1575)
+ * FIXED               fee = the stored amount
+ * INVOICE_PERCENTAGE  invoice = value / (1 - rate)    (1500 at 5% -> invoice 1578.95, fee 78.95): the partner's
+ *                     fee is that share of the INVOICE (owner decision 2026-10-10, Carrefour -> QM invoices).
+ */
+export const COMMISSION_TYPE = { PERCENTAGE: 'PERCENTAGE', FIXED: 'FIXED', INVOICE_PERCENTAGE: 'INVOICE_PERCENTAGE' } as const;
+export type CommissionType = (typeof COMMISSION_TYPE)[keyof typeof COMMISSION_TYPE];
 export const PRICE_SOURCE = { VENDOR: 'VENDOR_OVERRIDE', MASTER: 'MASTER', NONE: 'NONE' } as const;
 
 /* ------------------------------------------------------------- grading */
