@@ -80,3 +80,82 @@ describe.skipIf(!HAS_DB)('OTP_TEST_NUMBERS', () => {
     expect(msg).toContain('OTP_TEST_NUMBERS is refused in production');
   });
 });
+
+/**
+ * OTP_TEST_STAFF_NUMBERS (owner decision 2026-10-10): listed staff numbers see their code too — but never a
+ * role that needs the authenticator app (SUPER_ADMIN / STAFF_MFA_ROLES), and never in production.
+ */
+describe.skipIf(!HAS_DB)('OTP_TEST_STAFF_NUMBERS', () => {
+  let t: TestApp;
+  const post = async (url: string, payload: Record<string, unknown>) => {
+    const r = await t.app.inject({ method: 'POST', url, payload });
+    return { status: r.statusCode, body: r.json() as Record<string, unknown> };
+  };
+  beforeAll(async () => {
+    t = await createTestApp({ STAFF_SIGN_IN: 'both', STAFF_MFA_ROLES: 'SUPER_ADMIN', OTP_TEST_STAFF_NUMBERS: '30000004, 30000001' });
+  });
+  afterAll(async () => { await t?.close(); });
+
+  it('a listed partner admin gets the code on screen (nothing sent) and signs in to the partner portal', async () => {
+    const before = t.sms.outbox.filter((m) => m.to === '+97430000004').length;
+    const st = await post('/v1/auth/start', { phone: '30000004' });
+    expect(st.status, JSON.stringify(st.body)).toBe(200);
+    expect(st.body).toMatchObject({ ok: true, testMode: true });
+    expect(t.sms.outbox.filter((m) => m.to === '+97430000004').length).toBe(before);
+    const v = await post('/v1/auth/verify', { phone: '30000004', code: st.body.testCode });
+    expect(v.body, JSON.stringify(v.body)).toMatchObject({ ok: true });
+    expect(v.body.portal).not.toBe('customer');
+  });
+
+  it('a listed SUPER_ADMIN is never shown a code; an unlisted staff number is unchanged', async () => {
+    const sa = await post('/v1/auth/start', { phone: '30000001' });
+    expect(sa.body.testCode).toBeUndefined();
+    expect(t.sms.lastCodeFor('+97430000001')).toMatch(/^\d{6}$/);
+    const tech = await post('/v1/auth/start', { phone: '30000003' });
+    expect(tech.body.testCode).toBeUndefined();
+    expect(t.sms.lastCodeFor('+97430000003')).toMatch(/^\d{6}$/);
+  });
+
+  it('production refuses the setting', () => {
+    let msg = '';
+    try {
+      loadConfig({
+        APP_ENV: 'production', DATABASE_URL: 'postgresql://u:p@db.example.test:5432/x', DATABASE_SSL: 'require',
+        SUPABASE_URL: 'https://x.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_x', SUPABASE_SECRET_KEY: 'sb_secret_x',
+        CORS_ALLOWED_ORIGINS: 'https://app.example.test', SEND_SMS_HOOK_SECRET: HOOK_SECRET, OTP_TEST_STAFF_NUMBERS: '30000004',
+      });
+    } catch (e) { msg = (e as Error).message; }
+    expect(msg).toContain('OTP_TEST_STAFF_NUMBERS is refused in production');
+  });
+});
+
+/** "*" (owner decision 2026-10-10): every customer / new number and every non-MFA staff number, normal limits kept. */
+describe.skipIf(!HAS_DB)('OTP test codes for every number ("*")', () => {
+  let t: TestApp;
+  const post = async (url: string, payload: Record<string, unknown>) => {
+    const r = await t.app.inject({ method: 'POST', url, payload });
+    return { status: r.statusCode, body: r.json() as Record<string, unknown> };
+  };
+  beforeAll(async () => { t = await createTestApp({ STAFF_SIGN_IN: 'both', STAFF_MFA_ROLES: 'SUPER_ADMIN', OTP_TEST_NUMBERS: '*', OTP_TEST_STAFF_NUMBERS: '*' }); });
+  afterAll(async () => { await t?.close(); });
+
+  it('any new number registers with the code on screen; any non-MFA staff number too; SUPER_ADMIN never', async () => {
+    const reg = await post('/v1/auth/register', { phone: '55739279', fullName: 'Any New Customer' });
+    expect(reg.body).toMatchObject({ ok: true, testMode: true });
+    const done = await post('/v1/auth/register', { phone: '55739279', fullName: 'Any New Customer', code: reg.body.testCode });
+    expect(done.body).toMatchObject({ ok: true, portal: 'customer' });
+    const tech = await post('/v1/auth/start', { phone: '30000003' });
+    expect(tech.body).toMatchObject({ ok: true, testMode: true });
+    const sa = await post('/v1/auth/start', { phone: '30000001' });
+    expect(sa.body.testCode).toBeUndefined();
+  });
+
+  it('the normal hourly limit still applies to "*" numbers', async () => {
+    for (let i = 0; i < 7; i++) {
+      await t.deps.pool.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, created_at)
+        values ('+97455000499', 'REGISTER', 'TEST', 'SENT', now() - interval '10 minutes')`);
+    }
+    const lim = await post('/v1/auth/register', { phone: '55000499', fullName: 'Many Codes' });
+    expect(lim.status).toBe(429);
+  });
+});

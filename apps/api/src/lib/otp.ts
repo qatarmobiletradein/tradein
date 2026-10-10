@@ -29,11 +29,29 @@ export type OtpPurpose = 'LOGIN' | 'REGISTER';
  * OTP_TEST_NUMBERS (non-production only, owner decision 2026-10-08): for a listed CUSTOMER / new number the
  * hook does not send the code; it hands it, in memory, to the auth.start / auth.register request that asked
  * for it (same process — one replica), which shows it on the sign-in screen. Expires in 2 minutes, read once,
- * never logged or stored. Staff numbers never qualify.
+ * never logged or stored. Staff numbers qualify only through OTP_TEST_STAFF_NUMBERS (owner decision 2026-10-10),
+ * and never a staff member whose role needs the authenticator app (STAFF_MFA_ROLES, always SUPER_ADMIN).
  */
 const testCodes = new Map<string, { code: string; until: number }>();
+// "*" = every number (owner decision 2026-10-10: show codes until a Qatar SMS provider is live).
+const listed = (list: string[], phone: string) => list.some((n) => normalizePhone(n) === phone);
 export function isTestNumber(cfg: AppConfig, phone: string): boolean {
-  return cfg.APP_ENV !== 'production' && cfg.OTP_TEST_NUMBERS.some((n) => normalizePhone(n) === phone);
+  return cfg.APP_ENV !== 'production' && (cfg.OTP_TEST_NUMBERS.includes('*') || listed(cfg.OTP_TEST_NUMBERS, phone));
+}
+export function isTestStaffNumber(cfg: AppConfig, phone: string): boolean {
+  return cfg.APP_ENV !== 'production' && (cfg.OTP_TEST_STAFF_NUMBERS.includes('*') || listed(cfg.OTP_TEST_STAFF_NUMBERS, phone));
+}
+/** Only numbers listed one by one skip the hourly/daily ceilings; "*" keeps every normal limit. */
+function namedTestNumber(cfg: AppConfig, phone: string): boolean {
+  return listed(cfg.OTP_TEST_NUMBERS, phone) || listed(cfg.OTP_TEST_STAFF_NUMBERS, phone);
+}
+/** May this number see its code on screen instead of receiving it? (customer/new number or allowed staff) */
+async function showsCodeOnScreen(pool: pg.Pool, cfg: AppConfig, phone: string): Promise<boolean> {
+  const staff = (await pool.query<{ role: string }>('select role from public.app_users where phone = $1', [phone])).rows[0];
+  if (!staff) return isTestNumber(cfg, phone);
+  const role = staff.role.toUpperCase();
+  if (role === 'SUPER_ADMIN' || cfg.STAFF_MFA_ROLES.includes(role)) return false;
+  return isTestStaffNumber(cfg, phone);
 }
 export function takeTestCode(phone: string): string | null {
   const t = testCodes.get(phone);
@@ -70,9 +88,8 @@ export async function deliverOtp(
   const phone = normalizePhone(rawPhone);
   if (!phone) return { ok: false, httpCode: 400, reason: 'INVALID_PHONE', message: 'Enter a valid Qatar mobile number.' };
 
-  // A test number shows its code instead of sending it — never for a staff number.
-  const showInstead = isTestNumber(cfg, phone)
-    && !(await pool.query('select 1 from public.app_users where phone = $1', [phone])).rowCount;
+  // A test number shows its code instead of sending it (staff: only OTP_TEST_STAFF_NUMBERS, never an MFA role).
+  const showInstead = await showsCodeOnScreen(pool, cfg, phone);
   const channel = showInstead || sms.name === 'test' ? 'TEST' : 'SMS';
   if (!sms.configured() && !showInstead) {
     await audit(pool, ACTIONS.SMS_UNAVAILABLE, phone, { environment: cfg.APP_ENV, provider: sms.name }).catch(() => undefined);
@@ -115,7 +132,7 @@ export async function deliverOtp(
     // reached nobody and must not lock the person out. The 60 s cooldown above still applies to every try.
     // A listed test number (OTP_TEST_NUMBERS, non-production) has no hourly/daily ceiling.
     let limited = '';
-    if (showInstead) limited = '';
+    if (showInstead && namedTestNumber(cfg, phone)) limited = '';
     else if (stats.phone_hour >= o.perPhoneHour) limited = 'phone-hour';
     else if (stats.phone_day >= o.perPhoneDay) limited = 'phone-day';
     else if (stats.purpose_hour >= gHour) limited = 'global-hour';
@@ -146,7 +163,7 @@ export async function deliverOtp(
 
   if (showInstead) {
     testCodes.set(phone, { code, until: Date.now() + 120_000 });
-    await audit(pool, ACTIONS.OTP_SENT, phone, { purpose: decided.purpose, provider: 'shown-on-screen (OTP_TEST_NUMBERS)', delivered: true }).catch(() => undefined);
+    await audit(pool, ACTIONS.OTP_SENT, phone, { purpose: decided.purpose, provider: 'shown-on-screen (test number)', delivered: true }).catch(() => undefined);
     return { ok: true };
   }
   // ---- delivery happens outside the transaction (no lock held on the network) ----

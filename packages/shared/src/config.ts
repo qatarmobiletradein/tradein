@@ -91,6 +91,12 @@ const EnvSchema = z.object({
    * Never for a staff number. Refused when APP_ENV=production. Comma-separated Qatar numbers.
    */
   OTP_TEST_NUMBERS: csv,
+  /**
+   * OTP_TEST_STAFF_NUMBERS (owner decision 2026-10-10, no SMS provider yet): listed STAFF numbers get their
+   * sign-in code on screen too. Never for a role in STAFF_MFA_ROLES or SUPER_ADMIN (the authenticator app
+   * would otherwise be enrolled by whoever typed the number first). Refused when APP_ENV=production.
+   */
+  OTP_TEST_STAFF_NUMBERS: csv,
   OTP_MAX_SENDS_PER_HOUR: boundedInt(OTP_DEFAULTS.MAX_SENDS_PER_HOUR, 1, 20),
   OTP_MAX_SENDS_PER_DAY: boundedInt(OTP_DEFAULTS.MAX_SENDS_PER_DAY, 1, 50),
   OTP_GLOBAL_MAX_PER_HOUR: boundedInt(OTP_DEFAULTS.GLOBAL_MAX_PER_HOUR, 1, 100_000),
@@ -246,6 +252,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     if (e.DATABASE_SSL !== 'require') problems.push('DATABASE_SSL must be require (certificate verified) in production.');
     if (e.LOG_LEVEL === 'debug' || e.LOG_LEVEL === 'trace') problems.push('LOG_LEVEL debug/trace is refused in production.');
     if (e.OTP_TEST_NUMBERS.length) problems.push('OTP_TEST_NUMBERS is refused in production (codes must be sent, never shown).');
+    if (e.OTP_TEST_STAFF_NUMBERS.length) problems.push('OTP_TEST_STAFF_NUMBERS is refused in production (codes must be sent, never shown).');
     if (staffSignIn === 'phone') problems.push('STAFF_SIGN_IN=phone is refused in production (use password or both).');
     if (!mfaRoles.includes('SUPER_ADMIN')) problems.push('STAFF_MFA_ROLES must include SUPER_ADMIN in production.');
     if (!sessionCheck) problems.push('AUTH_SESSION_CHECK=false is refused in production.');
