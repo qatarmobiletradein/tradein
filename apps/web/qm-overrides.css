@@ -28,3 +28,7 @@
   aspect-ratio: 3 / 2; object-fit: contain; display: block;
 }
 .cx-tile { justify-content: flex-start; padding-top: .6rem; }
+
+/* Colour step: each colour's photo (1200x800 frame) at 3:2, large enough to tell the colours apart. */
+.cx-choice img.qm-colour-img { width: 108px; height: 72px; object-fit: contain; flex: 0 0 auto; }
+@media (max-width: 380px) { .cx-choice img.qm-colour-img { width: 84px; height: 56px; } }

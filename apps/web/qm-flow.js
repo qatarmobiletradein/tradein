@@ -43,7 +43,7 @@
       { key: 'brand',   label: 'Brand',   render: window.stepBrand },
       { key: 'model',   label: 'Model',   render: window.stepModel },
       { key: 'storage', label: 'Storage', render: window.stepStorage },
-      { key: 'colour',  label: 'Colour',  render: window.stepColour,
+      { key: 'colour',  label: 'Colour',  render: stepColour,
         skip: function () { return !window.currentProduct() || !window.currentProduct().colors.length; } }
     ];
     (F.questions || []).forEach(function (q) {
@@ -55,6 +55,15 @@
     steps.push({ key: 'review',   label: 'Review',     render: function (b, h) { F.qmSeenReview = true; return legacyReview(b, h); } });
     return steps;
   };
+
+  /* Colour: the 3.1 screen, with each colour's own photo shown large (3:2, the catalogue image frame). */
+  var legacyColour = window.stepColour;
+  function stepColour(body, host) {
+    var r = legacyColour(body, host);
+    var imgs = body.querySelectorAll('.cx-choice img');
+    for (var i = 0; i < imgs.length; i++) imgs[i].className = 'qm-colour-img';
+    return r;
+  }
 
   /* After a choice: straight back to the review screen when the person came from there. */
   function next(host) {

@@ -193,5 +193,980 @@
    "file": "galaxy-z-flip8.webp",
    "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-zflip8-f776-sm-f776uzkaatt-553843246"
   }
- }
+ },
+ "colours": {
+  "Galaxy S22 Ultra|Burgundy": {
+   "file": "galaxy-s22-ultra--burgundy.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-ultra-s908-sm-s908edrdmea-530981732"
+  },
+  "Galaxy S22 Ultra|Graphite": {
+   "file": "galaxy-s22-ultra--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/es/2202/gallery/es-galaxy-s22-ultra-s908-411065-sm-s908bzageub-530877017"
+  },
+  "Galaxy S22 Ultra|Green": {
+   "file": "galaxy-s22-ultra--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-ultra-s908-sm-s908ezgdmea-530981843"
+  },
+  "Galaxy S22 Ultra|Phantom Black": {
+   "file": "galaxy-s22-ultra--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-ultra-s908-sm-s908ezkgmea-530981991"
+  },
+  "Galaxy S22 Ultra|Phantom White": {
+   "file": "galaxy-s22-ultra--phantom-white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-ultra-s908-sm-s908ezwgmea-530982102"
+  },
+  "Galaxy S22 Ultra|Sky Blue": {
+   "file": "galaxy-s22-ultra--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/es/2202/gallery/es-galaxy-s22-ultra-s908-411065-sm-s908blbdeub-530876832"
+  },
+  "Galaxy S22+|Green": {
+   "file": "galaxy-s22-plus--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-plus-s906-413028-sm-s906ezgdmea-530969846"
+  },
+  "Galaxy S22+|Phantom Black": {
+   "file": "galaxy-s22-plus--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-plus-s906-413028-sm-s906ezkgmea-530969903"
+  },
+  "Galaxy S22+|Phantom White": {
+   "file": "galaxy-s22-plus--phantom-white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-plus-s906-413028-sm-s906ezwdmea-530969922"
+  },
+  "Galaxy S22+|Pink Gold": {
+   "file": "galaxy-s22-plus--pink-gold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-plus-s906-413028-sm-s906eidgmea-530969827"
+  },
+  "Galaxy S22+|Sky Blue": {
+   "file": "galaxy-s22-plus--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/es/2202/gallery/es-galaxy-s22-plus-s906-sm-s906blbgeub-530863207"
+  },
+  "Galaxy S22|Cream": {
+   "file": "galaxy-s22--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2202/gallery/de-galaxy-s22-s901-410307-sm-s901bzegeub-530842837"
+  },
+  "Galaxy S22|Graphite": {
+   "file": "galaxy-s22--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2202/gallery/de-galaxy-s22-s901-410307-sm-s901bzadeub-530842780"
+  },
+  "Galaxy S22|Green": {
+   "file": "galaxy-s22--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-s901-412992-sm-s901ezgdmea-530967876"
+  },
+  "Galaxy S22|Phantom Black": {
+   "file": "galaxy-s22--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-s901-412992-sm-s901ezkgmea-530967933"
+  },
+  "Galaxy S22|Phantom White": {
+   "file": "galaxy-s22--phantom-white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-s901-412992-sm-s901ezwdmea-530967952"
+  },
+  "Galaxy S22|Pink Gold": {
+   "file": "galaxy-s22--pink-gold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2202/gallery/sa-en-galaxy-s22-s901-412992-sm-s901eidgmea-530967857"
+  },
+  "Galaxy S22|Sky Blue": {
+   "file": "galaxy-s22--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2202/gallery/de-galaxy-s22-s901-410307-sm-s901blbgeub-530842761"
+  },
+  "Galaxy S22|Violet": {
+   "file": "galaxy-s22--violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2202/gallery/de-galaxy-s22-s901-410307-sm-s901bzvdeub-530842856"
+  },
+  "Galaxy S23 Ultra|Cream": {
+   "file": "galaxy-s23-ultra--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s918-sm-s918bzewmea-534838633"
+  },
+  "Galaxy S23 Ultra|Graphite": {
+   "file": "galaxy-s23-ultra--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2302/gallery/sa-en-galaxy-s23-s918-446919-sm-s918bzaqmea-534879232"
+  },
+  "Galaxy S23 Ultra|Green": {
+   "file": "galaxy-s23-ultra--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s918-sm-s918bzgcmea-534838670"
+  },
+  "Galaxy S23 Ultra|Lavender": {
+   "file": "galaxy-s23-ultra--lavender.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s918-sm-s918blicmea-534838448"
+  },
+  "Galaxy S23 Ultra|Lime": {
+   "file": "galaxy-s23-ultra--lime.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2302/gallery/sa-en-galaxy-s23-s918-446919-sm-s918blgqmea-534879121"
+  },
+  "Galaxy S23 Ultra|Phantom Black": {
+   "file": "galaxy-s23-ultra--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s918-sm-s918bzkwmea-534838855"
+  },
+  "Galaxy S23 Ultra|Red": {
+   "file": "galaxy-s23-ultra--red.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2302/gallery/sa-en-galaxy-s23-s918-446919-sm-s918bzrqmea-534879343"
+  },
+  "Galaxy S23 Ultra|Sky Blue": {
+   "file": "galaxy-s23-ultra--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sa_en/2302/gallery/sa-en-galaxy-s23-s918-446919-sm-s918blbqmea-534879010"
+  },
+  "Galaxy S23+|Cream": {
+   "file": "galaxy-s23-plus--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s916-sm-s916bzebmea-534837767"
+  },
+  "Galaxy S23+|Graphite": {
+   "file": "galaxy-s23-plus--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/uk/2302/gallery/uk-galaxy-s23-s916-447004-sm-s916bzageub-534886268"
+  },
+  "Galaxy S23+|Green": {
+   "file": "galaxy-s23-plus--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s916-sm-s916bzgbmea-534837805"
+  },
+  "Galaxy S23+|Lavender": {
+   "file": "galaxy-s23-plus--lavender.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s916-sm-s916blicmea-534837748"
+  },
+  "Galaxy S23+|Lime": {
+   "file": "galaxy-s23-plus--lime.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/uk/2302/gallery/uk-galaxy-s23-s916-447004-sm-s916blggeub-534886230"
+  },
+  "Galaxy S23+|Phantom Black": {
+   "file": "galaxy-s23-plus--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s916-sm-s916bzkcmea-534837862"
+  },
+  "Galaxy S23|Cream": {
+   "file": "galaxy-s23--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s911-sm-s911bzebmea-534837919"
+  },
+  "Galaxy S23|Graphite": {
+   "file": "galaxy-s23--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/uk/2302/gallery/uk-galaxy-s23-s911-447000-sm-s911bzadeub-534885981"
+  },
+  "Galaxy S23|Green": {
+   "file": "galaxy-s23--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s911-sm-s911bzgbmea-534837957"
+  },
+  "Galaxy S23|Lavender": {
+   "file": "galaxy-s23--lavender.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s911-sm-s911blicmea-534837900"
+  },
+  "Galaxy S23|Lime": {
+   "file": "galaxy-s23--lime.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/uk/2302/gallery/uk-galaxy-s23-s911-447000-sm-s911blggeub-534885961"
+  },
+  "Galaxy S23|Phantom Black": {
+   "file": "galaxy-s23--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2302/gallery/ae-galaxy-s23-s911-sm-s911bzkcmea-534838014"
+  },
+  "Galaxy S24 Ultra|Titanium Black": {
+   "file": "galaxy-s24-ultra--titanium-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-s928-sm-s928bzkcmea-539263844"
+  },
+  "Galaxy S24 Ultra|Titanium Blue": {
+   "file": "galaxy-s24-ultra--titanium-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ca/2401/gallery/ca-galaxy-s24-s928-490239-sm-s928wlbfxac-539386369"
+  },
+  "Galaxy S24 Ultra|Titanium Gray": {
+   "file": "galaxy-s24-ultra--titanium-gray.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-s928-sm-s928bztcmea-539263955"
+  },
+  "Galaxy S24 Ultra|Titanium Green": {
+   "file": "galaxy-s24-ultra--titanium-green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ca/2401/gallery/ca-galaxy-s24-s928-490239-sm-s928wlgfxac-539386666"
+  },
+  "Galaxy S24 Ultra|Titanium Orange": {
+   "file": "galaxy-s24-ultra--titanium-orange.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ca/2401/gallery/ca-galaxy-s24-s928-490239-sm-s928wzoexac-539386966"
+  },
+  "Galaxy S24 Ultra|Titanium Violet": {
+   "file": "galaxy-s24-ultra--titanium-violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-s928-sm-s928bzvcmea-539264070"
+  },
+  "Galaxy S24 Ultra|Titanium Yellow": {
+   "file": "galaxy-s24-ultra--titanium-yellow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-s928-sm-s928bzycmea-539264182"
+  },
+  "Galaxy S24+|Amber Yellow": {
+   "file": "galaxy-s24-plus--amber-yellow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-plus-490696-sm-s926bzybmea-539417313"
+  },
+  "Galaxy S24+|Cobalt Violet": {
+   "file": "galaxy-s24-plus--cobalt-violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-plus-490696-sm-s926bzvbmea-539417274"
+  },
+  "Galaxy S24+|Marble Gray": {
+   "file": "galaxy-s24-plus--marble-gray.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-plus-490696-sm-s926bzabmea-539417194"
+  },
+  "Galaxy S24+|Onyx Black": {
+   "file": "galaxy-s24-plus--onyx-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-plus-490696-sm-s926bzkbmea-539417236"
+  },
+  "Galaxy S24+|Sapphire Blue": {
+   "file": "galaxy-s24-plus--sapphire-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/at/2401/gallery/at-galaxy-s24-plus-489519-sm-s926blbdeue-539348107"
+  },
+  "Galaxy S24|Amber Yellow": {
+   "file": "galaxy-s24--amber-yellow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-sm-s921bzycmea-539263713"
+  },
+  "Galaxy S24|Cobalt Violet": {
+   "file": "galaxy-s24--cobalt-violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-sm-s921bzvbmea-539263654"
+  },
+  "Galaxy S24|Jade Green": {
+   "file": "galaxy-s24--jade-green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ca/2401/gallery/ca-galaxy-s24-490034-sm-s921wlgexac-539373023"
+  },
+  "Galaxy S24|Marble Gray": {
+   "file": "galaxy-s24--marble-gray.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-sm-s921bzacmea-539263594"
+  },
+  "Galaxy S24|Onyx Black": {
+   "file": "galaxy-s24--onyx-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2401/gallery/ae-galaxy-s24-sm-s921bzkbmea-539263614"
+  },
+  "Galaxy S25 Ultra|Titanium Black": {
+   "file": "galaxy-s25-ultra--titanium-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s938-sm-s938bzkpmea-544633416"
+  },
+  "Galaxy S25 Ultra|Titanium Gray": {
+   "file": "galaxy-s25-ultra--titanium-gray.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s938-sm-s938bztpmea-544633638"
+  },
+  "Galaxy S25 Ultra|Titanium Jadegreen": {
+   "file": "galaxy-s25-ultra--titanium-jadegreen.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/sg/2501/gallery/sg-galaxy-s25-s938-533052-sm-s938bzgqxsp-544603174"
+  },
+  "Galaxy S25 Ultra|Titanium Jetblack": {
+   "file": "galaxy-s25-ultra--titanium-jetblack.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/my/2501/gallery/my-galaxy-s25-s938-sm-s938bakcxme-544707505"
+  },
+  "Galaxy S25 Ultra|Titanium Pinkgold": {
+   "file": "galaxy-s25-ultra--titanium-pinkgold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/vn/2501/gallery/vn-galaxy-s25-s938-534623-sm-s938bzdbxxv-544745977"
+  },
+  "Galaxy S25 Ultra|Titanium Silverblue": {
+   "file": "galaxy-s25-ultra--titanium-silverblue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s938-sm-s938bzbpmea-544633286"
+  },
+  "Galaxy S25 Ultra|Titanium Whitesilver": {
+   "file": "galaxy-s25-ultra--titanium-whitesilver.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s938-sm-s938bzsomea-544633490"
+  },
+  "Galaxy S25+|Blueblack": {
+   "file": "galaxy-s25-plus--blueblack.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/sm-s936bzkoafb/gallery/africa-en-galaxy-s25-s936-534017-sm-s936bzkoafb-544983011"
+  },
+  "Galaxy S25+|Coralred": {
+   "file": "galaxy-s25-plus--coralred.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/cz/sm-s936bzrgeue/gallery/cz-galaxy-s25-s936-534852-sm-s936bzrgeue-548456254"
+  },
+  "Galaxy S25+|Icyblue": {
+   "file": "galaxy-s25-plus--icyblue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s936-sm-s936blbimea-544635520"
+  },
+  "Galaxy S25+|Mint": {
+   "file": "galaxy-s25-plus--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s936-sm-s936blgomea-544635579"
+  },
+  "Galaxy S25+|Navy": {
+   "file": "galaxy-s25-plus--navy.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s936-sm-s936bdbimea-544635459"
+  },
+  "Galaxy S25+|Pinkgold": {
+   "file": "galaxy-s25-plus--pinkgold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/cz/sm-s936bzdgeue/gallery/cz-galaxy-s25-s936-534852-sm-s936bzdgeue-548456039"
+  },
+  "Galaxy S25+|Silver Shadow": {
+   "file": "galaxy-s25-plus--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s936-sm-s936bzsimea-544635598"
+  },
+  "Galaxy S25|Blueblack": {
+   "file": "galaxy-s25--blueblack.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/2501/gallery/us-galaxy-s25-s931-536522-sm-s931uzkexaa-544904966"
+  },
+  "Galaxy S25|Coralred": {
+   "file": "galaxy-s25--coralred.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/2501/gallery/us-galaxy-s25-s931-536522-sm-s931uzrexaa-544904986"
+  },
+  "Galaxy S25|Icyblue": {
+   "file": "galaxy-s25--icyblue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/2501/gallery/ae-galaxy-s25-s931-sm-s931blbimea-544634401"
+  },
+  "Galaxy S25|Mint": {
+   "file": "galaxy-s25--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-s931blgpmea/gallery/ae-galaxy-s25-s931-533692-sm-s931blgpmea-545105140"
+  },
+  "Galaxy S25|Navy": {
+   "file": "galaxy-s25--navy.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-s931bdbpmea/gallery/ae-galaxy-s25-s931-533692-sm-s931bdbpmea-545105101"
+  },
+  "Galaxy S25|Pinkgold": {
+   "file": "galaxy-s25--pinkgold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/2501/gallery/us-galaxy-s25-s931-536522-sm-s931uzdexaa-544904947"
+  },
+  "Galaxy S25|Silver Shadow": {
+   "file": "galaxy-s25--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-s931bzspmea/gallery/ae-galaxy-s25-s931-533692-sm-s931bzspmea-545105159"
+  },
+  "Galaxy S26 Ultra|Black": {
+   "file": "galaxy-s26-ultra--black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948uzkaxau-550993396"
+  },
+  "Galaxy S26 Ultra|Cobalt Violet": {
+   "file": "galaxy-s26-ultra--cobalt-violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948uzvexaa-550994083"
+  },
+  "Galaxy S26 Ultra|Pink Gold": {
+   "file": "galaxy-s26-ultra--pink-gold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948uzdfxaa-550993248"
+  },
+  "Galaxy S26 Ultra|Silver Shadow": {
+   "file": "galaxy-s26-ultra--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948uzsaxaa-550993729"
+  },
+  "Galaxy S26 Ultra|Sky Blue": {
+   "file": "galaxy-s26-ultra--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948ulbexaa-550993063"
+  },
+  "Galaxy S26 Ultra|White": {
+   "file": "galaxy-s26-ultra--white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-ultra-s948-sm-s948uzwfxaa-550994511"
+  },
+  "Galaxy S26+|Black": {
+   "file": "galaxy-s26-plus--black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947uzkevzw-550994804"
+  },
+  "Galaxy S26+|Cobalt Violet": {
+   "file": "galaxy-s26-plus--cobalt-violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947uzveatt-550994975"
+  },
+  "Galaxy S26+|Pink Gold": {
+   "file": "galaxy-s26-plus--pink-gold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947uzdexaa-550994690"
+  },
+  "Galaxy S26+|Silver Shadow": {
+   "file": "galaxy-s26-plus--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947uzsexaa-550994880"
+  },
+  "Galaxy S26+|Sky Blue": {
+   "file": "galaxy-s26-plus--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947ulbexau-550994652"
+  },
+  "Galaxy S26+|White": {
+   "file": "galaxy-s26-plus--white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s947-sm-s947uzwevzw-550995148"
+  },
+  "Galaxy S26|Black": {
+   "file": "galaxy-s26--black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942uzkexaa-550995422"
+  },
+  "Galaxy S26|Cobalt Violet": {
+   "file": "galaxy-s26--cobalt-violet.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942uzvexau-550995631"
+  },
+  "Galaxy S26|Pink Gold": {
+   "file": "galaxy-s26--pink-gold.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942uzdexaa-550995346"
+  },
+  "Galaxy S26|Silver Shadow": {
+   "file": "galaxy-s26--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942uzsexaa-550995536"
+  },
+  "Galaxy S26|Sky Blue": {
+   "file": "galaxy-s26--sky-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942ulbexaa-550995232"
+  },
+  "Galaxy S26|White": {
+   "file": "galaxy-s26--white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/s2602/gallery/us-galaxy-s26-s942-sm-s942uzwfatt-550995802"
+  },
+  "Galaxy Z Flip5|Blue": {
+   "file": "galaxy-z-flip5--blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2307/gallery/de-galaxy-z-flip5-f731-466471-sm-f731bzbgeub-537188834"
+  },
+  "Galaxy Z Flip5|Cream": {
+   "file": "galaxy-z-flip5--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-flip5-f731-sm-f731bzeemea-537225633"
+  },
+  "Galaxy Z Flip5|Graphite": {
+   "file": "galaxy-z-flip5--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-flip5-f731-sm-f731bzaamea-537225570"
+  },
+  "Galaxy Z Flip5|Gray": {
+   "file": "galaxy-z-flip5--gray.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2307/gallery/de-galaxy-z-flip5-f731-466471-sm-f731bzuheub-537188941"
+  },
+  "Galaxy Z Flip5|Green": {
+   "file": "galaxy-z-flip5--green.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2307/gallery/de-galaxy-z-flip5-f731-466471-sm-f731bzgheub-537188898"
+  },
+  "Galaxy Z Flip5|Lavender": {
+   "file": "galaxy-z-flip5--lavender.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-flip5-f731-sm-f731bliamea-537225528"
+  },
+  "Galaxy Z Flip5|Mint": {
+   "file": "galaxy-z-flip5--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-flip5-f731-sm-f731blgamea-537225486"
+  },
+  "Galaxy Z Flip5|Yellow": {
+   "file": "galaxy-z-flip5--yellow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2307/gallery/de-galaxy-z-flip5-f731-466471-sm-f731bzyheub-537188987"
+  },
+  "Galaxy Z Flip6|Blue": {
+   "file": "galaxy-z-flip6--blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f741blbemea/gallery/ae-galaxy-zflip6-f741-513265-sm-f741blbemea-543034157"
+  },
+  "Galaxy Z Flip6|Crafted Black": {
+   "file": "galaxy-z-flip6--crafted-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/cl/sm-f741bakjcho/gallery/cl-galaxy-zflip6-f741-sm-f741bakjcho-543093336"
+  },
+  "Galaxy Z Flip6|Mint": {
+   "file": "galaxy-z-flip6--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f741blgamea/gallery/ae-galaxy-zflip6-f741-513265-sm-f741blgamea-543034249"
+  },
+  "Galaxy Z Flip6|Peach": {
+   "file": "galaxy-z-flip6--peach.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/mx/sm-f741bzokltm/gallery/mx-galaxy-zflip6-f741-513316-sm-f741bzokltm-542764236"
+  },
+  "Galaxy Z Flip6|Silver Shadow": {
+   "file": "galaxy-z-flip6--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f741bzsemea/gallery/ae-galaxy-zflip6-f741-513265-sm-f741bzsemea-543034390"
+  },
+  "Galaxy Z Flip6|Yellow": {
+   "file": "galaxy-z-flip6--yellow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f741bzyemea/gallery/ae-galaxy-zflip6-f741-513265-sm-f741bzyemea-543034474"
+  },
+  "Galaxy Z Flip7|Blue Shadow": {
+   "file": "galaxy-z-flip7--blue-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-zflip7-f766-sm-f766udbaatt-547888521"
+  },
+  "Galaxy Z Flip7|Coralred": {
+   "file": "galaxy-z-flip7--coralred.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-zflip7-f766-sm-f766uzrevzw-547906173"
+  },
+  "Galaxy Z Flip7|Jetblack": {
+   "file": "galaxy-z-flip7--jetblack.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-zflip7-f766-sm-f766uzkaatt-547891949"
+  },
+  "Galaxy Z Flip7|Mint": {
+   "file": "galaxy-z-flip7--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-zflip7-f766-sm-f766ulgaxaa-547891061"
+  },
+  "Galaxy Z Flip8|Cream": {
+   "file": "galaxy-z-flip8--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-zflip8-f776-sm-f776uzweatt-553843775"
+  },
+  "Galaxy Z Flip8|Graphite": {
+   "file": "galaxy-z-flip8--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-zflip8-f776-sm-f776uzkexaa-553843522"
+  },
+  "Galaxy Z Flip8|Mint": {
+   "file": "galaxy-z-flip8--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-zflip8-f776-sm-f776ulgexaa-553842905"
+  },
+  "Galaxy Z Flip8|Pink": {
+   "file": "galaxy-z-flip8--pink.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-zflip8-f776-sm-f776ulievzw-553843161"
+  },
+  "Galaxy Z Fold5|Blue": {
+   "file": "galaxy-z-fold5--blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2307/gallery/de-galaxy-z-fold5-f946-466518-sm-f946bzbneub-537194805"
+  },
+  "Galaxy Z Fold5|Cream": {
+   "file": "galaxy-z-fold5--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-fold5-f946-sm-f946bzedmea-537255531"
+  },
+  "Galaxy Z Fold5|Gray": {
+   "file": "galaxy-z-fold5--gray.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/de/2307/gallery/de-galaxy-z-fold5-f946-466518-sm-f946bzuneub-537194862"
+  },
+  "Galaxy Z Fold5|Icy Blue": {
+   "file": "galaxy-z-fold5--icy-blue.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-fold5-f946-sm-f946blbdmea-537255474"
+  },
+  "Galaxy Z Fold5|Phantom Black": {
+   "file": "galaxy-z-fold5--phantom-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/levant/2307/gallery/levant-galaxy-z-fold5-f946-sm-f946bzkdmea-537255588"
+  },
+  "Galaxy Z Fold6|Crafted Black": {
+   "file": "galaxy-z-fold6--crafted-black.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/id/sm-f956bakhxid/gallery/id-galaxy-z-fold6-f956-sm-f956bakhxid-542632487"
+  },
+  "Galaxy Z Fold6|Navy": {
+   "file": "galaxy-z-fold6--navy.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f956bdbdmea/gallery/ae-galaxy-z-fold6-f956-513188-sm-f956bdbdmea-543005804"
+  },
+  "Galaxy Z Fold6|Pink": {
+   "file": "galaxy-z-fold6--pink.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f956blihmea/gallery/ae-galaxy-z-fold6-f956-513188-sm-f956blihmea-543005866"
+  },
+  "Galaxy Z Fold6|Silver Shadow": {
+   "file": "galaxy-z-fold6--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/ae/sm-f956bzsdmea/gallery/ae-galaxy-z-fold6-f956-513188-sm-f956bzsdmea-543006983"
+  },
+  "Galaxy Z Fold6|White": {
+   "file": "galaxy-z-fold6--white.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/at/2407/gallery/at-galaxy-z-fold6-f956-514269-sm-f956bzwceue-542662636"
+  },
+  "Galaxy Z Fold7|Blue Shadow": {
+   "file": "galaxy-z-fold7--blue-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-z-fold7-f966-sm-f966udbexaa-547829392"
+  },
+  "Galaxy Z Fold7|Jetblack": {
+   "file": "galaxy-z-fold7--jetblack.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-z-fold7-f966-sm-f966uzkaatt-547829733"
+  },
+  "Galaxy Z Fold7|Mint": {
+   "file": "galaxy-z-fold7--mint.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-z-fold7-f966-sm-f966ulgexaa-547829601"
+  },
+  "Galaxy Z Fold7|Silver Shadow": {
+   "file": "galaxy-z-fold7--silver-shadow.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2507/gallery/us-galaxy-z-fold7-f966-sm-f966uzsaxaa-547866955"
+  },
+  "Galaxy Z Fold8|Cream": {
+   "file": "galaxy-z-fold8--cream.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-z-fold8-f971-600257-sm-f971uzwavzw-553841606"
+  },
+  "Galaxy Z Fold8|Graphite": {
+   "file": "galaxy-z-fold8--graphite.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-z-fold8-f971-600257-sm-f971uzkexaa-553841424"
+  },
+  "Galaxy Z Fold8|Lavender": {
+   "file": "galaxy-z-fold8--lavender.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-z-fold8-f971-600257-sm-f971ulvexau-553841090"
+  },
+  "Galaxy Z Fold8|Pistachio": {
+   "file": "galaxy-z-fold8--pistachio.webp",
+   "source": "https://images.samsung.com/is/image/samsung/p6pim/us/f2607/gallery/us-galaxy-z-fold8-f971-600257-sm-f971uzgfxaa-553841227"
+  },
+  "iPhone 13 Pro Max|Alpine Green": {
+   "file": "iphone-13-pro-max--alpine-green.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-7inch-alpinegreen"
+  },
+  "iPhone 13 Pro Max|Gold": {
+   "file": "iphone-13-pro-max--gold.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-7inch-gold"
+  },
+  "iPhone 13 Pro Max|Graphite": {
+   "file": "iphone-13-pro-max--graphite.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-7inch-graphite"
+  },
+  "iPhone 13 Pro Max|Sierra Blue": {
+   "file": "iphone-13-pro-max--sierra-blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-7inch-sierrablue"
+  },
+  "iPhone 13 Pro Max|Silver": {
+   "file": "iphone-13-pro-max--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-7inch-silver"
+  },
+  "iPhone 13 Pro|Alpine Green": {
+   "file": "iphone-13-pro--alpine-green.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-1inch-alpinegreen"
+  },
+  "iPhone 13 Pro|Gold": {
+   "file": "iphone-13-pro--gold.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-1inch-gold"
+  },
+  "iPhone 13 Pro|Graphite": {
+   "file": "iphone-13-pro--graphite.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-1inch-graphite"
+  },
+  "iPhone 13 Pro|Sierra Blue": {
+   "file": "iphone-13-pro--sierra-blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-1inch-sierrablue"
+  },
+  "iPhone 13 Pro|Silver": {
+   "file": "iphone-13-pro--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-pro-finish-select-202207-6-1inch-silver"
+  },
+  "iPhone 13 mini|(PRODUCT)RED": {
+   "file": "iphone-13-mini--product-red.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-5-4inch-product-red"
+  },
+  "iPhone 13 mini|Blue": {
+   "file": "iphone-13-mini--blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-5-4inch-blue"
+  },
+  "iPhone 13 mini|Green": {
+   "file": "iphone-13-mini--green.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-5-4inch-green"
+  },
+  "iPhone 13 mini|Midnight": {
+   "file": "iphone-13-mini--midnight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-5-4inch-midnight"
+  },
+  "iPhone 13 mini|Pink": {
+   "file": "iphone-13-mini--pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-5-4inch-pink"
+  },
+  "iPhone 13 mini|Starlight": {
+   "file": "iphone-13-mini--starlight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-5-4inch-starlight"
+  },
+  "iPhone 13|(PRODUCT)RED": {
+   "file": "iphone-13--product-red.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-product-red"
+  },
+  "iPhone 13|Blue": {
+   "file": "iphone-13--blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-blue"
+  },
+  "iPhone 13|Green": {
+   "file": "iphone-13--green.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-green"
+  },
+  "iPhone 13|Midnight": {
+   "file": "iphone-13--midnight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-midnight"
+  },
+  "iPhone 13|Pink": {
+   "file": "iphone-13--pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-pink"
+  },
+  "iPhone 13|Starlight": {
+   "file": "iphone-13--starlight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-13-finish-select-202207-starlight"
+  },
+  "iPhone 14 Plus|(PRODUCT)RED": {
+   "file": "iphone-14-plus--product-red.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-7inch-product-red"
+  },
+  "iPhone 14 Plus|Blue": {
+   "file": "iphone-14-plus--blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-7inch-blue"
+  },
+  "iPhone 14 Plus|Midnight": {
+   "file": "iphone-14-plus--midnight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-7inch-midnight"
+  },
+  "iPhone 14 Plus|Purple": {
+   "file": "iphone-14-plus--purple.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-7inch-purple"
+  },
+  "iPhone 14 Plus|Starlight": {
+   "file": "iphone-14-plus--starlight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-7inch-starlight"
+  },
+  "iPhone 14 Plus|Yellow": {
+   "file": "iphone-14-plus--yellow.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-7inch-yellow"
+  },
+  "iPhone 14 Pro Max|Deep Purple": {
+   "file": "iphone-14-pro-max--deep-purple.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-7inch-deeppurple"
+  },
+  "iPhone 14 Pro Max|Gold": {
+   "file": "iphone-14-pro-max--gold.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-7inch-gold"
+  },
+  "iPhone 14 Pro Max|Silver": {
+   "file": "iphone-14-pro-max--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-7inch-silver"
+  },
+  "iPhone 14 Pro Max|Space Black": {
+   "file": "iphone-14-pro-max--space-black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-7inch-spaceblack"
+  },
+  "iPhone 14 Pro|Deep Purple": {
+   "file": "iphone-14-pro--deep-purple.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-1inch-deeppurple"
+  },
+  "iPhone 14 Pro|Gold": {
+   "file": "iphone-14-pro--gold.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-1inch-gold"
+  },
+  "iPhone 14 Pro|Silver": {
+   "file": "iphone-14-pro--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-1inch-silver"
+  },
+  "iPhone 14 Pro|Space Black": {
+   "file": "iphone-14-pro--space-black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-1inch-spaceblack"
+  },
+  "iPhone 14|(PRODUCT)RED": {
+   "file": "iphone-14--product-red.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-product-red"
+  },
+  "iPhone 14|Blue": {
+   "file": "iphone-14--blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-blue"
+  },
+  "iPhone 14|Midnight": {
+   "file": "iphone-14--midnight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-midnight"
+  },
+  "iPhone 14|Purple": {
+   "file": "iphone-14--purple.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-purple"
+  },
+  "iPhone 14|Starlight": {
+   "file": "iphone-14--starlight.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-starlight"
+  },
+  "iPhone 14|Yellow": {
+   "file": "iphone-14--yellow.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-yellow"
+  },
+  "iPhone 15 Plus|Black": {
+   "file": "iphone-15-plus--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-7inch-black"
+  },
+  "iPhone 15 Plus|Blue": {
+   "file": "iphone-15-plus--blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-7inch-blue"
+  },
+  "iPhone 15 Plus|Green": {
+   "file": "iphone-15-plus--green.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-7inch-green"
+  },
+  "iPhone 15 Plus|Pink": {
+   "file": "iphone-15-plus--pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-7inch-pink"
+  },
+  "iPhone 15 Plus|Yellow": {
+   "file": "iphone-15-plus--yellow.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-7inch-yellow"
+  },
+  "iPhone 15 Pro Max|Black Titanium": {
+   "file": "iphone-15-pro-max--black-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-blacktitanium"
+  },
+  "iPhone 15 Pro Max|Blue Titanium": {
+   "file": "iphone-15-pro-max--blue-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-bluetitanium"
+  },
+  "iPhone 15 Pro Max|Natural Titanium": {
+   "file": "iphone-15-pro-max--natural-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-naturaltitanium"
+  },
+  "iPhone 15 Pro Max|White Titanium": {
+   "file": "iphone-15-pro-max--white-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-whitetitanium"
+  },
+  "iPhone 15 Pro|Black Titanium": {
+   "file": "iphone-15-pro--black-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-1inch-blacktitanium"
+  },
+  "iPhone 15 Pro|Blue Titanium": {
+   "file": "iphone-15-pro--blue-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-1inch-bluetitanium"
+  },
+  "iPhone 15 Pro|Natural Titanium": {
+   "file": "iphone-15-pro--natural-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-1inch-naturaltitanium"
+  },
+  "iPhone 15 Pro|White Titanium": {
+   "file": "iphone-15-pro--white-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-1inch-whitetitanium"
+  },
+  "iPhone 15|Black": {
+   "file": "iphone-15--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-black"
+  },
+  "iPhone 15|Blue": {
+   "file": "iphone-15--blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-blue"
+  },
+  "iPhone 15|Green": {
+   "file": "iphone-15--green.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-green"
+  },
+  "iPhone 15|Pink": {
+   "file": "iphone-15--pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-pink"
+  },
+  "iPhone 15|Yellow": {
+   "file": "iphone-15--yellow.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-yellow"
+  },
+  "iPhone 16 Plus|Black": {
+   "file": "iphone-16-plus--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-7inch-black"
+  },
+  "iPhone 16 Plus|Pink": {
+   "file": "iphone-16-plus--pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-7inch-pink"
+  },
+  "iPhone 16 Plus|Teal": {
+   "file": "iphone-16-plus--teal.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-7inch-teal"
+  },
+  "iPhone 16 Plus|Ultramarine": {
+   "file": "iphone-16-plus--ultramarine.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-7inch-ultramarine"
+  },
+  "iPhone 16 Plus|White": {
+   "file": "iphone-16-plus--white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-7inch-white"
+  },
+  "iPhone 16 Pro Max|Black Titanium": {
+   "file": "iphone-16-pro-max--black-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-9inch-blacktitanium"
+  },
+  "iPhone 16 Pro Max|Desert Titanium": {
+   "file": "iphone-16-pro-max--desert-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-9inch-deserttitanium"
+  },
+  "iPhone 16 Pro Max|Natural Titanium": {
+   "file": "iphone-16-pro-max--natural-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-9inch-naturaltitanium"
+  },
+  "iPhone 16 Pro Max|White Titanium": {
+   "file": "iphone-16-pro-max--white-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-9inch-whitetitanium"
+  },
+  "iPhone 16 Pro|Black Titanium": {
+   "file": "iphone-16-pro--black-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-3inch-blacktitanium"
+  },
+  "iPhone 16 Pro|Desert Titanium": {
+   "file": "iphone-16-pro--desert-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-3inch-deserttitanium"
+  },
+  "iPhone 16 Pro|Natural Titanium": {
+   "file": "iphone-16-pro--natural-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-3inch-naturaltitanium"
+  },
+  "iPhone 16 Pro|White Titanium": {
+   "file": "iphone-16-pro--white-titanium.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-pro-finish-select-202409-6-3inch-whitetitanium"
+  },
+  "iPhone 16e|Black": {
+   "file": "iphone-16e--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16e-finish-select-202502-black"
+  },
+  "iPhone 16e|White": {
+   "file": "iphone-16e--white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16e-finish-select-202502-white"
+  },
+  "iPhone 16|Black": {
+   "file": "iphone-16--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-black"
+  },
+  "iPhone 16|Pink": {
+   "file": "iphone-16--pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-pink"
+  },
+  "iPhone 16|Teal": {
+   "file": "iphone-16--teal.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-teal"
+  },
+  "iPhone 16|Ultramarine": {
+   "file": "iphone-16--ultramarine.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-ultramarine"
+  },
+  "iPhone 16|White": {
+   "file": "iphone-16--white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-white"
+  },
+  "iPhone 17 Pro Max|Cosmic Orange": {
+   "file": "iphone-17-pro-max--cosmic-orange.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-cosmicorange-202509"
+  },
+  "iPhone 17 Pro Max|Deep Blue": {
+   "file": "iphone-17-pro-max--deep-blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-deepblue-202509"
+  },
+  "iPhone 17 Pro Max|Silver": {
+   "file": "iphone-17-pro-max--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-silver-202509"
+  },
+  "iPhone 17 Pro|Cosmic Orange": {
+   "file": "iphone-17-pro--cosmic-orange.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-finish-select-202509-6-3inch-cosmicorange"
+  },
+  "iPhone 17 Pro|Deep Blue": {
+   "file": "iphone-17-pro--deep-blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-finish-select-202509-6-3inch-deepblue"
+  },
+  "iPhone 17 Pro|Silver": {
+   "file": "iphone-17-pro--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-finish-select-202509-6-3inch-silver"
+  },
+  "iPhone 17e|Black": {
+   "file": "iphone-17e--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17e-finish-select-202603-black"
+  },
+  "iPhone 17e|Soft Pink": {
+   "file": "iphone-17e--soft-pink.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17e-finish-select-softpink-202603"
+  },
+  "iPhone 17e|White": {
+   "file": "iphone-17e--white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17e-finish-select-202603-white"
+  },
+  "iPhone 17|Black": {
+   "file": "iphone-17--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-finish-select-202509-black"
+  },
+  "iPhone 17|Lavender": {
+   "file": "iphone-17--lavender.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-finish-select-202509-lavender"
+  },
+  "iPhone 17|Mist Blue": {
+   "file": "iphone-17--mist-blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-finish-select-202509-mistblue"
+  },
+  "iPhone 17|Sage": {
+   "file": "iphone-17--sage.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-finish-select-202509-sage"
+  },
+  "iPhone 17|White": {
+   "file": "iphone-17--white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-finish-select-202509-white"
+  },
+  "iPhone 18 Pro Max|Black": {
+   "file": "iphone-18-pro-max--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-max-finish-select-black-202609"
+  },
+  "iPhone 18 Pro Max|Burgundy": {
+   "file": "iphone-18-pro-max--burgundy.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-max-finish-select-burgundy-202609"
+  },
+  "iPhone 18 Pro Max|Glacier": {
+   "file": "iphone-18-pro-max--glacier.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-max-finish-select-glacier-202609"
+  },
+  "iPhone 18 Pro Max|Silver": {
+   "file": "iphone-18-pro-max--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-max-finish-select-silver-202609"
+  },
+  "iPhone 18 Pro|Black": {
+   "file": "iphone-18-pro--black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-finish-select-black-202609"
+  },
+  "iPhone 18 Pro|Burgundy": {
+   "file": "iphone-18-pro--burgundy.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-finish-select-burgundy-202609"
+  },
+  "iPhone 18 Pro|Glacier": {
+   "file": "iphone-18-pro--glacier.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-finish-select-glacier-202609"
+  },
+  "iPhone 18 Pro|Silver": {
+   "file": "iphone-18-pro--silver.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-finish-select-silver-202609"
+  },
+  "iPhone Air|Cloud White": {
+   "file": "iphone-air--cloud-white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-air-finish-select-202509-cloudwhite"
+  },
+  "iPhone Air|Light Gold": {
+   "file": "iphone-air--light-gold.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-air-finish-select-202509-lightgold"
+  },
+  "iPhone Air|Sky Blue": {
+   "file": "iphone-air--sky-blue.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-air-finish-select-202509-skyblue"
+  },
+  "iPhone Air|Space Black": {
+   "file": "iphone-air--space-black.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-air-finish-select-202509-spaceblack"
+  },
+  "iPhone Duo|Night Sky": {
+   "file": "iphone-duo--night-sky.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-duo-finish-select-202609-nightsky"
+  },
+  "iPhone Duo|Star White": {
+   "file": "iphone-duo--star-white.webp",
+   "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-duo-finish-select-202609-starwhite"
+  }
+ },
+ "colours_note": "One official image per colour (Apple Store per-colour images, light grey background removed; samsung.com per-colour renders, the same angle as the model image), same 1200x800 frame. Colours with no official image on any Apple/Samsung site checked are left without one: Galaxy S22 Ultra|Red, Galaxy S22+|Cream, Galaxy S22+|Graphite, Galaxy S22+|Violet, Galaxy S24+|Jade Green, Galaxy S24+|Sandstone Orange, Galaxy S24|Sandstone Orange, Galaxy S24|Sapphire Blue, Galaxy Z Flip6|White"
 }
