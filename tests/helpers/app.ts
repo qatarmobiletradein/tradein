@@ -16,7 +16,7 @@ import { buildApp } from '../../apps/api/src/app.js';
 import type { Deps } from '../../apps/api/src/context.js';
 import type { AuthGateway, AuthSession, AuthUserInfo, GatewayError, MfaEnrollment, MfaFactor } from '../../apps/api/src/lib/gotrue.js';
 import { base32Secret, totp } from './totp.js';
-import { deliverOtp } from '../../apps/api/src/lib/otp.js';
+import { deliverOtp, mfaEnrolledVia } from '../../apps/api/src/lib/otp.js';
 import { TestSmsProvider } from '../../apps/api/src/lib/sms/provider.js';
 import { MemoryStorage } from '../../apps/api/src/lib/storage.js';
 import { freshDatabase } from './db.js';
@@ -52,7 +52,7 @@ export class StubAuth implements AuthGateway {
     const exists = await d.pool.query('select 1 from auth.users where phone = $1', [phone.replace(/^\+/, '')]);
     if (!exists.rowCount && !createUser) return { ok: false, status: 422, code: 'otp_disabled' };
     const code = String(randomInt(100000, 999999));
-    const r = await deliverOtp(d.pool, d.config, this.sms, phone, code);
+    const r = await deliverOtp(d.pool, d.config, this.sms, phone, code, mfaEnrolledVia(this));
     if (!r.ok) return { ok: false, status: r.httpCode, code: r.reason.toLowerCase() };
     this.codes.set(phone, code);
     return { ok: true };
@@ -122,7 +122,8 @@ export class StubAuth implements AuthGateway {
     const f = this.adminFailure(); if (f) return f;
     const u = (await this.deps().pool.query<{ id: string; email: string | null; email_confirmed_at: Date | null; phone: string | null }>(
       'select id, email, email_confirmed_at, phone from auth.users where id = $1', [id])).rows[0];
-    return u ? { ok: true, id: u.id, email: u.email, emailConfirmed: !!u.email_confirmed_at, phone: u.phone ?? '' } : { ok: false, status: 404, code: 'user_not_found' };
+    return u ? { ok: true, id: u.id, email: u.email, emailConfirmed: !!u.email_confirmed_at, phone: u.phone ?? '',
+      mfaVerified: (this.factors.get(u.id) ?? []).some((f) => f.verified) } : { ok: false, status: 404, code: 'user_not_found' };
   }
   async adminCreateUser(email: string, password: string): Promise<({ ok: true } & AuthUserInfo) | GatewayError> {
     const f = this.adminFailure(); if (f) return f;

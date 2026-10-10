@@ -21,7 +21,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import type { Deps } from '../context.js';
-import { deliverOtp } from '../lib/otp.js';
+import { deliverOtp, mfaEnrolledVia } from '../lib/otp.js';
 import { verifyWebhook } from '../lib/webhooks.js';
 import { resetCodeEmail } from '../lib/mail/graph.js';
 import { sha256Hex } from '../../../../packages/shared/src/text.js';
@@ -51,7 +51,7 @@ export function hookRoutes(deps: Deps) {
 
       let r: Awaited<ReturnType<typeof deliverOtp>>;
       try {
-        r = await deliverOtp(deps.pool, deps.config, deps.sms, phone, otp);
+        r = await deliverOtp(deps.pool, deps.config, deps.sms, phone, otp, mfaEnrolledVia(deps.authGateway));
       } catch (err) {
         // Database unavailable / lock timeout: still a well-formed refusal (a 5xx here would be retried
         // by Supabase Auth or turned into a generic 500).

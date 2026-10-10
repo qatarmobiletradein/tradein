@@ -25,7 +25,9 @@ export interface AuthSession {
 export type GatewayError = { ok: false; status: number; code: string };
 
 /** phone: Supabase's form (E.164 digits, no "+"), '' when the user has none. */
-export interface AuthUserInfo { id: string; email: string | null; emailConfirmed: boolean; phone?: string }
+export interface AuthUserInfo { id: string; email: string | null; emailConfirmed: boolean; phone?: string;
+  /** admin lookups only: the user has at least one VERIFIED authenticator-app factor */
+  mfaVerified?: boolean }
 
 export interface AuthGateway {
   // clientIp: the end user's IP, forwarded to Supabase Auth's per-IP rate limits when enabled (see GoTrueGateway).
@@ -171,7 +173,8 @@ export class GoTrueGateway implements AuthGateway {
   private static user(json: Json): AuthUserInfo | null {
     if (typeof json.id !== 'string') return null;
     return { id: json.id, email: typeof json.email === 'string' && json.email ? json.email : null, emailConfirmed: !!json.email_confirmed_at,
-      phone: typeof json.phone === 'string' ? json.phone : '' };
+      phone: typeof json.phone === 'string' ? json.phone : '',
+      mfaVerified: Array.isArray(json.factors) && (json.factors as Json[]).some((f) => f && f.status === 'verified') };
   }
 
   async passwordLogin(email: string, password: string, clientIp?: string) {

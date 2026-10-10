@@ -150,6 +150,22 @@ describe.skipIf(!HAS_DB)('OTP test codes for every number ("*")', () => {
     expect(sa.body.testCode).toBeUndefined();
   });
 
+  it('a SUPER_ADMIN who already has a verified authenticator app gets the code on screen; the app is still required', async () => {
+    // first sign-in the normal way (code delivered by the test SMS provider): links the Auth user
+    await t.deps.pool.query(`update public.otp_send_log set created_at = created_at - interval '2 hours' where phone = '+97430000001'`);
+    await post('/v1/auth/start', { phone: '30000001' });
+    const first = await post('/v1/auth/verify', { phone: '30000001', code: t.sms.lastCodeFor('+97430000001') });
+    expect(first.body).toMatchObject({ ok: true, mfaRequired: true, mfaEnrolled: false });
+    const id = (await t.deps.pool.query(`select auth_user_id from public.app_users where id = 'USR-00001'`)).rows[0].auth_user_id as string;
+    t.auth.factors.set(id, [{ id: 'f-1', secret: 'JBSWY3DPEHPK3PXP', verified: true }]);
+    await t.deps.pool.query(`update public.otp_send_log set created_at = created_at - interval '2 hours' where phone = '+97430000001'`);
+    const st = await post('/v1/auth/start', { phone: '30000001' });
+    expect(st.body).toMatchObject({ ok: true, testMode: true });
+    const v = await post('/v1/auth/verify', { phone: '30000001', code: st.body.testCode });
+    expect(v.body).toMatchObject({ ok: true, mfaRequired: true, mfaEnrolled: true });
+    expect(v.body.portal).toBeUndefined();
+  });
+
   it('the normal hourly limit still applies to "*" numbers', async () => {
     for (let i = 0; i < 7; i++) {
       await t.deps.pool.query(`insert into public.otp_send_log (phone, purpose, channel, outcome, created_at)

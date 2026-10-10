@@ -46,13 +46,25 @@ function namedTestNumber(cfg: AppConfig, phone: string): boolean {
   return listed(cfg.OTP_TEST_NUMBERS, phone) || listed(cfg.OTP_TEST_STAFF_NUMBERS, phone);
 }
 /** May this number see its code on screen instead of receiving it? (customer/new number or allowed staff) */
-async function showsCodeOnScreen(pool: pg.Pool, cfg: AppConfig, phone: string): Promise<boolean> {
-  const staff = (await pool.query<{ role: string }>('select role from public.app_users where phone = $1', [phone])).rows[0];
+async function showsCodeOnScreen(pool: pg.Pool, cfg: AppConfig, phone: string, mfaEnrolled?: MfaEnrolledCheck): Promise<boolean> {
+  const staff = (await pool.query<{ role: string; auth_user_id: string | null }>(
+    'select role, auth_user_id from public.app_users where phone = $1', [phone])).rows[0];
   if (!staff) return isTestNumber(cfg, phone);
+  if (!isTestStaffNumber(cfg, phone)) return false;
   const role = staff.role.toUpperCase();
-  if (role === 'SUPER_ADMIN' || cfg.STAFF_MFA_ROLES.includes(role)) return false;
-  return isTestStaffNumber(cfg, phone);
+  // A role that needs the authenticator app (owner decision 2026-10-10): only once that person has a
+  // VERIFIED factor — the app's code is then still required after the phone code. Without one, whoever
+  // typed the number first would enrol the factor and own the account.
+  if (role === 'SUPER_ADMIN' || cfg.STAFF_MFA_ROLES.includes(role)) {
+    if (!staff.auth_user_id || !mfaEnrolled) return false;
+    return mfaEnrolled(staff.auth_user_id).catch(() => false);
+  }
+  return true;
 }
+export type MfaEnrolledCheck = (authUserId: string) => Promise<boolean>;
+/** The check, through Supabase Auth's admin API (the same one the real hook route and the test stub use). */
+export const mfaEnrolledVia = (gw: { adminGetUser(id: string): Promise<{ ok: boolean; mfaVerified?: boolean }> }): MfaEnrolledCheck =>
+  async (id) => { const u = await gw.adminGetUser(id); return u.ok && !!u.mfaVerified; };
 export function takeTestCode(phone: string): string | null {
   const t = testCodes.get(phone);
   testCodes.delete(phone);
@@ -83,13 +95,13 @@ export async function purposeFor(
 
 /** Called by the Send SMS hook with the phone and the code Supabase generated. */
 export async function deliverOtp(
-  pool: pg.Pool, cfg: AppConfig, sms: SmsProvider, rawPhone: string, code: string,
+  pool: pg.Pool, cfg: AppConfig, sms: SmsProvider, rawPhone: string, code: string, mfaEnrolled?: MfaEnrolledCheck,
 ): Promise<HookOutcome> {
   const phone = normalizePhone(rawPhone);
   if (!phone) return { ok: false, httpCode: 400, reason: 'INVALID_PHONE', message: 'Enter a valid Qatar mobile number.' };
 
   // A test number shows its code instead of sending it (staff: only OTP_TEST_STAFF_NUMBERS, never an MFA role).
-  const showInstead = await showsCodeOnScreen(pool, cfg, phone);
+  const showInstead = await showsCodeOnScreen(pool, cfg, phone, mfaEnrolled);
   const channel = showInstead || sms.name === 'test' ? 'TEST' : 'SMS';
   if (!sms.configured() && !showInstead) {
     await audit(pool, ACTIONS.SMS_UNAVAILABLE, phone, { environment: cfg.APP_ENV, provider: sms.name }).catch(() => undefined);
