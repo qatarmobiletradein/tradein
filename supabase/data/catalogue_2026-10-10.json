@@ -1,0 +1,1114 @@
+[
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "13",
+  "model": "iPhone 13 mini",
+  "year": 2021,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Pink",
+   "Blue",
+   "Midnight",
+   "Starlight",
+   "(PRODUCT)RED",
+   "Green"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-qa/111872",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "13",
+  "model": "iPhone 13",
+  "year": 2021,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Pink",
+   "Blue",
+   "Midnight",
+   "Starlight",
+   "(PRODUCT)RED",
+   "Green"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-qa/111872",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "13",
+  "model": "iPhone 13 Pro",
+  "year": 2021,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Graphite",
+   "Gold",
+   "Silver",
+   "Sierra Blue",
+   "Alpine Green"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111871",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "13",
+  "model": "iPhone 13 Pro Max",
+  "year": 2021,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Graphite",
+   "Gold",
+   "Silver",
+   "Sierra Blue",
+   "Alpine Green"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111871",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "14",
+  "model": "iPhone 14",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Midnight",
+   "Purple",
+   "Starlight",
+   "(PRODUCT)RED",
+   "Blue",
+   "Yellow"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111850",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "14",
+  "model": "iPhone 14 Plus",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Midnight",
+   "Purple",
+   "Starlight",
+   "(PRODUCT)RED",
+   "Blue",
+   "Yellow"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111850",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "14",
+  "model": "iPhone 14 Pro",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Deep Purple",
+   "Gold",
+   "Silver",
+   "Space Black"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111849",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "14",
+  "model": "iPhone 14 Pro Max",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Deep Purple",
+   "Gold",
+   "Silver",
+   "Space Black"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111849",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "15",
+  "model": "iPhone 15",
+  "year": 2023,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "Blue",
+   "Green",
+   "Yellow",
+   "Pink"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111831",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "15",
+  "model": "iPhone 15 Plus",
+  "year": 2023,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "Blue",
+   "Green",
+   "Yellow",
+   "Pink"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111831",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "15",
+  "model": "iPhone 15 Pro",
+  "year": 2023,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Black Titanium",
+   "White Titanium",
+   "Blue Titanium",
+   "Natural Titanium"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111829",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "15",
+  "model": "iPhone 15 Pro Max",
+  "year": 2023,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Black Titanium",
+   "White Titanium",
+   "Blue Titanium",
+   "Natural Titanium"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/111828",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "16",
+  "model": "iPhone 16",
+  "year": 2024,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "White",
+   "Pink",
+   "Teal",
+   "Ultramarine"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-16/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "16",
+  "model": "iPhone 16 Plus",
+  "year": 2024,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "White",
+   "Pink",
+   "Teal",
+   "Ultramarine"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-16/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "16",
+  "model": "iPhone 16 Pro",
+  "year": 2024,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Black Titanium",
+   "White Titanium",
+   "Natural Titanium",
+   "Desert Titanium"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/121031",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "16",
+  "model": "iPhone 16 Pro Max",
+  "year": 2024,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Black Titanium",
+   "White Titanium",
+   "Natural Titanium",
+   "Desert Titanium"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/121032",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "16",
+  "model": "iPhone 16e",
+  "year": 2025,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "White"
+  ],
+  "ram": "",
+  "source": "https://support.apple.com/en-us/122208",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "17",
+  "model": "iPhone 17",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "White",
+   "Mist Blue",
+   "Sage",
+   "Lavender"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-17/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "17",
+  "model": "iPhone 17e",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Black",
+   "White",
+   "Soft Pink"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/iphone-17e/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "17",
+  "model": "iPhone Air",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Space Black",
+   "Cloud White",
+   "Light Gold",
+   "Sky Blue"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-air/specs/",
+  "notes": "Apple markets this model as iPhone Air; included with the 17-era lineup.",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "17",
+  "model": "iPhone 17 Pro",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Silver",
+   "Cosmic Orange",
+   "Deep Blue"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-17-pro/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "17",
+  "model": "iPhone 17 Pro Max",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB",
+   "2TB"
+  ],
+  "colors": [
+   "Silver",
+   "Cosmic Orange",
+   "Deep Blue"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-17-pro/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "18",
+  "model": "iPhone 18 Pro",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB",
+   "2TB"
+  ],
+  "colors": [
+   "Black",
+   "Silver",
+   "Glacier",
+   "Burgundy"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-18-pro/specs/",
+  "notes": "",
+  "verified": false
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "18",
+  "model": "iPhone 18 Pro Max",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB",
+   "2TB"
+  ],
+  "colors": [
+   "Black",
+   "Silver",
+   "Glacier",
+   "Burgundy"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/qa/iphone-18-pro/specs/",
+  "notes": "",
+  "verified": false
+ },
+ {
+  "brand": "Apple",
+  "family": "iPhone",
+  "generation": "18",
+  "model": "iPhone Duo",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB",
+   "2TB"
+  ],
+  "colors": [
+   "Night Sky",
+   "Star White"
+  ],
+  "ram": "",
+  "source": "https://www.apple.com/iphone-duo/specs/",
+  "notes": "Official 2026 foldable model. No standard/base iPhone 18 was listed on Apple's current lineup at file creation.",
+  "verified": false
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S22",
+  "model": "Galaxy S22",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB"
+  ],
+  "colors": [
+   "Phantom Black",
+   "Phantom White",
+   "Green",
+   "Pink Gold",
+   "Violet",
+   "Sky Blue",
+   "Graphite",
+   "Cream"
+  ],
+  "ram": "8GB",
+  "source": "https://www.samsung.com/ae/support/mobile-devices/how-many-and-what-colors-are-supported-by-galaxy-s22-series-in-the-market/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S22",
+  "model": "Galaxy S22+",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB"
+  ],
+  "colors": [
+   "Phantom Black",
+   "Phantom White",
+   "Green",
+   "Pink Gold",
+   "Violet",
+   "Sky Blue",
+   "Graphite",
+   "Cream"
+  ],
+  "ram": "8GB",
+  "source": "https://www.samsung.com/ae/support/mobile-devices/how-many-and-what-colors-are-supported-by-galaxy-s22-series-in-the-market/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S22",
+  "model": "Galaxy S22 Ultra",
+  "year": 2022,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Phantom Black",
+   "Phantom White",
+   "Green",
+   "Burgundy",
+   "Red",
+   "Sky Blue",
+   "Graphite"
+  ],
+  "ram": "8GB / 12GB",
+  "source": "https://www.samsung.com/ae/support/mobile-devices/how-many-and-what-colors-are-supported-by-galaxy-s22-series-in-the-market/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S23",
+  "model": "Galaxy S23",
+  "year": 2023,
+  "storage": [
+   "128GB",
+   "256GB"
+  ],
+  "colors": [
+   "Phantom Black",
+   "Cream",
+   "Green",
+   "Lavender",
+   "Lime",
+   "Graphite"
+  ],
+  "ram": "8GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s23/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S23",
+  "model": "Galaxy S23+",
+  "year": 2023,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Phantom Black",
+   "Cream",
+   "Green",
+   "Lavender",
+   "Lime",
+   "Graphite"
+  ],
+  "ram": "8GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s23/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S23",
+  "model": "Galaxy S23 Ultra",
+  "year": 2023,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Phantom Black",
+   "Cream",
+   "Green",
+   "Lavender",
+   "Lime",
+   "Sky Blue",
+   "Graphite",
+   "Red"
+  ],
+  "ram": "8GB / 12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s23-ultra/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S24",
+  "model": "Galaxy S24",
+  "year": 2024,
+  "storage": [
+   "128GB",
+   "256GB"
+  ],
+  "colors": [
+   "Cobalt Violet",
+   "Amber Yellow",
+   "Onyx Black",
+   "Marble Gray",
+   "Jade Green",
+   "Sapphire Blue",
+   "Sandstone Orange"
+  ],
+  "ram": "8GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s24/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S24",
+  "model": "Galaxy S24+",
+  "year": 2024,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Cobalt Violet",
+   "Amber Yellow",
+   "Onyx Black",
+   "Marble Gray",
+   "Jade Green",
+   "Sapphire Blue",
+   "Sandstone Orange"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s24/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S24",
+  "model": "Galaxy S24 Ultra",
+  "year": 2024,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Titanium Gray",
+   "Titanium Black",
+   "Titanium Violet",
+   "Titanium Yellow",
+   "Titanium Green",
+   "Titanium Orange",
+   "Titanium Blue"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s24-ultra/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S25",
+  "model": "Galaxy S25",
+  "year": 2025,
+  "storage": [
+   "128GB",
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Navy",
+   "Silver Shadow",
+   "Icyblue",
+   "Mint",
+   "Blueblack",
+   "Coralred",
+   "Pinkgold"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s25/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S25",
+  "model": "Galaxy S25+",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Navy",
+   "Silver Shadow",
+   "Icyblue",
+   "Mint",
+   "Blueblack",
+   "Coralred",
+   "Pinkgold"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s25/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S25",
+  "model": "Galaxy S25 Ultra",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Titanium Silverblue",
+   "Titanium Black",
+   "Titanium Gray",
+   "Titanium Whitesilver",
+   "Titanium Jetblack",
+   "Titanium Jadegreen",
+   "Titanium Pinkgold"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s25/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S26",
+  "model": "Galaxy S26",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Cobalt Violet",
+   "Sky Blue",
+   "Black",
+   "White",
+   "Silver Shadow",
+   "Pink Gold"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s26/buy/",
+  "notes": "",
+  "verified": false
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S26",
+  "model": "Galaxy S26+",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Cobalt Violet",
+   "Sky Blue",
+   "Black",
+   "White",
+   "Silver Shadow",
+   "Pink Gold"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s26/buy/",
+  "notes": "",
+  "verified": false
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy S",
+  "generation": "S26",
+  "model": "Galaxy S26 Ultra",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Cobalt Violet",
+   "Sky Blue",
+   "Black",
+   "White",
+   "Silver Shadow",
+   "Pink Gold"
+  ],
+  "ram": "12GB / 16GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-s26-ultra/buy/",
+  "notes": "",
+  "verified": false
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z5",
+  "model": "Galaxy Z Fold5",
+  "year": 2023,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Icy Blue",
+   "Phantom Black",
+   "Cream",
+   "Blue",
+   "Gray"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/support/mobile-devices/what-is-the-z-fold5-and-z-flip5-external-memory-limit-and-memory-sizes/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z5",
+  "model": "Galaxy Z Flip5",
+  "year": 2023,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Mint",
+   "Graphite",
+   "Cream",
+   "Lavender",
+   "Blue",
+   "Gray",
+   "Green",
+   "Yellow"
+  ],
+  "ram": "8GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z/galaxy-z-flip5-graphite-256gb-sm-f731bzaamea/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z6",
+  "model": "Galaxy Z Fold6",
+  "year": 2024,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Silver Shadow",
+   "Pink",
+   "Navy",
+   "Crafted Black",
+   "White"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z-fold6/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z6",
+  "model": "Galaxy Z Flip6",
+  "year": 2024,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Silver Shadow",
+   "Yellow",
+   "Blue",
+   "Mint",
+   "Crafted Black",
+   "White",
+   "Peach"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z-flip6/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z7",
+  "model": "Galaxy Z Fold7",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Blue Shadow",
+   "Silver Shadow",
+   "Jetblack",
+   "Mint"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z-fold7/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z7",
+  "model": "Galaxy Z Flip7",
+  "year": 2025,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Blue Shadow",
+   "Jetblack",
+   "Coralred",
+   "Mint"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z-flip7/specs/",
+  "notes": "",
+  "verified": true
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z8",
+  "model": "Galaxy Z Fold8",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB",
+   "1TB"
+  ],
+  "colors": [
+   "Lavender",
+   "Graphite",
+   "Cream",
+   "Pistachio"
+  ],
+  "ram": "12GB / 16GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z-fold8/buy/",
+  "notes": "",
+  "verified": false
+ },
+ {
+  "brand": "Samsung",
+  "family": "Galaxy Z",
+  "generation": "Z8",
+  "model": "Galaxy Z Flip8",
+  "year": 2026,
+  "storage": [
+   "256GB",
+   "512GB"
+  ],
+  "colors": [
+   "Pink",
+   "Graphite",
+   "Cream",
+   "Mint"
+  ],
+  "ram": "12GB",
+  "source": "https://www.samsung.com/ae/smartphones/galaxy-z-flip8/buy/",
+  "notes": "",
+  "verified": false
+ }
+]
