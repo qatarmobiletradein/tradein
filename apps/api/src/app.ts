@@ -97,7 +97,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     const ready = db && (sms || !c.isProduction);
     return reply.status(ready ? 200 : 503).send({
       ok: ready, environment: c.APP_ENV, version: APP_VERSION,
-      checks: { database: db, sms: sms ? 'configured' : 'not configured', idempotencyKeysRequired: c.IDEMPOTENCY_KEY_REQUIRED, staffSignIn: c.STAFF_SIGN_IN },
+      checks: { database: db, sms: sms ? 'configured' : 'not configured', idempotencyKeysRequired: c.IDEMPOTENCY_KEY_REQUIRED, staffSignIn: c.STAFF_SIGN_IN, staffMail: c.staffMailTransport === 'none' ? 'not configured' : c.staffMailTransport },
     });
   });
 

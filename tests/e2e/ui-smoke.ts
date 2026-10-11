@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   }
   for (const r of results) console.log(r);
   if (errors.length) { console.log('BROWSER ERRORS:'); for (const e of errors) console.log(`  ${e}`); process.exitCode = 1; }
-  if (results.length !== 27) process.exitCode = 1;
+  if (results.length !== 28) process.exitCode = 1;
 }
 
 async function runPhoneMode(browser: PwBrowser): Promise<void> {
@@ -519,6 +519,14 @@ async function runImeiMode(browser: PwBrowser): Promise<void> {
     await tp.evaluate(`[...document.querySelectorAll('button')].find(b => /Check IMEI/.test(b.textContent)).click()`);
     await until(async () => (await t.deps.pool.query('select imei_match from public.inspections where trade_in_id = $1', [pending.tradeInId])).rows[0]?.imei_match === true, 'technician IMEI match');
     results.push('PASS IMEI technician: the two choices on the identity check; confirmed IMEI matched by the server');
+    // Every page starts at the top (2026-10-11): scroll far down, change page, the new page is at the top.
+    await tp.evaluate(`document.body.style.minHeight = '6000px'; window.scrollTo(0, 3000)`);
+    if ((await tp.evaluate<number>('window.scrollY')) < 1000) throw new Error('could not scroll for the test');
+    await tp.locator('[data-page="t-returns"]').click();
+    await tp.waitForTimeout(300);
+    const y = await tp.evaluate<number>('window.scrollY');
+    if (y !== 0) throw new Error(`page did not start at the top (scrollY=${y})`);
+    results.push('PASS navigation: a new page always opens at the top');
     await tctx.close();
   } finally {
     await t.close();

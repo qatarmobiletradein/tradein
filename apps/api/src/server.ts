@@ -8,6 +8,7 @@
  * separate, explicit command (npm run migrate).
  */
 import { GraphMailer, NoMailer } from './lib/mail/graph.js';
+import { SmtpMailer } from './lib/mail/smtp.js';
 import { createTokenVerifier } from '../../../packages/auth/src/jwt.js';
 import { createPool } from '../../../packages/database/src/db.js';
 import { ConfigError, loadConfig } from '../../../packages/shared/src/config.js';
@@ -37,9 +38,11 @@ export async function createDeps(env: NodeJS.ProcessEnv = process.env): Promise<
     secret: config.SUPABASE_JWT_SECRET, jwksUrl: config.SUPABASE_JWKS_URL,
     issuer: config.SUPABASE_JWT_ISSUER, audience: config.SUPABASE_JWT_AUDIENCE,
   });
-  const mailer = config.staffMailConfigured
+  const mailer = config.staffMailTransport === 'graph'
     ? new GraphMailer(config.GRAPH_TENANT_ID!, config.GRAPH_CLIENT_ID!, config.GRAPH_CLIENT_SECRET!, config.STAFF_MAIL_FROM!)
-    : new NoMailer();
+    : config.staffMailTransport === 'smtp'
+      ? new SmtpMailer(config.SMTP_HOST!, config.SMTP_PORT ?? 587, config.SMTP_USER!, config.SMTP_PASS!, config.STAFF_MAIL_FROM!)
+      : new NoMailer();
   return { config, pool, log, sms: createSmsProvider(config), storage, authGateway, verifyToken, mailer };
 }
 

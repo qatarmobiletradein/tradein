@@ -2,7 +2,7 @@
   "name": "qatar-mobile-tradein-platform",
   "version": "0.3.0",
   "private": true,
-  "description": "Qatar Mobile Multi-Vendor Trade-In \u2014 Railway API + Supabase (PostgreSQL, Auth, RLS, Storage). Staging-ready; NOT deployed.",
+  "description": "Qatar Mobile Multi-Vendor Trade-In — Railway API + Supabase (PostgreSQL, Auth, RLS, Storage). Staging-ready; NOT deployed.",
   "license": "UNLICENSED",
   "type": "module",
   "engines": {
@@ -41,6 +41,7 @@
     "exceljs": "4.4.0",
     "fastify": "5.12.5",
     "jose": "6.2.12",
+    "nodemailer": "10.0.10",
     "pg": "8.23.1",
     "pino": "10.4.0",
     "zod": "3.25.76"
@@ -48,6 +49,7 @@
   "devDependencies": {
     "@apidevtools/swagger-parser": "12.0.0",
     "@types/node": "22.20.5",
+    "@types/nodemailer": "8.0.2",
     "@types/pg": "8.23.1",
     "railway": "3.11.0",
     "tsx": "4.23.15",

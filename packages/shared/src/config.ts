@@ -140,6 +140,11 @@ const EnvSchema = z.object({
   /** SECRET. */
   GRAPH_CLIENT_SECRET: z.string().max(500).optional(),
   STAFF_MAIL_FROM: z.string().max(254).optional(),
+  // SMTP alternative to Graph (owner decision 2026-10-11). SMTP_PASS is a secret: Railway only, sealed.
+  SMTP_HOST: z.string().max(253).optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  SMTP_USER: z.string().max(254).optional(),
+  SMTP_PASS: z.string().max(500).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -149,6 +154,7 @@ export interface AppConfig extends Omit<Env, 'IDEMPOTENCY_KEY_REQUIRED' | 'STAFF
   STAFF_MFA_ROLES: string[];
   /** Graph credentials + hook secret present: staff reset codes can be e-mailed. */
   staffMailConfigured: boolean;
+  staffMailTransport: 'graph' | 'smtp' | 'none';
   SUPABASE_AUTH_FORWARD_CLIENT_IP: boolean;
   IDEMPOTENCY_KEY_REQUIRED: boolean;
   STAFF_SIGN_IN: 'password' | 'phone' | 'both';
@@ -189,8 +195,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const sessionCheck = e.AUTH_SESSION_CHECK ?? isProductionLike;
   const mfaRoles = (e.STAFF_MFA_ROLES ?? (isProductionLike ? 'SUPER_ADMIN' : '')).split(',').map((r) => r.trim().toUpperCase()).filter(Boolean);
   const graphParts = [e.GRAPH_TENANT_ID, e.GRAPH_CLIENT_ID, e.GRAPH_CLIENT_SECRET, e.STAFF_MAIL_FROM];
-  const staffMailConfigured = graphParts.every(Boolean) && !!e.SEND_EMAIL_HOOK_SECRET;
-  if (graphParts.some(Boolean) && !graphParts.every(Boolean)) {
+  const smtpParts = [e.SMTP_HOST, e.SMTP_USER, e.SMTP_PASS, e.STAFF_MAIL_FROM];
+  const graphReady = graphParts.every(Boolean);
+  const smtpReady = smtpParts.every(Boolean);
+  const staffMailTransport: 'graph' | 'smtp' | 'none' = !e.SEND_EMAIL_HOOK_SECRET ? 'none' : graphReady ? 'graph' : smtpReady ? 'smtp' : 'none';
+  const staffMailConfigured = staffMailTransport !== 'none';
+  if ([e.SMTP_HOST, e.SMTP_USER, e.SMTP_PASS].some(Boolean) && !smtpReady) {
+    problems.push('SMTP staff e-mail needs all of SMTP_HOST, SMTP_USER, SMTP_PASS and STAFF_MAIL_FROM (or none of them).');
+  }
+  if (e.SMTP_PORT && ![465, 587, 2525].includes(e.SMTP_PORT)) problems.push('SMTP_PORT must be 587 (STARTTLS), 465 (TLS) or 2525.');
+  if ([e.GRAPH_TENANT_ID, e.GRAPH_CLIENT_ID, e.GRAPH_CLIENT_SECRET].some(Boolean) && !graphReady) {
     problems.push('Staff e-mail needs all of GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET and STAFF_MAIL_FROM (or none of them).');
   }
   if (e.STAFF_MAIL_FROM && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e.STAFF_MAIL_FROM)) problems.push('STAFF_MAIL_FROM must be an e-mail address.');
@@ -256,7 +270,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     if (staffSignIn === 'phone') problems.push('STAFF_SIGN_IN=phone is refused in production (use password or both).');
     if (!mfaRoles.includes('SUPER_ADMIN')) problems.push('STAFF_MFA_ROLES must include SUPER_ADMIN in production.');
     if (!sessionCheck) problems.push('AUTH_SESSION_CHECK=false is refused in production.');
-    if (!staffMailConfigured) problems.push('Staff reset e-mail must be configured in production (GRAPH_* + STAFF_MAIL_FROM + SEND_EMAIL_HOOK_SECRET).');
+    if (!staffMailConfigured) problems.push('Staff reset e-mail must be configured in production (GRAPH_* or SMTP_*, STAFF_MAIL_FROM and SEND_EMAIL_HOOK_SECRET).');
   }
 
   if (problems.length) throw new ConfigError(`Refusing to start:\n  ${problems.join('\n  ')}`);
@@ -269,6 +283,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     AUTH_SESSION_CHECK: sessionCheck,
     STAFF_MFA_ROLES: mfaRoles,
     staffMailConfigured,
+    staffMailTransport,
     isProductionLike,
     isProduction,
     otp: {

@@ -67,3 +67,38 @@
   }).observe(document.body || document.documentElement, { childList: true, subtree: true, characterData: true });
   scan(document.body);
 })();
+
+/*
+ * Every page and every step starts at the top (owner report 2026-10-11): the 3.1 screens re-draw into
+ * the same document, so the browser kept the previous scroll position — after sign-in, after a menu
+ * choice, and between the steps of the customer's trade-in flow.
+ */
+(function () {
+  'use strict';
+  if (!window.QM) return;
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) { /* older browsers */ }
+  function toTop() {
+    try { window.scrollTo(0, 0); } catch (e) { /* ignore */ }
+    var se = document.scrollingElement || document.documentElement;
+    if (se) se.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+    ['#content', '.content', '.main', '.cx-main', '#flow'].forEach(function (sel) {
+      document.querySelectorAll(sel).forEach(function (n) { if (n.scrollTop) n.scrollTop = 0; });
+    });
+  }
+  window.QMScrollTop = toTop;
+  function wrap(owner, name) {
+    var fn = owner[name];
+    if (typeof fn !== 'function' || fn.__qmTop) return;
+    var w = function () { var out = fn.apply(this, arguments); toTop(); return out; };
+    w.__qmTop = true;
+    owner[name] = w;
+  }
+  wrap(QM, 'go');
+  wrap(QM, 'renderPortal');
+  // The customer flow is drawn by global functions (3.1 PortalCustomerFlow); they exist when this runs.
+  function wrapFlow() { wrap(window, 'renderFlow'); }
+  wrapFlow();
+  document.addEventListener('DOMContentLoaded', wrapFlow);
+  window.addEventListener('load', function () { wrapFlow(); toTop(); });
+})();
