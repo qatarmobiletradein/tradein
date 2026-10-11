@@ -111,11 +111,16 @@ export function hookRoutes(deps: Deps) {
           return refuse(429, 'Please request the code from the Qatar Mobile Trade-In sign-in page.');
         }
         const m = resetCodeEmail(code, RESET_CODE_MINUTES);
-        const sent = await deps.mailer.send(email, m.subject, m.html, m.text);
-        if (!sent.ok) {
-          req.log.error({ status: sent.status, code: sent.code }, 'send-email hook: Graph refused');
-          return refuse(503, 'E-mail is temporarily unavailable. Please try again later.');
-        }
+        // Supabase waits about 5 s for this hook. A slow mail server must not turn into "not sent":
+        // the reply goes back within 3.5 s and a send still in flight finishes in the background
+        // (its outcome is logged, without the address or the code).
+        const sending = deps.mailer.send(email, m.subject, m.html, m.text).then((sent) => {
+          if (sent.ok) req.log.info('send-email hook: delivered to the mail server');
+          else req.log.error({ status: sent.status, code: sent.code }, 'send-email hook: mail server refused');
+          return sent;
+        });
+        const early = await Promise.race([sending, new Promise<null>((r) => setTimeout(() => r(null), 3500))]);
+        if (early && !early.ok) return refuse(503, 'E-mail is temporarily unavailable. Please try again later.');
         return reply.status(200).send({});
       } catch (err) {
         req.log.error({ err }, 'send-email hook: failed');

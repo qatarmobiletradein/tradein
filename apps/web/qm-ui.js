@@ -102,3 +102,46 @@
   document.addEventListener('DOMContentLoaded', wrapFlow);
   window.addEventListener('load', function () { wrapFlow(); toTop(); });
 })();
+
+/*
+ * A deploy reaches everyone (owner report 2026-10-11, "cache"): the page remembers the build it was
+ * loaded from (/version.json, never cached) and, when the server has a newer one, shows a bar with
+ * "Update now". It never reloads on its own, so a half-filled form is not lost. A page brought back
+ * from the browser's back/forward cache is reloaded at once.
+ */
+(function () {
+  'use strict';
+  var mine = null; var shown = false; var last = 0;
+  function check() {
+    if (shown || Date.now() - last < 30000) return;
+    last = Date.now();
+    try {
+      fetch('/version.json', { cache: 'no-store', credentials: 'omit' }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (v) {
+          if (!v || !v.build) return;
+          if (mine === null) { mine = v.build; return; }
+          if (v.build !== mine) offer();
+        }).catch(function () { /* offline: try later */ });
+    } catch (e) { /* very old browser */ }
+  }
+  function offer() {
+    shown = true;
+    var bar = document.createElement('div');
+    bar.setAttribute('role', 'status'); bar.setAttribute('data-qm', 'update-bar');
+    bar.style.cssText = 'position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3000;' +
+      'background:#1F2329;color:#fff;border-radius:12px;padding:.7rem .8rem .7rem 1rem;display:flex;gap:.8rem;align-items:center;' +
+      'box-shadow:0 8px 24px rgba(0,0,0,.25);font:inherit;max-width:calc(100vw - 32px)';
+    bar.appendChild(document.createTextNode('A new version of the app is available. / يتوفر إصدار جديد.'));
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = 'Update now / تحديث';
+    b.style.cssText = 'font:inherit;font-weight:600;border:0;border-radius:10px;padding:.5rem .9rem;background:var(--qm-cyan,#16BCDC);color:#fff;cursor:pointer;white-space:nowrap';
+    b.onclick = function () { location.reload(); };
+    bar.appendChild(b);
+    document.body.appendChild(bar);
+  }
+  window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') check(); });
+  window.addEventListener('focus', check);
+  setInterval(check, 5 * 60 * 1000);
+  check();
+})();

@@ -11,6 +11,7 @@
 import { createServer } from 'node:http';
 import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,6 +50,11 @@ try {
 const page = readFileSync(join(here, '..', '..', 'dist', 'web', 'index.html'), 'utf8');
 const html = Buffer.from(page.includes('</head>') ? page.replace('</head>', `${ICON_LINKS}</head>`) : page);
 const gz = gzipSync(html, { level: 9 });
+// One id per build: the page asks /version.json (never cached) and offers a reload when it changed,
+// so nobody keeps working in yesterday's screens after a deploy (owner report 2026-10-11).
+const BUILD_ID = createHash('sha256').update(html).digest('hex').slice(0, 12);
+const ETAG = `"${BUILD_ID}"`;
+const versionBody = Buffer.from(JSON.stringify({ build: BUILD_ID }));
 const origin = (u) => { try { return new URL(u).origin; } catch { return ''; } };
 const apiOrigins = (process.env.QM_API_BASE ?? '').split(',').map(origin).filter(Boolean);
 const storage = origin(process.env.QM_STORAGE_ORIGIN ?? '');
@@ -63,7 +69,7 @@ const csp = [
   "style-src 'unsafe-inline'",
   `img-src ${[...new Set(imgSources)].join(' ')}`,
   "font-src data:",
-  `connect-src ${apiOrigins.join(' ') || "'none'"}`,
+  `connect-src 'self' ${apiOrigins.join(' ')}`.trim(),
   "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'", "object-src 'none'",
 ].join('; ');
 const common = {
@@ -79,6 +85,10 @@ const common = {
 const server = createServer((req, res) => {
   const path = (req.url ?? '/').split('?')[0];
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD', ...common }); res.end(); return; }
+  if (path === '/version.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, max-age=0', 'Content-Length': String(versionBody.length), ...common });
+    res.end(req.method === 'HEAD' ? undefined : versionBody); return;
+  }
   if (path === '/health') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...common }); res.end(req.method === 'HEAD' ? undefined : '{"ok":true,"service":"qm-web"}'); return; }
   const icon = icons[path];
   if (icon) {
@@ -87,7 +97,9 @@ const server = createServer((req, res) => {
   }
   const image = catalog.get(path);
   if (image) {
-    res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=604800', 'Content-Length': String(image.length), ...common });
+    if (req.headers['if-none-match'] === ETAG) { res.writeHead(304, { 'ETag': ETAG, ...common }); res.end(); return; }
+    // An hour fresh, then revalidated, so a replaced product photo shows the same day.
+    res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400', 'ETag': ETAG, 'Content-Length': String(image.length), ...common });
     res.end(req.method === 'HEAD' ? undefined : image); return;
   }
   const lib = vendor.get(path);
@@ -102,10 +114,11 @@ const server = createServer((req, res) => {
     res.end(req.method === 'HEAD' ? undefined : tpl.body); return;
   }
   if (path !== '/' && path !== '/index.html' && /\.[a-z0-9]+$/i.test(path)) { res.writeHead(404, { 'Content-Type': 'text/plain', ...common }); res.end('Not found'); return; }
+  if (req.headers['if-none-match'] === ETAG) { res.writeHead(304, { 'ETag': ETAG, 'Cache-Control': 'no-cache, must-revalidate', ...common }); res.end(); return; }
   const useGz = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
   const body = useGz ? gz : html;
   res.writeHead(200, {
-    'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Security-Policy': csp,
+    'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, must-revalidate', 'ETag': ETAG, 'Content-Security-Policy': csp,
     'Vary': 'Accept-Encoding', ...(useGz ? { 'Content-Encoding': 'gzip' } : {}), 'Content-Length': String(body.length), ...common,
   });
   res.end(req.method === 'HEAD' ? undefined : body);

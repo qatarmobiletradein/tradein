@@ -56,4 +56,15 @@ describe('SmtpMailer', () => {
     expect(Date.now() - t0).toBeLessThan(5000);
     expect(JSON.stringify(r)).not.toMatch(/secret-echo|not-a-real-password/);
   });
+  it('connects over IPv6 when the host has an AAAA record (Railway drops SMTP over IPv4)', async () => {
+    let seen = '';
+    const srv = createServer((sock) => { seen = sock.localAddress ?? ''; sock.write('554 no\r\n'); sock.end(); });
+    const ok = await new Promise<boolean>((r) => { srv.once('error', () => r(false)); srv.listen(0, '::1', () => r(true)); });
+    if (!ok) return; // no IPv6 loopback in this environment
+    const port = (srv.address() as AddressInfo).port;
+    const m = new SmtpMailer('smtp.example.test', port, 'u', 'p', 'info@qatarmobile.qa', 'QM', async () => ['::1']);
+    await m.send('a@example.test', 's', '<p>x</p>', 'x');
+    srv.close();
+    expect(seen).toBe('::1');
+  });
 });
