@@ -87,10 +87,13 @@ describe('the scanner stays inside the app', () => {
     expect(name).toBe('zxing-library-0.21.3.min.js');
     expect(createHash('sha256').update(readFileSync(`apps/web/vendor/${name}`)).digest('hex')).toBe(sum);
   });
-  it('qm-web serves the decoder from its own origin and allows the camera on its own page only', () => {
+  it('qm-web serves the decoder from its own origin and allows the camera on its own page (and the allowed embedding site frame) only', () => {
     const server = readFileSync('apps/web/server.mjs', 'utf8');
     expect(server).toContain("script-src 'unsafe-inline' 'self'");
-    expect(server).toContain("camera=(self)");
+    // camera = self + the embed origins (header values checked in web-server.test.ts); never "*".
+    expect(server).toContain("const cameraAllow = ['self', ...embedOrigins");
+    expect(server).toContain('camera=(${cameraAllow})');
+    expect(server).not.toMatch(/camera=\(\*/);
     expect(readFileSync('apps/web/build.mjs', 'utf8')).toContain("'qm-imei.js'");
   });
 });

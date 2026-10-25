@@ -63,6 +63,15 @@ const storage = origin(process.env.QM_STORAGE_ORIGIN ?? '');
 const catalogOrigins = (process.env.QM_CATALOG_ORIGIN ?? '').split(',').map(origin).filter(Boolean);
 const imgSources = ["'self'", 'data:', 'blob:', storage, ...catalogOrigins].filter(Boolean);
 
+// Sites allowed to show this page inside an <iframe> (owner request 2026-10-25: the Magento site
+// qatarmobile.qa). Anything else still cannot frame it. QM_EMBED_ORIGINS overrides the list
+// (comma-separated https origins; "none" turns framing off again).
+const embedRaw = (process.env.QM_EMBED_ORIGINS ?? 'https://qatarmobile.qa,https://www.qatarmobile.qa').trim();
+const embedOrigins = embedRaw.toLowerCase() === 'none' ? []
+  : [...new Set(embedRaw.split(',').map((o) => o.trim()).filter((o) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(o)))];
+const frameAncestors = embedOrigins.length ? `frame-ancestors 'self' ${embedOrigins.join(' ')}` : "frame-ancestors 'none'";
+const cameraAllow = ['self', ...embedOrigins.map((o) => `"${o}"`)].join(' ');
+
 const csp = [
   "default-src 'none'",
   "script-src 'unsafe-inline' 'self'",    // the 3.1 page is one file with inline scripts; 'self' = /vendor/*.min.js
@@ -70,15 +79,18 @@ const csp = [
   `img-src ${[...new Set(imgSources)].join(' ')}`,
   "font-src data:",
   `connect-src 'self' ${apiOrigins.join(' ')}`.trim(),
-  "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'", "object-src 'none'",
+  "base-uri 'none'", "form-action 'none'", frameAncestors, "object-src 'none'",
 ].join('; ');
 const common = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
+  // X-Frame-Options cannot name another site; without embed origins it stays DENY. With them,
+  // frame-ancestors in the CSP above is the rule (browsers ignore X-Frame-Options when it is set).
+  ...(embedOrigins.length ? {} : { 'X-Frame-Options': 'DENY' }),
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  // camera=(self): "Scan IMEI" reads barcodes with the device camera, on this page only.
-  'Permissions-Policy': 'camera=(self), geolocation=(), microphone=(), payment=()',
+  // camera: "Scan IMEI" reads barcodes with the device camera, on this page and inside the
+  // allowed embedding site's frame (that page's <iframe> must also say allow="camera").
+  'Permissions-Policy': `camera=(${cameraAllow}), geolocation=(), microphone=(), payment=()`,
   'Cross-Origin-Opener-Policy': 'same-origin',
 };
 

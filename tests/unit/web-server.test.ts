@@ -48,3 +48,32 @@ describe('qm-web caching', () => {
     expect(r.headers.get('cache-control')).toBe('public, max-age=3600, stale-while-revalidate=86400');
   });
 });
+
+describe('qm-web embedding (owner request 2026-10-25)', () => {
+  it('only the Magento site qatarmobile.qa may show the page in a frame', async () => {
+    const r = await fetch(url('/'));
+    const csp = r.headers.get('content-security-policy')!;
+    expect(csp).toContain("frame-ancestors 'self' https://qatarmobile.qa https://www.qatarmobile.qa");
+    expect(csp).not.toContain("frame-ancestors 'none'");
+    expect(csp).not.toMatch(/frame-ancestors[^;]*\*/);
+    expect(r.headers.get('x-frame-options')).toBeNull();
+  });
+  it('the camera (Scan IMEI) works on the page and inside that frame, nowhere else', async () => {
+    const pp = (await fetch(url('/'))).headers.get('permissions-policy')!;
+    expect(pp).toContain('camera=(self "https://qatarmobile.qa" "https://www.qatarmobile.qa")');
+    expect(pp).toContain('microphone=()');
+  });
+  it('QM_EMBED_ORIGINS=none puts framing back to DENY', async () => {
+    const p2 = port + 1000;
+    const off = spawn('node', ['apps/web/server.mjs'], { env: { ...process.env, PORT: String(p2), QM_API_BASE: 'https://api.example.test', QM_EMBED_ORIGINS: 'none' }, stdio: 'pipe' });
+    try {
+      let r: Response | null = null;
+      for (let i = 0; i < 50 && !r; i++) {
+        try { r = await fetch(`http://127.0.0.1:${p2}/`); } catch { await new Promise((ok) => setTimeout(ok, 100)); }
+      }
+      expect(r!.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+      expect(r!.headers.get('x-frame-options')).toBe('DENY');
+      expect(r!.headers.get('permissions-policy')).toContain('camera=(self)');
+    } finally { off.kill(); }
+  });
+});
