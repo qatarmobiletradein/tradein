@@ -32,3 +32,14 @@
 /* Colour step: each colour's photo (1200x800 frame) at 3:2, large enough to tell the colours apart. */
 .cx-choice img.qm-colour-img { width: 108px; height: 72px; object-fit: contain; flex: 0 0 auto; }
 @media (max-width: 380px) { .cx-choice img.qm-colour-img { width: 84px; height: 56px; } }
+
+/* Staff sidebar on phones: "Sign out" sat behind the browser's bottom toolbar. Styles.html sizes the
+ drawer with height: 100vh, which mobile browsers measure as if their toolbars were hidden, so the
+ foot of the drawer ran below the visible area. 100dvh follows the area actually visible (100vh stays
+ as the fallback for older browsers), and the foot keeps clear of the home indicator/notch inset
+ (the page sets viewport-fit=cover). */
+.sidebar { height: 100vh; height: 100dvh; }
+.sidebar-foot {
+ padding-bottom: calc(.8rem + env(safe-area-inset-bottom, 0px));
+ padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+}
